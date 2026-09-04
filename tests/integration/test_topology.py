@@ -92,8 +92,10 @@ def test_two_pairs_can_run_concurrently_on_distinct_subnets() -> None:
         "RIGHT_TRANSIT_IP": "10.110.0.3",
         "LEFT_PROTECTED_SUBNET": "10.11.0.0/24",
         "LEFT_PROTECTED_IP": "10.11.0.2",
+        "LEFT_HOST_IP": "10.11.0.10",
         "RIGHT_PROTECTED_SUBNET": "10.12.0.0/24",
         "RIGHT_PROTECTED_IP": "10.12.0.2",
+        "RIGHT_HOST_IP": "10.12.0.10",
     }
     with (
         compose_project(PAIR_COMPOSE) as first_project,

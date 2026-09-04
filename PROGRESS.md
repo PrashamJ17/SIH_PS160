@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:35 UTC
+**Last updated:** 2026-09-04 23:12 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.7 — Dual-tap capture
+**Current step:** MILESTONE M1 gate
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -39,8 +39,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 1.3 — First working tunnel (hardcoded) — commit `4e13351`
 - [x] 1.4 — Config templating — commit `2203b97`
 - [x] 1.5 — Config validity matrix — commit `5657d84`
-- [x] 1.6 — Ground-truth harvester — commit `(this commit)`
-- [ ] 1.7 — Dual-tap capture
+- [x] 1.6 — Ground-truth harvester — commit `2f2e3d2`
+- [x] 1.7 — Dual-tap capture — commit `(this commit)`
 - [ ] **▶ MILESTONE M1** — tag `v0.2.0-testbed`
 - [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
@@ -253,6 +253,20 @@ report `10.100.0.2[4500]`. Captures from this testbed therefore exercise the NAT
 non-ESP marker (four zero bytes before the IKE header) that Step 4.8 must handle, and
 `NegotiatedIKE.nat_t` records it. This is realistic rather than a problem, but any test
 that assumes IKE on UDP 500 will be wrong here.
+
+### The slim image has no procps — process control must use shell builtins
+
+`debian:bookworm-slim` ships no `ps`, `pkill` or `/bin/kill`. `docker exec <c> kill ...`
+therefore **fails silently**, because `docker exec` does not invoke a shell and there is
+no `kill` binary to run. This cost real time twice: once on a `ps`-based liveness check,
+once when tcpdump was never signalled and every capture came back truncated.
+
+Rules that follow:
+* Signals go through `sh -c "kill -TERM <pid>"` (shell builtin).
+* Process listings read `/proc/[0-9]*/comm`, never `ps`.
+* `test` needs no such care — coreutils provides `/usr/bin/test`.
+* tcpdump is launched with its PID recorded to a file, since without procps there is no
+  other way to find it again.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

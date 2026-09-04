@@ -43,6 +43,30 @@ services:
       right_protected:
         ipv4_address: ${RIGHT_PROTECTED_IP:-10.2.0.2}
 
+  # Hosts behind each gateway. These exist so the inner tap can see plaintext in BOTH
+  # directions: traffic a gateway generates itself never crosses its protected
+  # interface, so capturing on the gateway alone yields only the inbound decrypted
+  # half — enough to look like it works, and badly wrong as ML training data.
+  left_host:
+    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    hostname: left-host
+    cap_add: [NET_ADMIN]
+    entrypoint: ["sh", "-c", "ip route replace ${RIGHT_PROTECTED_SUBNET:-10.2.0.0/24} via ${LEFT_PROTECTED_IP:-10.1.0.2} && sleep infinity"]
+    depends_on: [left]
+    networks:
+      left_protected:
+        ipv4_address: ${LEFT_HOST_IP:-10.1.0.10}
+
+  right_host:
+    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    hostname: right-host
+    cap_add: [NET_ADMIN]
+    entrypoint: ["sh", "-c", "ip route replace ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24} via ${RIGHT_PROTECTED_IP:-10.2.0.2} && sleep infinity"]
+    depends_on: [right]
+    networks:
+      right_protected:
+        ipv4_address: ${RIGHT_HOST_IP:-10.2.0.10}
+
 networks:
   # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
   transit:
