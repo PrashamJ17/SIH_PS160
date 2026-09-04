@@ -1,0 +1,45 @@
+# The configuration space the sweep covers.
+#
+# A full factorial of these dimensions is 576 cells before traffic classes and
+# impairments multiply it further. That is not the goal: the goal is the
+# security-relevant spread, so sampling is stratified and anchored on five labelled
+# configurations that must always be present.
+
+ike_versions: [ikev1, ikev2]
+
+encryptions:
+  - {name: aes256gcm16, aead: true,  keylen: 256}
+  - {name: aes128gcm16, aead: true,  keylen: 128}
+  - {name: aes256,      aead: false, keylen: 256}
+  - {name: aes128,      aead: false, keylen: 128}
+  - {name: 3des,        aead: false, keylen: 168, deprecated: true}
+
+integrities: [sha256, sha384, sha1, md5]
+prfs: [prfsha256, prfsha384, prfsha1, prfmd5]
+dh_groups: [modp1024, modp1536, modp2048, ecp256, ecp384, curve25519]
+pfs: [true, false]
+modes: [tunnel, transport]
+ip_versions: [4, 6]
+
+lifetimes:
+  ike_s: [14400, 28800, 86400]
+  child_s: [1800, 3600, 28800]
+
+# Combinations that cannot establish, so the sweep never wastes a container pair
+# discovering it. AEAD/integrity pairing and aggressive-mode-with-IKEv2 are enforced
+# by TunnelConfig itself; these are the constraints it cannot know about.
+constraints:
+  # Curve25519 (group 31) is specified for IKEv2 (RFC 8031); IKEv1 has no standard
+  # support for it.
+  ikev2_only_dh_groups: [curve25519]
+
+sampling:
+  strategy: stratified
+  seed: 42
+  target_count: 36
+  must_include:
+    - {label: worst,  encryption: 3des,        integrity: md5,    dh_group: modp1024, pfs: false, ike_version: ikev1, aggressive: true}
+    - {label: weak,   encryption: aes128,      integrity: sha1,   dh_group: modp1024, pfs: false}
+    - {label: medium, encryption: aes128,      integrity: sha256, dh_group: modp2048, pfs: true}
+    - {label: good,   encryption: aes256,      integrity: sha384, dh_group: ecp384,   pfs: true}
+    - {label: best,   encryption: aes256gcm16, integrity: null,   dh_group: curve25519, pfs: true}

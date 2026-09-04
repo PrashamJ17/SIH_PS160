@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:28 UTC
+**Last updated:** 2026-09-04 22:30 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.5 — Config validity matrix
+**Current step:** 1.6 — Ground-truth harvester
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -37,8 +37,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 1.1 — Single strongSwan container — commit `fad199f`
 - [x] 1.2 — Two-peer network topology — commit `7acc8ea`
 - [x] 1.3 — First working tunnel (hardcoded) — commit `4e13351`
-- [x] 1.4 — Config templating — commit `(this commit)`
-- [ ] 1.5 — Config validity matrix
+- [x] 1.4 — Config templating — commit `2203b97`
+- [x] 1.5 — Config validity matrix — commit `(this commit)`
 - [ ] 1.6 — Ground-truth harvester
 - [ ] 1.7 — Dual-tap capture
 - [ ] **▶ MILESTONE M1** — tag `v0.2.0-testbed`
@@ -237,6 +237,14 @@ Related: **tcpdump buffers.** `pkill` does not exist in the image (no procps), a
 killing tcpdump improperly truncates the capture with no error. Captures are started as
 `timeout N tcpdump -U -w ...` so SIGTERM arrives from `timeout` and the file is flushed
 and closed cleanly. This is the failure the plan warns about at Step 1.7.
+
+### Open item for Phase 3 — the matrix contains IPv6 cells, the topology does not
+
+`matrix.yaml` lists `ip_versions: [4, 6]` as the plan specifies, and expansion emits
+IPv6 cells. But `testbed/compose/pair.yml` defines IPv4 networks only, so those cells
+cannot establish yet. Before the Step 3.2 sweep, either add dual-stack networks to the
+compose topology or restrict `ip_versions` to `[4]`. Left as-is for now because the
+plan's matrix is authoritative and the sweep marks failed cells and continues.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
