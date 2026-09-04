@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 20:04 UTC
+**Last updated:** 2026-09-04 21:48 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.5 — Structured logging
+**Current step:** 0.6 — Core domain models
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -16,8 +16,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 0.1 — Initialise repository structure — commit `d4f98f1`
 - [x] 0.2 — Python packaging and dependencies — commit `cef9e3d`
 - [x] 0.3 — Makefile as the single entry point — commit `8201d12`
-- [x] 0.4 — CI pipeline — commit `(this commit)`
-- [ ] 0.5 — Structured logging
+- [x] 0.4 — CI pipeline — commit `cd9ec8d`
+- [x] 0.5 — Structured logging — commit `(this commit)`
 - [ ] 0.6 — Core domain models
 - [ ] 0.7 — Protocol constants and lookup tables
 - [ ] 0.8 — Test fixture helpers (synthetic IKE packet builders)
@@ -115,13 +115,46 @@ every encryption in `testbed/configs/matrix.yaml`.
 | Item | State |
 |---|---|
 | Host | macOS 26.6.2, Darwin 25.6.0, **arm64** (Apple Silicon) — **not Linux** |
-| Python | **3.11.15 via `uv`**, venv at `.venv/`, matching the plan's CI pin exactly |
+| Python | **3.11.15 via `uv`**. Venv at **`~/.venvs/ipsec-sentinel`**, symlinked as `.venv` — see the iCloud note below. Matches the plan's CI pin exactly. |
 | Docker | CLI 29.4.3, Compose v5.1.4, daemon **up**. LinuxKit `6.12.76` aarch64. **XFRM verified — see Blockers.** |
 | Privileges | uid 501, `admin` group, **not root**. `sudo` is interactive-only and unavailable to the agent. Testbed privilege comes from `--privileged` containers, not host root. |
 | `tcpdump` | `/usr/sbin/tcpdump` present (host capture needs sudo; testbed capture is in-container) |
 | Network | **Slow.** PyPI took >20 s to first byte; the dependency install ran ~5.5 min at ~0.5 MB/s. Budget generously for anything that downloads. |
 | Disk | ~180 GB free |
 | Remote | `github.com/PrashamJ17/SIH_PS160` — private. `gh` authenticated as `PrashamJ17`. |
+
+### ⚠️ iCloud Desktop sync — read this before touching the venv or the dataset
+
+`~/Desktop` is **iCloud Drive–synced** (Desktop & Documents sync is on; `bird`,
+`fileproviderd` and `cloudd` are all running). This repo therefore lives inside a synced
+tree, which caused a genuinely obscure failure worth recording in full:
+
+**Symptom.** `import ipsec_sentinel` worked immediately after install, then began failing
+with `ModuleNotFoundError` — including under pytest — despite a correct
+`__editable__.ipsec_sentinel-0.1.0.pth` pointing at the right `src` directory.
+
+**Cause.** iCloud's file provider sets the macOS `UF_HIDDEN` flag on `.pth` files
+(observed `st_flags=0x8040`), and CPython's `site.addpackage()` **deliberately skips
+hidden files**. So *every* `.pth` in the venv was silently ignored and the editable install
+never reached `sys.path`. Clearing the flag with `chflags nohidden` worked — for about five
+seconds, until the daemon re-applied it. The `.nosync` directory-suffix trick did **not**
+help either.
+
+**Fix applied.** The virtualenv now lives **outside** the synced tree at
+`~/.venvs/ipsec-sentinel`, with `.venv` in the repo as a symlink to it. Absolute shebangs
+inside `.venv/bin/*` still resolve through the symlink, so nothing else changed. Flags now
+stay cleared across idle periods and imports are stable. `.gitignore` gained a bare `.venv`
+rule, because a `dir/` pattern does not match a symlink.
+
+> **Do not recreate the venv inside the repo.** Use:
+> `uv venv --python 3.11 ~/.venvs/ipsec-sentinel && ln -s ~/.venvs/ipsec-sentinel .venv`
+> If imports mysteriously break again, check `ls -lO <site-packages>/*.pth` for `hidden`.
+
+**Still outstanding — must be handled before the Phase 3 sweep.** `data/` and `models/` are
+git-ignored but *not* iCloud-ignored, so the labelled PCAP corpus (potentially many GB)
+would upload to iCloud and be subject to the same flag-mutation behaviour. Relocate
+`data/` outside the synced tree with the same symlink pattern, or disable Desktop sync,
+**before** running the sweep.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
