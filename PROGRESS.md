@@ -1,9 +1,9 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 21:57 UTC
-**Current phase:** 0 — Foundation and safety net
-**Current step:** MILESTONE M0 gate
-**Last milestone tag:** none
+**Last updated:** 2026-09-04 22:09 UTC
+**Current phase:** 1 — The testbed
+**Current step:** 1.1 — Single strongSwan container
+**Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -20,11 +20,20 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 0.5 — Structured logging — commit `7568e7a`
 - [x] 0.6 — Core domain models — commit `1edd7a1`
 - [x] 0.7 — Protocol constants and lookup tables — commit `6fe9d48`
-- [x] 0.8 — Test fixture helpers (synthetic IKE packet builders) — commit `(this commit)`
-- [ ] **▶ MILESTONE M0** — tag `v0.1.0-foundation`
+- [x] 0.8 — Test fixture helpers (synthetic IKE packet builders) — commit `e78766b`
+- [x] **▶ MILESTONE M0 PASSED** — tag `v0.1.0-foundation` — commit `f6250a6`
+
+  | M0 acceptance | Result |
+  |---|---|
+  | All tests pass | **192 passed** |
+  | Coverage above 80% | **100.00%** |
+  | `mypy --strict` clean | **11 files, no issues** |
+  | CI green on GitHub | **success on `f6250a6`** |
+  | Domain models round-trip through JSON | **identical; parsed/inferred split preserved** |
+  | Builders produce valid byte sequences | **4/4 valid, payload chains terminate exactly** |
 
 ### Remaining phases (not started)
-- [ ] Phase 1 — Testbed (7 steps → `v0.2.0-testbed`)
+- [ ] Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
 - [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
