@@ -1,0 +1,123 @@
+"""Thin, well-behaved wrapper around the Docker CLI for integration tests.
+
+Two rules govern everything here, because the Phase 3 sweep runs these paths
+thousands of times:
+
+* **Teardown always happens.** Every context manager removes what it created in a
+  ``finally`` block. A leaked container or network poisons every subsequent run.
+* **Absence is skipped, not failed.** If Docker is unavailable the tests skip with a
+  clear reason rather than reporting a false failure.
+"""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import time
+import uuid
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from pathlib import Path
+
+DEFAULT_TIMEOUT = 120
+
+
+class DockerError(RuntimeError):
+    """A docker command failed."""
+
+
+def docker(
+    *args: str,
+    timeout: int = DEFAULT_TIMEOUT,
+    check: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """Run a docker command, capturing output."""
+    result = subprocess.run(
+        ["docker", *args],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        raise DockerError(
+            f"docker {' '.join(args)} exited {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+    return result
+
+
+def docker_available() -> tuple[bool, str]:
+    """Return whether a usable Docker daemon is reachable, and why not if it is not."""
+    if shutil.which("docker") is None:
+        return False, "docker CLI not on PATH"
+    try:
+        result = docker("info", "--format", "{{.ServerVersion}}", timeout=20, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"docker info failed: {exc}"
+    if result.returncode != 0:
+        return False, f"docker daemon unreachable: {result.stderr.strip()[:200]}"
+    return True, result.stdout.strip()
+
+
+def image_exists(tag: str) -> bool:
+    return docker("image", "inspect", tag, check=False).returncode == 0
+
+
+def build_image(tag: str, dockerfile: Path, context: Path, timeout: int = 1800) -> None:
+    """Build an image, streaming nothing but raising with full output on failure."""
+    docker(
+        "build",
+        "-f",
+        str(dockerfile),
+        "-t",
+        tag,
+        str(context),
+        timeout=timeout,
+    )
+
+
+def container_running(name: str) -> bool:
+    result = docker("inspect", "-f", "{{.State.Running}}", name, check=False, timeout=30)
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+def force_remove(name: str) -> None:
+    """Remove a container, tolerating its absence."""
+    docker("rm", "-f", name, check=False, timeout=60)
+
+
+@contextmanager
+def running_container(
+    image: str,
+    *,
+    name: str | None = None,
+    privileged: bool = True,
+    extra_args: Sequence[str] = (),
+    command: Sequence[str] = (),
+) -> Iterator[str]:
+    """Start a detached container and guarantee its removal.
+
+    Privileged by default: the testbed needs kernel XFRM and network namespaces,
+    which is exactly what these containers exist to exercise.
+    """
+    container = name or f"sentinel-test-{uuid.uuid4().hex[:12]}"
+    args = ["run", "-d", "--name", container]
+    if privileged:
+        args += ["--privileged", "--cap-add=NET_ADMIN"]
+    args += [*extra_args, image, *command]
+    try:
+        docker(*args, timeout=180)
+        yield container
+    finally:
+        force_remove(container)
+
+
+def wait_for(predicate: Callable[[], bool], timeout: float = 15.0, interval: float = 0.25) -> bool:
+    """Poll ``predicate`` until it returns truthy or the timeout elapses."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return bool(predicate())

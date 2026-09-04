@@ -1,0 +1,18 @@
+FROM debian:bookworm-slim
+
+# strongswan-swanctl gives the swanctl/VICI control interface, which is how ground
+# truth is harvested in Step 1.6.
+#
+# libstrongswan-standard-plugins carries the openssl backend. It is NOT optional: it
+# is what provides ECDH, so without it DH groups 19/20/21 in the Step 1.5 matrix
+# cannot be negotiated at all. libstrongswan-extra-plugins adds Curve25519 (group 31).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    strongswan strongswan-swanctl \
+    libstrongswan-standard-plugins libstrongswan-extra-plugins \
+    libcharon-extra-plugins \
+    iproute2 iputils-ping tcpdump iperf3 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

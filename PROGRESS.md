@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:09 UTC
+**Last updated:** 2026-09-04 22:14 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.1 — Single strongSwan container
+**Current step:** 1.2 — Two-peer network topology
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -33,7 +33,15 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Builders produce valid byte sequences | **4/4 valid, payload chains terminate exactly** |
 
 ### Remaining phases (not started)
-- [ ] Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
+### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
+- [x] 1.1 — Single strongSwan container — commit `(this commit)`
+- [ ] 1.2 — Two-peer network topology
+- [ ] 1.3 — First working tunnel (hardcoded)
+- [ ] 1.4 — Config templating
+- [ ] 1.5 — Config validity matrix
+- [ ] 1.6 — Ground-truth harvester
+- [ ] 1.7 — Dual-tap capture
+- [ ] **▶ MILESTONE M1** — tag `v0.2.0-testbed`
 - [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
@@ -190,6 +198,21 @@ git-ignored but *not* iCloud-ignored, so the labelled PCAP corpus (potentially m
 would upload to iCloud and be subject to the same flag-mutation behaviour. Relocate
 `data/` outside the synced tree with the same symlink pattern, or disable Desktop sync,
 **before** running the sweep.
+
+### Image finding — the openssl plugin is not optional
+
+The plan's Step 1.1 Dockerfile installs `strongswan strongswan-swanctl
+libcharon-extra-plugins`. Built exactly that way, charon starts and `swanctl --version`
+succeeds, so the plan's stated acceptance criteria all pass — but the logs carry
+`plugin 'openssl': failed to load`, and `swanctl --list-algs` is then missing **3DES,
+AES-GCM, every HMAC, and all ECP groups**. The Step 1.5 matrix requires all of them, so
+the first tunnel at Step 1.3 (AES-GCM-256 + DH group 20) would have failed with no
+obvious cause.
+
+Fixed by adding **`libstrongswan-standard-plugins`** (which carries the openssl backend)
+and `libstrongswan-extra-plugins` (Curve25519, group 31). `test_no_plugin_fails_to_load`
+and `test_every_algorithm_the_matrix_needs_is_available` now assert this at Step 1.1 so
+the regression cannot reach the sweep silently.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
