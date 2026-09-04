@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:18 UTC
+**Last updated:** 2026-09-04 22:25 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.3 — First working tunnel
+**Current step:** 1.4 — Config templating
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -35,8 +35,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Remaining phases (not started)
 ### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
 - [x] 1.1 — Single strongSwan container — commit `fad199f`
-- [x] 1.2 — Two-peer network topology — commit `(this commit)`
-- [ ] 1.3 — First working tunnel (hardcoded)
+- [x] 1.2 — Two-peer network topology — commit `7acc8ea`
+- [x] 1.3 — First working tunnel (hardcoded) — commit `(this commit)`
 - [ ] 1.4 — Config templating
 - [ ] 1.5 — Config validity matrix
 - [ ] 1.6 — Ground-truth harvester
@@ -213,6 +213,26 @@ Fixed by adding **`libstrongswan-standard-plugins`** (which carries the openssl 
 and `libstrongswan-extra-plugins` (Curve25519, group 31). `test_no_plugin_fails_to_load`
 and `test_every_algorithm_the_matrix_needs_is_available` now assert this at Step 1.1 so
 the regression cannot reach the sweep silently.
+
+### Capture trap that will matter at Step 1.7 — endpoint decryption artifacts
+
+Capturing on a **peer's** transit interface sees inbound packets **twice**: once as the
+ESP packet that actually crossed the wire, and again as the decrypted inner packet the
+kernel re-injects after XFRM processing. A naive "capture everything on the transit
+interface" would therefore put plaintext into the *outer* PCAP and silently corrupt the
+dataset — while still looking correct.
+
+The plan's own outer filter
+(`udp port 500 or udp port 4500 or ip proto 50 or ip proto 51`) excludes this by
+construction, since the decrypted copies are ICMP/TCP/UDP rather than proto 50/51.
+**Use that filter for the outer tap and do not widen it.** A genuinely external view
+would need a third vantage point; on a Docker bridge, a peer-side capture with the ESP
+filter is the correct equivalent.
+
+Related: **tcpdump buffers.** `pkill` does not exist in the image (no procps), and
+killing tcpdump improperly truncates the capture with no error. Captures are started as
+`timeout N tcpdump -U -w ...` so SIGTERM arrives from `timeout` and the file is flushed
+and closed cleanly. This is the failure the plan warns about at Step 1.7.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

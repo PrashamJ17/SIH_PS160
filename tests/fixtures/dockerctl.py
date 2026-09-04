@@ -190,3 +190,66 @@ def network_names() -> list[str]:
 def exec_in(container: str, *cmd: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
     """Run a command inside a container without raising on a non-zero exit."""
     return docker("exec", container, *cmd, timeout=timeout, check=False)
+
+
+def interface_for_ip(container: str, ip: str) -> str:
+    """Name the interface holding ``ip``.
+
+    Docker attaches networks in an order that is not guaranteed, so interface names
+    must never be hard-coded — the transit link is eth0 or eth1 depending on how the
+    compose file's networks happen to sort.
+    """
+    result = exec_in(
+        container,
+        "sh",
+        "-c",
+        f"ip -o -4 addr show | awk '$4 ~ /^{ip}\\// {{print $2}}'",
+    )
+    name = result.stdout.strip().splitlines()
+    if not name:
+        raise DockerError(f"no interface in {container} holds {ip}")
+    return name[0].strip()
+
+
+def capture_for(
+    container: str,
+    interface: str,
+    bpf: str,
+    seconds: int,
+    path: str,
+) -> None:
+    """Start a self-terminating tcpdump inside a container.
+
+    ``timeout`` delivers SIGTERM so tcpdump flushes its buffer and closes the file
+    cleanly, and ``-U`` writes each packet as it is captured. Killing tcpdump any
+    other way truncates the capture silently — the failure mode that quietly corrupts
+    a whole dataset.
+
+    procps is not in the image, so there is deliberately no pkill here.
+    """
+    docker(
+        "exec",
+        "-d",
+        container,
+        "sh",
+        "-c",
+        f"timeout {seconds} tcpdump -i {interface} -n -U -w {path} '{bpf}'",
+        timeout=30,
+    )
+
+
+def read_capture(container: str, path: str, bpf: str = "") -> str:
+    """Read back a capture with tcpdump, optionally applying a display filter."""
+    cmd = f"tcpdump -r {path} -n {bpf}".strip()
+    return exec_in(container, "sh", "-c", cmd).stdout
+
+
+def capture_contains_bytes(container: str, path: str, marker_hex: str) -> bool:
+    """True if the raw capture file contains the given hex byte sequence."""
+    result = exec_in(
+        container,
+        "sh",
+        "-c",
+        f"od -An -tx1 -v {path} | tr -d ' \\n' | grep -c {marker_hex} || true",
+    )
+    return result.stdout.strip() not in ("", "0")
