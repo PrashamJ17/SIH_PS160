@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 21:51 UTC
+**Last updated:** 2026-09-04 21:54 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.7 — Protocol constants and lookup tables
+**Current step:** 0.8 — Test fixture helpers
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -18,8 +18,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 0.3 — Makefile as the single entry point — commit `8201d12`
 - [x] 0.4 — CI pipeline — commit `cd9ec8d`
 - [x] 0.5 — Structured logging — commit `7568e7a`
-- [x] 0.6 — Core domain models — commit `(this commit)`
-- [ ] 0.7 — Protocol constants and lookup tables
+- [x] 0.6 — Core domain models — commit `1edd7a1`
+- [x] 0.7 — Protocol constants and lookup tables — commit `(this commit)`
 - [ ] 0.8 — Test fixture helpers (synthetic IKE packet builders)
 - [ ] **▶ MILESTONE M0** — tag `v0.1.0-foundation`
 
@@ -113,6 +113,22 @@ every encryption in `testbed/configs/matrix.yaml`.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Plan defects found and corrected
+
+**Step 0.7 — `KE_LENGTH_TO_GROUP` was not valid Python and hid a real collision.**
+The plan wrote `{96: 1, ..., 96_ECP: 20}`; `96_ECP` is a syntax error. Behind it sits a
+genuine protocol fact: a 96-byte KE public value is produced by **both** 768-bit MODP
+(group 1, one 96-byte modulus) **and** 384-bit ECP (group 20, an uncompressed point of
+2 x 48 bytes). Length therefore cannot determine the group.
+
+Implemented per the plan's own stated resolution — the declared transform wins and length
+is only a consistency check — as `dict[int, tuple[int, ...]]` mapping length to *candidate*
+groups, plus `check_ke_length()` returning a structured `KELengthCheck` and emitting a
+`KELengthWarning` (never an exception) for the ambiguous, mismatched and unrecognised
+cases. The 96-byte collision is covered by dedicated tests in both directions.
 
 ---
 
