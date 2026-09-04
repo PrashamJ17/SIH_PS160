@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 20:01 UTC
+**Last updated:** 2026-09-04 20:03 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.3 — Makefile as the single entry point
+**Current step:** 0.4 — CI pipeline
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -14,8 +14,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 
 ### Phase 0 — Foundation (8 steps → `v0.1.0-foundation`)
 - [x] 0.1 — Initialise repository structure — commit `d4f98f1`
-- [x] 0.2 — Python packaging and dependencies — commit `(this commit)`
-- [ ] 0.3 — Makefile as the single entry point
+- [x] 0.2 — Python packaging and dependencies — commit `cef9e3d`
+- [x] 0.3 — Makefile as the single entry point — commit `(this commit)`
 - [ ] 0.4 — CI pipeline
 - [ ] 0.5 — Structured logging
 - [ ] 0.6 — Core domain models
@@ -71,6 +71,11 @@ every encryption in `testbed/configs/matrix.yaml`.
 > `"Kernel was unable to initialize cryptographic operations"`, which reads like a missing
 > kernel module but is not. This cost one false negative during the probe.
 
+> **Transient, expected:** `make test` / `test-unit` / `test-int` / `cov` exit non-zero with
+> "no tests ran" at steps 0.3–0.4 because no tests exist yet — the first arrives at Step 0.5.
+> Step 0.3's own acceptance criterion is `make lint`, which passes. Full `make verify` becomes
+> meaningful from Step 0.5 onward and is the gate for every commit from there.
+
 ---
 
 ## Deviations from plan
@@ -85,7 +90,12 @@ every encryption in `testbed/configs/matrix.yaml`.
 4. **Two host-specific `.gitignore` additions.** The plan's `.gitignore` was written for a
    Linux host: added `.DS_Store` (macOS Finder metadata, which had already staged itself
    into the first commit) and `.claude/` (agent session artifacts, not deliverables).
-5. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
+5. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
+   recipes call bare `ruff` / `mypy` / `pytest`, which fail locally unless the venv is
+   activated first — a footgun across sessions. The shell-detect prefix keeps every target
+   name and behaviour identical and works unchanged in CI, where there is no `.venv`.
+   Also added `fmt` to `.PHONY` (the plan defines the target but omits it from the list).
+6. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
