@@ -1,0 +1,11 @@
+net-net: #1, ESTABLISHED, IKEv2, ee7aeab5222057ed_i* 1b11ca1a45acd3eb_r
+  local  'left' @ 10.100.0.2[4500]
+  remote 'right' @ 10.100.0.3[4500]
+  AES_GCM_16-256/PRF_HMAC_SHA2_384/ECP_384
+  established 2s ago, rekeying in 13209s
+  net-net: #1, reqid 1, INSTALLED, TUNNEL, ESP:AES_GCM_16-256
+    installed 2s ago, rekeying in 3501s, expires in 3958s
+    in  ce7168b5,      0 bytes,     0 packets
+    out c1322710,      0 bytes,     0 packets
+    local  10.1.0.0/24
+    remote 10.2.0.0/24

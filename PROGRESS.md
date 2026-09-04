@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:30 UTC
+**Last updated:** 2026-09-04 22:35 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.6 — Ground-truth harvester
+**Current step:** 1.7 — Dual-tap capture
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -38,8 +38,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 1.2 — Two-peer network topology — commit `7acc8ea`
 - [x] 1.3 — First working tunnel (hardcoded) — commit `4e13351`
 - [x] 1.4 — Config templating — commit `2203b97`
-- [x] 1.5 — Config validity matrix — commit `(this commit)`
-- [ ] 1.6 — Ground-truth harvester
+- [x] 1.5 — Config validity matrix — commit `5657d84`
+- [x] 1.6 — Ground-truth harvester — commit `(this commit)`
 - [ ] 1.7 — Dual-tap capture
 - [ ] **▶ MILESTONE M1** — tag `v0.2.0-testbed`
 - [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
@@ -245,6 +245,14 @@ IPv6 cells. But `testbed/compose/pair.yml` defines IPv4 networks only, so those 
 cannot establish yet. Before the Step 3.2 sweep, either add dual-stack networks to the
 compose topology or restrict `ip_versions` to `[4]`. Left as-is for now because the
 plan's matrix is authoritative and the sweep marks failed cells and continues.
+
+### NAT-T is active in this topology — relevant to Step 4.8
+
+Docker's bridge NAT causes IKE to detect NAT and move to **UDP 4500**: harvested SAs
+report `10.100.0.2[4500]`. Captures from this testbed therefore exercise the NAT-T
+non-ESP marker (four zero bytes before the IKE header) that Step 4.8 must handle, and
+`NegotiatedIKE.nat_t` records it. This is realistic rather than a problem, but any test
+that assumes IKE on UDP 500 will be wrong here.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

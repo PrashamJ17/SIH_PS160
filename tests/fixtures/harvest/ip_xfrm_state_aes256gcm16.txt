@@ -1,0 +1,10 @@
+src 10.100.0.2 dst 10.100.0.3
+	proto esp spi 0xc1322710 reqid 1 mode tunnel
+	replay-window 0 flag af-unspec
+	aead rfc4106(gcm(aes)) 0xREDACTED_KEY_MATERIAL_NOT_STORED 128
+	anti-replay context: seq 0x0, oseq 0x0, bitmap 0x00000000
+src 10.100.0.3 dst 10.100.0.2
+	proto esp spi 0xce7168b5 reqid 1 mode tunnel
+	replay-window 32 flag af-unspec
+	aead rfc4106(gcm(aes)) 0xREDACTED_KEY_MATERIAL_NOT_STORED 128
+	anti-replay context: seq 0x0, oseq 0x0, bitmap 0x00000000
