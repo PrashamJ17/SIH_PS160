@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:14 UTC
+**Last updated:** 2026-09-04 22:18 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.2 — Two-peer network topology
+**Current step:** 1.3 — First working tunnel
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -34,8 +34,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 
 ### Remaining phases (not started)
 ### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
-- [x] 1.1 — Single strongSwan container — commit `(this commit)`
-- [ ] 1.2 — Two-peer network topology
+- [x] 1.1 — Single strongSwan container — commit `fad199f`
+- [x] 1.2 — Two-peer network topology — commit `(this commit)`
 - [ ] 1.3 — First working tunnel (hardcoded)
 - [ ] 1.4 — Config templating
 - [ ] 1.5 — Config validity matrix

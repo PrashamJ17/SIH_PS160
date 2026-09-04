@@ -1,0 +1,57 @@
+# Two IPsec peers on an isolated transit network, each fronting its own protected
+# subnet — the site-to-site shape the whole testbed models.
+#
+# Subnets and addresses are parameterised so the Step 3.2 sweep can run several pairs
+# concurrently on distinct networks without editing this file. Defaults match the
+# single-pair case used by the integration tests.
+#
+# privileged + NET_ADMIN are required, not conveniences: the peers manipulate kernel
+# XFRM state and routing, which is precisely what this testbed exists to exercise.
+
+services:
+  left:
+    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    hostname: left
+    privileged: true
+    cap_add: [NET_ADMIN]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    networks:
+      transit:
+        ipv4_address: ${LEFT_TRANSIT_IP:-10.100.0.2}
+      left_protected:
+        ipv4_address: ${LEFT_PROTECTED_IP:-10.1.0.2}
+
+  right:
+    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    hostname: right
+    privileged: true
+    cap_add: [NET_ADMIN]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    networks:
+      transit:
+        ipv4_address: ${RIGHT_TRANSIT_IP:-10.100.0.3}
+      right_protected:
+        ipv4_address: ${RIGHT_PROTECTED_IP:-10.2.0.2}
+
+networks:
+  # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
+  transit:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${TRANSIT_SUBNET:-10.100.0.0/24}
+  # The cleartext sides, behind each gateway. Note the peers take .2, not .1:
+  # Docker reserves the first address of every subnet for the bridge gateway, and
+  # requesting it fails with a bare "Address already in use".
+  left_protected:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24}
+  right_protected:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${RIGHT_PROTECTED_SUBNET:-10.2.0.0/24}

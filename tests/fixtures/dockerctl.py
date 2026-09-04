@@ -121,3 +121,72 @@ def wait_for(predicate: Callable[[], bool], timeout: float = 15.0, interval: flo
             return True
         time.sleep(interval)
     return bool(predicate())
+
+
+def compose(
+    compose_file: Path,
+    project: str,
+    *args: str,
+    timeout: int = DEFAULT_TIMEOUT,
+    check: bool = True,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run `docker compose` against one file under an explicit project name.
+
+    The project name isolates concurrent pairs, which the Step 3.2 sweep depends on.
+    """
+    argv = ["docker", "compose", "-f", str(compose_file), "-p", project, *args]
+    merged = None
+    if env is not None:
+        import os
+
+        merged = {**os.environ, **env}
+    result = subprocess.run(
+        argv, capture_output=True, text=True, timeout=timeout, check=False, env=merged
+    )
+    if check and result.returncode != 0:
+        raise DockerError(
+            f"{' '.join(argv)} exited {result.returncode}\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+    return result
+
+
+@contextmanager
+def compose_project(
+    compose_file: Path,
+    project: str | None = None,
+    env: dict[str, str] | None = None,
+    up_timeout: int = 300,
+) -> Iterator[str]:
+    """Bring a compose project up and guarantee it is torn down.
+
+    Teardown removes volumes and orphans as well as containers: a leaked network
+    exhausts the bridge address space and poisons every later run in a sweep.
+    """
+    name = project or f"sentinel-{uuid.uuid4().hex[:10]}"
+    try:
+        compose(compose_file, name, "up", "-d", "--wait", timeout=up_timeout, env=env)
+        yield name
+    finally:
+        compose(
+            compose_file,
+            name,
+            "down",
+            "-v",
+            "--remove-orphans",
+            timeout=180,
+            check=False,
+            env=env,
+        )
+
+
+def network_names() -> list[str]:
+    """Every Docker network currently defined."""
+    result = docker("network", "ls", "--format", "{{.Name}}", timeout=30)
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def exec_in(container: str, *cmd: str, timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    """Run a command inside a container without raising on a non-zero exit."""
+    return docker("exec", container, *cmd, timeout=timeout, check=False)

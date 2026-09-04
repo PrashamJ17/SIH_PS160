@@ -16,6 +16,7 @@ from tests.fixtures.dockerctl import build_image, docker_available, image_exists
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_DIR = REPO_ROOT / "testbed" / "compose"
 STRONGSWAN_IMAGE = "ipsec-sentinel-strongswan:latest"
+PAIR_COMPOSE = COMPOSE_DIR / "pair.yml"
 
 
 @pytest.fixture(scope="session")
