@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 21:48 UTC
+**Last updated:** 2026-09-04 21:51 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.6 — Core domain models
+**Current step:** 0.7 — Protocol constants and lookup tables
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -17,8 +17,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 0.2 — Python packaging and dependencies — commit `cef9e3d`
 - [x] 0.3 — Makefile as the single entry point — commit `8201d12`
 - [x] 0.4 — CI pipeline — commit `cd9ec8d`
-- [x] 0.5 — Structured logging — commit `(this commit)`
-- [ ] 0.6 — Core domain models
+- [x] 0.5 — Structured logging — commit `7568e7a`
+- [x] 0.6 — Core domain models — commit `(this commit)`
 - [ ] 0.7 — Protocol constants and lookup tables
 - [ ] 0.8 — Test fixture helpers (synthetic IKE packet builders)
 - [ ] **▶ MILESTONE M0** — tag `v0.1.0-foundation`
@@ -98,12 +98,18 @@ every encryption in `testbed/configs/matrix.yaml`.
 4. **Two host-specific `.gitignore` additions.** The plan's `.gitignore` was written for a
    Linux host: added `.DS_Store` (macOS Finder metadata, which had already staged itself
    into the first commit) and `.claude/` (agent session artifacts, not deliverables).
-5. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
+5. **`Severity` and `TransformType` use `enum.StrEnum`, not `(str, Enum)`.** The plan's
+   Step 0.6 snippet writes `class Severity(str, Enum)`, but the plan's *own* ruff config
+   selects the `UP` ruleset, which rejects that on `target-version = "py311"` (UP042) and
+   requires `StrEnum`. The plan contradicts itself; the lint config wins, since disabling a
+   lint rule to make progress is prohibited. Behaviour is equivalent for every use here
+   (`.value`, lookup by value, JSON round-trip) and `str()` is actually cleaner.
+6. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
    recipes call bare `ruff` / `mypy` / `pytest`, which fail locally unless the venv is
    activated first — a footgun across sessions. The shell-detect prefix keeps every target
    name and behaviour identical and works unchanged in CI, where there is no `.venv`.
    Also added `fmt` to `.PHONY` (the plan defines the target but omits it from the list).
-6. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
+7. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
