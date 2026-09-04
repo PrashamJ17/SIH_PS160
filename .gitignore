@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+data/raw/**/*.pcap
+data/raw/**/*.pcapng
+data/processed/**/*.parquet
+data/external/**
+!data/**/.gitkeep
+*.log
+.env
+models/*.pkl
+models/*.joblib
+
+# macOS
+.DS_Store
+
+# Agent/session artifacts, not project deliverables
+.claude/
