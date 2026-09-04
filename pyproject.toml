@@ -42,7 +42,7 @@ addopts = "-q --strict-markers"
 python_version = "3.11"
 strict = true
 warn_unreachable = true
-files = ["src"]
+files = ["src", "testbed"]
 
 [tool.ruff]
 line-length = 100

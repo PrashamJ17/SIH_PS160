@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 22:25 UTC
+**Last updated:** 2026-09-04 22:28 UTC
 **Current phase:** 1 — The testbed
-**Current step:** 1.4 — Config templating
+**Current step:** 1.5 — Config validity matrix
 **Last milestone tag:** `v0.1.0-foundation`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -36,8 +36,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
 - [x] 1.1 — Single strongSwan container — commit `fad199f`
 - [x] 1.2 — Two-peer network topology — commit `7acc8ea`
-- [x] 1.3 — First working tunnel (hardcoded) — commit `(this commit)`
-- [ ] 1.4 — Config templating
+- [x] 1.3 — First working tunnel (hardcoded) — commit `4e13351`
+- [x] 1.4 — Config templating — commit `(this commit)`
 - [ ] 1.5 — Config validity matrix
 - [ ] 1.6 — Ground-truth harvester
 - [ ] 1.7 — Dual-tap capture
@@ -115,22 +115,26 @@ every encryption in `testbed/configs/matrix.yaml`.
 4. **Two host-specific `.gitignore` additions.** The plan's `.gitignore` was written for a
    Linux host: added `.DS_Store` (macOS Finder metadata, which had already staged itself
    into the first commit) and `.claude/` (agent session artifacts, not deliverables).
-5. **`tests/` is a Python package.** Added `__init__.py` to `tests/`, `tests/unit/`,
+5. **`mypy` covers `testbed/` as well as `src/`.** The plan sets `files = ["src"]`,
+   which would leave the entire testbed and dataset pipeline untyped — the code that
+   produces the labelled corpus everything else depends on. Extending it was clean on the
+   first try (`Success: no issues found`), so the stricter setting was kept.
+6. **`tests/` is a Python package.** Added `__init__.py` to `tests/`, `tests/unit/`,
    `tests/integration/` and `tests/fixtures/` so `tests.fixtures.builders` is importable
    from the unit tests. The plan places the builders at `tests/fixtures/builders.py` and
    imports them, but never makes the directories packages.
-6. **`Severity` and `TransformType` use `enum.StrEnum`, not `(str, Enum)`.** The plan's
+7. **`Severity` and `TransformType` use `enum.StrEnum`, not `(str, Enum)`.** The plan's
    Step 0.6 snippet writes `class Severity(str, Enum)`, but the plan's *own* ruff config
    selects the `UP` ruleset, which rejects that on `target-version = "py311"` (UP042) and
    requires `StrEnum`. The plan contradicts itself; the lint config wins, since disabling a
    lint rule to make progress is prohibited. Behaviour is equivalent for every use here
    (`.value`, lookup by value, JSON round-trip) and `str()` is actually cleaner.
-7. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
+8. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
    recipes call bare `ruff` / `mypy` / `pytest`, which fail locally unless the venv is
    activated first — a footgun across sessions. The shell-detect prefix keeps every target
    name and behaviour identical and works unchanged in CI, where there is no `.venv`.
    Also added `fmt` to `.PHONY` (the plan defines the target but omits it from the list).
-8. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
+9. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
