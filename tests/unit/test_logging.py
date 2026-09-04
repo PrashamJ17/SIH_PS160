@@ -98,6 +98,14 @@ class TestJSONMode:
         payload = json.loads(capsys.readouterr().err.strip())
         assert "ValueError: truncated payload" in payload["exception"]
 
+    def test_json_records_stack_info_when_requested(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setenv(ENV_FORMAT, "json")
+        get_logger("alpha").warning("weak proposal", stack_info=True)
+        payload = json.loads(capsys.readouterr().err.strip())
+        assert "Stack (most recent call last)" in payload["stack"]
+
     def test_json_output_is_one_object_per_line(
         self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
     ) -> None:
