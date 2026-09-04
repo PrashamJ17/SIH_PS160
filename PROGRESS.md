@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 20:03 UTC
+**Last updated:** 2026-09-04 20:04 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.4 — CI pipeline
+**Current step:** 0.5 — Structured logging
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -15,8 +15,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 0 — Foundation (8 steps → `v0.1.0-foundation`)
 - [x] 0.1 — Initialise repository structure — commit `d4f98f1`
 - [x] 0.2 — Python packaging and dependencies — commit `cef9e3d`
-- [x] 0.3 — Makefile as the single entry point — commit `(this commit)`
-- [ ] 0.4 — CI pipeline
+- [x] 0.3 — Makefile as the single entry point — commit `8201d12`
+- [x] 0.4 — CI pipeline — commit `(this commit)`
 - [ ] 0.5 — Structured logging
 - [ ] 0.6 — Core domain models
 - [ ] 0.7 — Protocol constants and lookup tables
@@ -75,6 +75,14 @@ every encryption in `testbed/configs/matrix.yaml`.
 > "no tests ran" at steps 0.3–0.4 because no tests exist yet — the first arrives at Step 0.5.
 > Step 0.3's own acceptance criterion is `make lint`, which passes. Full `make verify` becomes
 > meaningful from Step 0.5 onward and is the gate for every commit from there.
+>
+> **Consequence for CI (plan defect, stated not hidden):** Step 0.4's workflow runs
+> `make cov`, and Step 0.4's acceptance is "wait for green" — but green is structurally
+> impossible before Step 0.5 adds the first test, since `pytest` exits non-zero on an empty
+> suite and `--cov-fail-under=80` cannot be met with no coverage data. The workflow was
+> pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
+> Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
+> lint or type checking to make progress is explicitly prohibited.
 
 ---
 
