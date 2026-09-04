@@ -1,9 +1,9 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 23:12 UTC
-**Current phase:** 1 — The testbed
-**Current step:** MILESTONE M1 gate
-**Last milestone tag:** `v0.1.0-foundation`
+**Last updated:** 2026-09-04 23:20 UTC
+**Current phase:** 2 — Traffic generation
+**Current step:** 2.1 — Traffic generator interface
+**Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -40,9 +40,19 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 1.4 — Config templating — commit `2203b97`
 - [x] 1.5 — Config validity matrix — commit `5657d84`
 - [x] 1.6 — Ground-truth harvester — commit `2f2e3d2`
-- [x] 1.7 — Dual-tap capture — commit `(this commit)`
-- [ ] **▶ MILESTONE M1** — tag `v0.2.0-testbed`
-- [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
+- [x] 1.7 — Dual-tap capture — commit `dfeab3c`
+- [x] **▶ MILESTONE M1 PASSED** — tag `v0.2.0-testbed`
+
+  | M1 acceptance | Result |
+  |---|---|
+  | Tunnel establishes | **yes** — `weak` anchor, AES_CBC-128 / MODP_1024 / tunnel |
+  | Outer PCAP has IKE and ESP, no plaintext | **4 IKE (UDP 500 + NAT-T 4500), 12 ESP, 0 ICMP** |
+  | Inner PCAP has plaintext | **6 echo requests + 6 replies** |
+  | Manifest written with negotiated (not intended) params | **yes** — intent `aes128`, negotiated `AES_CBC/128` |
+  | `negotiation_matched_intent` True for a valid config | **True**, zero mismatches |
+  | Containers and networks torn down cleanly | **no leaks** |
+  | All previous tests still pass | **304 unit (100% cov), 48 integration** |
+- [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)

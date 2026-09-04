@@ -19,7 +19,7 @@ services:
     environment:
       SENTINEL_PSK: ${SENTINEL_PSK:-}
     volumes:
-      - ../configs/left/swanctl.conf:/etc/swanctl/swanctl.conf:ro
+      - ${LEFT_CONF:-../configs/left/swanctl.conf}:/etc/swanctl/swanctl.conf:ro
     networks:
       transit:
         ipv4_address: ${LEFT_TRANSIT_IP:-10.100.0.2}
@@ -36,7 +36,7 @@ services:
     environment:
       SENTINEL_PSK: ${SENTINEL_PSK:-}
     volumes:
-      - ../configs/right/swanctl.conf:/etc/swanctl/swanctl.conf:ro
+      - ${RIGHT_CONF:-../configs/right/swanctl.conf}:/etc/swanctl/swanctl.conf:ro
     networks:
       transit:
         ipv4_address: ${RIGHT_TRANSIT_IP:-10.100.0.3}
