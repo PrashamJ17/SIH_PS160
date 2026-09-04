@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 21:54 UTC
+**Last updated:** 2026-09-04 21:57 UTC
 **Current phase:** 0 — Foundation and safety net
-**Current step:** 0.8 — Test fixture helpers
+**Current step:** MILESTONE M0 gate
 **Last milestone tag:** none
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -19,8 +19,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 0.4 — CI pipeline — commit `cd9ec8d`
 - [x] 0.5 — Structured logging — commit `7568e7a`
 - [x] 0.6 — Core domain models — commit `1edd7a1`
-- [x] 0.7 — Protocol constants and lookup tables — commit `(this commit)`
-- [ ] 0.8 — Test fixture helpers (synthetic IKE packet builders)
+- [x] 0.7 — Protocol constants and lookup tables — commit `6fe9d48`
+- [x] 0.8 — Test fixture helpers (synthetic IKE packet builders) — commit `(this commit)`
 - [ ] **▶ MILESTONE M0** — tag `v0.1.0-foundation`
 
 ### Remaining phases (not started)
@@ -98,18 +98,22 @@ every encryption in `testbed/configs/matrix.yaml`.
 4. **Two host-specific `.gitignore` additions.** The plan's `.gitignore` was written for a
    Linux host: added `.DS_Store` (macOS Finder metadata, which had already staged itself
    into the first commit) and `.claude/` (agent session artifacts, not deliverables).
-5. **`Severity` and `TransformType` use `enum.StrEnum`, not `(str, Enum)`.** The plan's
+5. **`tests/` is a Python package.** Added `__init__.py` to `tests/`, `tests/unit/`,
+   `tests/integration/` and `tests/fixtures/` so `tests.fixtures.builders` is importable
+   from the unit tests. The plan places the builders at `tests/fixtures/builders.py` and
+   imports them, but never makes the directories packages.
+6. **`Severity` and `TransformType` use `enum.StrEnum`, not `(str, Enum)`.** The plan's
    Step 0.6 snippet writes `class Severity(str, Enum)`, but the plan's *own* ruff config
    selects the `UP` ruleset, which rejects that on `target-version = "py311"` (UP042) and
    requires `StrEnum`. The plan contradicts itself; the lint config wins, since disabling a
    lint rule to make progress is prohibited. Behaviour is equivalent for every use here
    (`.value`, lookup by value, JSON round-trip) and `str()` is actually cleaner.
-6. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
+7. **Makefile resolves tools from `.venv/bin` when present, else PATH.** The plan's
    recipes call bare `ruff` / `mypy` / `pytest`, which fail locally unless the venv is
    activated first — a footgun across sessions. The shell-detect prefix keeps every target
    name and behaviour identical and works unchanged in CI, where there is no `.venv`.
    Also added `fmt` to `.PHONY` (the plan defines the target but omits it from the list).
-7. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
+8. **Environment created with `uv` rather than `python -m venv` + `pip`.** Step 0.2's
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
