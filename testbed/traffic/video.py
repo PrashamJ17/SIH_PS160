@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, Final
 
-from testbed.traffic.base import GenerationResult, RunContext
+from testbed.traffic.base import GenerationResult, RunContext, wait_for_service
 
 DASH_PLAYER: Final = "/opt/sentinel/dash_player.py"
 VIDEO_ORIGIN_IP: Final = "10.2.0.20"
@@ -60,6 +60,11 @@ class VideoGenerator:
         self._ctx: RunContext | None = None
 
     def setup(self, ctx: RunContext) -> None:
+        if not wait_for_service(ctx.left_host, VIDEO_ORIGIN_IP, VIDEO_ORIGIN_PORT):
+            raise RuntimeError(
+                f"the origin at {VIDEO_ORIGIN_IP}:{VIDEO_ORIGIN_PORT} never accepted a connection; "
+                "starting anyway would produce a short, sparse capture"
+            )
         self._ctx = ctx
 
     def teardown(self) -> None:

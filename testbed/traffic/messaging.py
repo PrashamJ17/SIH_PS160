@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, Final
 
-from testbed.traffic.base import GenerationResult, RunContext
+from testbed.traffic.base import GenerationResult, RunContext, wait_for_service
 
 XMPP_CLIENT: Final = "/opt/sentinel/xmpp_client.py"
 XMPP_ORIGIN_IP: Final = "10.2.0.23"
@@ -80,6 +80,11 @@ class MessagingGenerator:
             raise RuntimeError(
                 "the XMPP account password must be supplied; it is generated per run "
                 "and passed to both the sidecar and this generator"
+            )
+        if not wait_for_service(ctx.left_host, XMPP_ORIGIN_IP, XMPP_PORT):
+            raise RuntimeError(
+                f"the sidecar at {XMPP_ORIGIN_IP}:{XMPP_PORT} never accepted a connection; "
+                "starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, Final
 
-from testbed.traffic.base import GenerationResult, RunContext
+from testbed.traffic.base import GenerationResult, RunContext, wait_for_service
 
 WEB_BROWSER: Final = "/opt/sentinel/web_browser.py"
 WEB_ORIGIN_IP: Final = "10.2.0.21"
@@ -56,6 +56,11 @@ class WebGenerator:
         self._ctx: RunContext | None = None
 
     def setup(self, ctx: RunContext) -> None:
+        if not wait_for_service(ctx.left_host, WEB_ORIGIN_IP, WEB_ORIGIN_PORT):
+            raise RuntimeError(
+                f"the origin at {WEB_ORIGIN_IP}:{WEB_ORIGIN_PORT} never accepted a connection; "
+                "starting anyway would produce a short, sparse capture"
+            )
         self._ctx = ctx
 
     def teardown(self) -> None:

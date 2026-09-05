@@ -12,6 +12,8 @@ merge two classes; a name that misdescribes what was generated mislabels the cor
 
 from __future__ import annotations
 
+import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -80,6 +82,37 @@ class GenerationResult(BaseModel):
                 f"started_at {self.started_at.isoformat()}"
             )
         return self
+
+
+def wait_for_service(
+    container: str, host: str, port: int, timeout_s: float = 45.0, interval_s: float = 0.5
+) -> bool:
+    """Block until ``host:port`` accepts a TCP connection from inside ``container``.
+
+    Compose's ``--wait`` only waits for a container to be *running*, not for the
+    service inside it to be listening. Without this, a generator can start talking to
+    a sidecar that is still initialising and produce a short, sparse capture — which
+    does not fail loudly, it just yields a thin cell that quietly weakens the corpus.
+    Across a sweep of thousands of cells that is a real source of label noise.
+    """
+    probe = (
+        "import socket,sys\n"
+        f"s=socket.socket(); s.settimeout(2)\n"
+        f"sys.exit(0 if s.connect_ex(({host!r}, {port})) == 0 else 1)"
+    )
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        result = subprocess.run(
+            ["docker", "exec", container, "python3", "-c", probe],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+        time.sleep(interval_s)
+    return False
 
 
 @runtime_checkable

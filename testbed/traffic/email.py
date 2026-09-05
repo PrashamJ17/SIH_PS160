@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, Final
 
-from testbed.traffic.base import GenerationResult, RunContext
+from testbed.traffic.base import GenerationResult, RunContext, wait_for_service
 
 MAIL_CLIENT: Final = "/opt/sentinel/mail_client.py"
 MAIL_ORIGIN_IP: Final = "10.2.0.22"
@@ -77,6 +77,11 @@ class EmailGenerator:
             raise RuntimeError(
                 "the mailbox password must be supplied; it is generated per run and "
                 "passed to both the sidecar and this generator"
+            )
+        if not wait_for_service(ctx.left_host, MAIL_ORIGIN_IP, 25):
+            raise RuntimeError(
+                f"the sidecar at {MAIL_ORIGIN_IP}:{25} never accepted a connection; "
+                "starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 
