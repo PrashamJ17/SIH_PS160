@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T16:09:59.503038Z",
+  "updated_at": "2026-09-05T16:11:16.610289Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -39,7 +39,9 @@
     "5a9704bb2082_replay_cicids2017_benign_wan_good_r0",
     "2372de381b1f_icmp_large_payload_wan_poor_r0",
     "2372de381b1f_voip_g729_20ms_clean_r0",
-    "2372de381b1f_video_hls_adaptive_wan_good_r0"
+    "2372de381b1f_video_hls_adaptive_wan_good_r0",
+    "2372de381b1f_web_skimming_wan_poor_r0",
+    "2372de381b1f_email_imap_sync_clean_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -799,6 +801,46 @@
       "inner_packets": 22866,
       "started_at": "2026-09-05T16:09:18.806505Z",
       "ended_at": "2026-09-05T16:09:57.209993Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "2372de381b1f_web_skimming_wan_poor_r0": {
+      "cell_id": "2372de381b1f_web_skimming_wan_poor_r0",
+      "config_id": "2372de381b1f",
+      "generator": "web",
+      "variant": "skimming",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/2372de381b1f_web_skimming_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/2372de381b1f_web_skimming_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/2372de381b1f_web_skimming_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3814,
+      "inner_packets": 3844,
+      "started_at": "2026-09-05T16:09:59.504178Z",
+      "ended_at": "2026-09-05T16:10:36.462358Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "2372de381b1f_email_imap_sync_clean_r0": {
+      "cell_id": "2372de381b1f_email_imap_sync_clean_r0",
+      "config_id": "2372de381b1f",
+      "generator": "email",
+      "variant": "imap_sync",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/2372de381b1f_email_imap_sync_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/2372de381b1f_email_imap_sync_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/2372de381b1f_email_imap_sync_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 195,
+      "inner_packets": 203,
+      "started_at": "2026-09-05T16:10:38.827465Z",
+      "ended_at": "2026-09-05T16:11:14.243675Z",
       "details": {
         "mismatches": []
       }

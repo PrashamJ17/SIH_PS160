@@ -17,7 +17,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Final
 
-from ipsec_sentinel.models import Transform, TransformType
+from ipsec_sentinel.models import Proposal, Transform, TransformType
 from ipsec_sentinel.parser.constants import (
     ATTRIBUTE_KEY_LENGTH,
     IKE_VERSIONS,
@@ -25,10 +25,16 @@ from ipsec_sentinel.parser.constants import (
     IKEV1_PAYLOAD_TYPES,
     IKEV2_EXCHANGE_TYPES,
     IKEV2_PAYLOAD_TYPES,
+    PROTOCOL_IDS,
     TRANSFORM_TYPES,
     resolve_transform_name,
 )
-from ipsec_sentinel.parser.reader import MalformedError, SafeReader, TruncatedError
+from ipsec_sentinel.parser.reader import (
+    MalformedError,
+    ParseError,
+    SafeReader,
+    TruncatedError,
+)
 
 IKE_HEADER_LENGTH: Final = 28
 IKE_SPI_LENGTH: Final = 8
@@ -391,3 +397,125 @@ def parse_transform(reader: SafeReader) -> ParsedTransform:
         attributes=attributes,
         is_last=is_last,
     )
+
+
+# --------------------------------------------------------------------------------
+# Proposals and the SA payload
+# --------------------------------------------------------------------------------
+
+PROPOSAL_HEADER_LENGTH: Final = 8
+MORE_PROPOSALS: Final = 2
+PAYLOAD_SA: Final = 33
+
+#: Upper bound on proposals in one SA payload. A menu longer than this is malformed
+#: rather than generous, and following it is the same denial-of-service shape the
+#: payload chain guard closes.
+MAX_PROPOSALS: Final = 64
+
+#: Upper bound on transforms in one proposal, for the same reason.
+MAX_TRANSFORMS: Final = 64
+
+
+@dataclass(frozen=True)
+class ParsedProposal:
+    """A domain :class:`Proposal`, plus the SPI and structure the parser needs."""
+
+    proposal: Proposal
+    spi: str
+    is_last: bool
+    errors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SAPayload:
+    """Every proposal offered, and anything that went wrong reading them."""
+
+    proposals: list[Proposal] = field(default_factory=list)
+    spis: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    def __iter__(self) -> Iterator[Proposal]:
+        return iter(self.proposals)
+
+    def __len__(self) -> int:
+        return len(self.proposals)
+
+
+def parse_proposal(reader: SafeReader) -> ParsedProposal:
+    """Parse one proposal substructure and every transform inside it.
+
+    The transforms are read from a bounded sub-reader, so a transform length that
+    overruns cannot walk into the proposal that follows — which would silently
+    attribute one peer's algorithms to another proposal.
+    """
+    is_last = reader.u8() == LAST_SUBSTRUCTURE
+    reader.u8()  # reserved
+    length = reader.u16()
+    if length < PROPOSAL_HEADER_LENGTH:
+        raise MalformedError(
+            f"proposal declares length {length}, below the "
+            f"{PROPOSAL_HEADER_LENGTH}-byte proposal header"
+        )
+    number = reader.u8()
+    protocol_id = reader.u8()
+    spi_size = reader.u8()
+    transform_count = reader.u8()
+
+    body = reader.sub(length - PROPOSAL_HEADER_LENGTH)
+    # SPI size is 0 for an IKE SA and 4 for an ESP or AH child SA; it is read from the
+    # field rather than assumed, because assuming would shift every transform after it.
+    spi = body.read_bytes(spi_size) if spi_size else b""
+
+    errors: list[str] = []
+    transforms: list[Transform] = []
+    while not body.at_end() and len(transforms) < MAX_TRANSFORMS:
+        try:
+            parsed = parse_transform(body)
+        except ParseError as exc:
+            errors.append(f"proposal {number}: {exc}")
+            break
+        transforms.append(parsed.transform)
+        if parsed.is_last:
+            break
+
+    if transform_count != len(transforms):
+        # Recorded, not corrected. The count and the substructures disagreeing is
+        # itself worth knowing about a peer.
+        errors.append(
+            f"proposal {number} declares {transform_count} transforms but "
+            f"{len(transforms)} were readable"
+        )
+
+    return ParsedProposal(
+        proposal=Proposal(
+            number=number,
+            protocol=PROTOCOL_IDS.get(protocol_id, f"UNKNOWN_PROTOCOL_{protocol_id}"),
+            transforms=transforms,
+        ),
+        spi=spi.hex(),
+        is_last=is_last,
+        errors=errors,
+    )
+
+
+def parse_sa_payload(reader: SafeReader) -> SAPayload:
+    """Parse every proposal in an SA payload.
+
+    **All** of them, not only the one that was accepted. The offer list is the real
+    attack surface: a gateway that negotiated AES-256 today but also advertised 3DES
+    will accept 3DES tomorrow from a peer that offers nothing else, and only the full
+    list shows that.
+    """
+    payload = SAPayload()
+    while not reader.at_end() and len(payload.proposals) < MAX_PROPOSALS:
+        try:
+            parsed = parse_proposal(reader)
+        except ParseError as exc:
+            payload.errors.append(str(exc))
+            break
+        payload.proposals.append(parsed.proposal)
+        payload.spis.append(parsed.spi)
+        payload.errors.extend(parsed.errors)
+        if parsed.is_last:
+            break
+    return payload

@@ -117,6 +117,9 @@ PRF_ALGORITHMS: Final[dict[int, str]] = {
     7: "PRF_HMAC_SHA2_512",
 }
 
+# Protocol IDs inside an SA proposal (RFC 7296 section 3.3.1).
+PROTOCOL_IDS: Final[dict[int, str]] = {1: "IKE", 2: "AH", 3: "ESP"}
+
 ESN_VALUES: Final[dict[int, str]] = {
     0: "No Extended Sequence Numbers",
     1: "Extended Sequence Numbers",
