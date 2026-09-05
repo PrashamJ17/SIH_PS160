@@ -17,12 +17,16 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Final
 
+from ipsec_sentinel.models import Transform, TransformType
 from ipsec_sentinel.parser.constants import (
+    ATTRIBUTE_KEY_LENGTH,
     IKE_VERSIONS,
     IKEV1_EXCHANGE_TYPES,
     IKEV1_PAYLOAD_TYPES,
     IKEV2_EXCHANGE_TYPES,
     IKEV2_PAYLOAD_TYPES,
+    TRANSFORM_TYPES,
+    resolve_transform_name,
 )
 from ipsec_sentinel.parser.reader import MalformedError, SafeReader, TruncatedError
 
@@ -277,3 +281,113 @@ def resolve_payload_name(payload_type: int, *, ikev1: bool = False) -> str:
     """Name a payload type within its version's number space."""
     table = IKEV1_PAYLOAD_TYPES if ikev1 else IKEV2_PAYLOAD_TYPES
     return table.get(payload_type, f"UNKNOWN_PAYLOAD_{payload_type}")
+
+
+# --------------------------------------------------------------------------------
+# Transforms and their attributes
+# --------------------------------------------------------------------------------
+
+TRANSFORM_HEADER_LENGTH: Final = 8
+ATTRIBUTE_FORMAT_BIT: Final = 0x8000
+ATTRIBUTE_TYPE_MASK: Final = 0x7FFF
+LAST_SUBSTRUCTURE: Final = 0
+
+
+@dataclass(frozen=True)
+class TransformAttribute:
+    """One transform attribute, in either encoding.
+
+    Retained in full even though only key length is currently interpreted: IKEv1
+    carries lifetime and authentication method here too, and a finding that cites an
+    attribute needs the raw value behind it.
+    """
+
+    attr_type: int
+    is_tv: bool
+    value: int | None = None
+    raw: bytes | None = None
+
+
+@dataclass(frozen=True)
+class ParsedTransform:
+    """A domain :class:`Transform` plus the structure needed to keep iterating."""
+
+    transform: Transform
+    attributes: list[TransformAttribute]
+    is_last: bool
+
+
+def _parse_attributes(reader: SafeReader) -> list[TransformAttribute]:
+    """Read every attribute in a transform's remaining bytes.
+
+    Two encodings share the field. The top bit of the first 16-bit word selects them:
+    set means the value follows inline in two bytes, clear means a length precedes a
+    variable-length value. Reading one as the other silently yields a wrong key length,
+    which would turn AES-256 into AES-128 in a compliance report.
+    """
+    attributes: list[TransformAttribute] = []
+    while not reader.at_end():
+        header = reader.u16()
+        attr_type = header & ATTRIBUTE_TYPE_MASK
+        if header & ATTRIBUTE_FORMAT_BIT:
+            attributes.append(
+                TransformAttribute(attr_type=attr_type, is_tv=True, value=reader.u16())
+            )
+        else:
+            length = reader.u16()
+            raw = reader.read_bytes(length)
+            attributes.append(TransformAttribute(attr_type=attr_type, is_tv=False, raw=raw))
+    return attributes
+
+
+def _key_length_from(attributes: list[TransformAttribute]) -> int | None:
+    """Extract the key-length attribute, or ``None`` if it is absent or unreadable."""
+    for attribute in attributes:
+        if attribute.attr_type != ATTRIBUTE_KEY_LENGTH:
+            continue
+        if attribute.is_tv:
+            return attribute.value
+        # The long form is only meaningful at a width the RFC defines. Anything else
+        # is left as None rather than guessed at: an invented key length would be
+        # reported as fact by a lane that carries no confidence score.
+        if attribute.raw is not None and len(attribute.raw) == 2:
+            return int.from_bytes(attribute.raw, "big")
+        return None
+    return None
+
+
+def parse_transform(reader: SafeReader) -> ParsedTransform:
+    """Parse one transform substructure, including its attributes.
+
+    Attributes are read inside a bounded sub-reader, so an attribute length that
+    overruns its transform cannot reach into the next one.
+    """
+    is_last = reader.u8() == LAST_SUBSTRUCTURE
+    reader.u8()  # reserved
+    length = reader.u16()
+    if length < TRANSFORM_HEADER_LENGTH:
+        raise MalformedError(
+            f"transform declares length {length}, below the "
+            f"{TRANSFORM_HEADER_LENGTH}-byte transform header"
+        )
+    transform_type = reader.u8()
+    reader.u8()  # reserved
+    transform_id = reader.u16()
+
+    attribute_reader = reader.sub(length - TRANSFORM_HEADER_LENGTH)
+    attributes = _parse_attributes(attribute_reader)
+
+    type_name = TRANSFORM_TYPES.get(transform_type)
+    domain_type = TransformType(type_name) if type_name else None
+    return ParsedTransform(
+        transform=Transform(
+            type=domain_type,
+            id=transform_id,
+            name=resolve_transform_name(
+                domain_type if domain_type is not None else transform_type, transform_id
+            ),
+            key_length=_key_length_from(attributes),
+        ),
+        attributes=attributes,
+        is_last=is_last,
+    )

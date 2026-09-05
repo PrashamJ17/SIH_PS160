@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 16:08 UTC
+**Last updated:** 2026-09-05 16:10 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** 4.4 — Transform parser with attributes
+**Current step:** 4.5 — Proposal and SA payload parser
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,

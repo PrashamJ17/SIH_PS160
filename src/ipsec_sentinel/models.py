@@ -78,7 +78,13 @@ class Transform(BaseModel):
     transform ID 12 with different attributes.
     """
 
-    type: TransformType
+    type: TransformType | None
+    """``None`` when the transform type is one this build does not recognise.
+
+    Kept rather than dropped: an unknown transform still occupies a slot in a
+    proposal, and losing it would misreport what a peer actually offered.
+    """
+
     id: int
     name: str
     key_length: int | None = None

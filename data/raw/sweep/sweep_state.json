@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T16:08:03.152630Z",
+  "updated_at": "2026-09-05T16:09:59.503038Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -36,7 +36,10 @@
     "5a9704bb2082_web_reading_wan_good_r0",
     "5a9704bb2082_email_smtp_attachment_wan_poor_r0",
     "5a9704bb2082_messaging_chat_active_clean_r0",
-    "5a9704bb2082_replay_cicids2017_benign_wan_good_r0"
+    "5a9704bb2082_replay_cicids2017_benign_wan_good_r0",
+    "2372de381b1f_icmp_large_payload_wan_poor_r0",
+    "2372de381b1f_voip_g729_20ms_clean_r0",
+    "2372de381b1f_video_hls_adaptive_wan_good_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -736,6 +739,66 @@
       "inner_packets": 917,
       "started_at": "2026-09-05T16:07:54.454687Z",
       "ended_at": "2026-09-05T16:08:00.892721Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "2372de381b1f_icmp_large_payload_wan_poor_r0": {
+      "cell_id": "2372de381b1f_icmp_large_payload_wan_poor_r0",
+      "config_id": "2372de381b1f",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/2372de381b1f_icmp_large_payload_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/2372de381b1f_icmp_large_payload_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/2372de381b1f_icmp_large_payload_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 75,
+      "started_at": "2026-09-05T16:08:03.153483Z",
+      "ended_at": "2026-09-05T16:08:38.306928Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "2372de381b1f_voip_g729_20ms_clean_r0": {
+      "cell_id": "2372de381b1f_voip_g729_20ms_clean_r0",
+      "config_id": "2372de381b1f",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/2372de381b1f_voip_g729_20ms_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/2372de381b1f_voip_g729_20ms_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/2372de381b1f_voip_g729_20ms_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3004,
+      "inner_packets": 3016,
+      "started_at": "2026-09-05T16:08:40.749891Z",
+      "ended_at": "2026-09-05T16:09:16.427133Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "2372de381b1f_video_hls_adaptive_wan_good_r0": {
+      "cell_id": "2372de381b1f_video_hls_adaptive_wan_good_r0",
+      "config_id": "2372de381b1f",
+      "generator": "video",
+      "variant": "hls_adaptive",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/2372de381b1f_video_hls_adaptive_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/2372de381b1f_video_hls_adaptive_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/2372de381b1f_video_hls_adaptive_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 22850,
+      "inner_packets": 22866,
+      "started_at": "2026-09-05T16:09:18.806505Z",
+      "ended_at": "2026-09-05T16:09:57.209993Z",
       "details": {
         "mismatches": []
       }
