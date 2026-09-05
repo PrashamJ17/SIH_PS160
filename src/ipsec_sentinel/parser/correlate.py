@@ -28,9 +28,26 @@ import hashlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from ipaddress import ip_address
+from typing import Final
 
-from ipsec_sentinel.models import IKEExchange
+from ipsec_sentinel.models import IKEExchange, Proposal
 from ipsec_sentinel.parser.esp import AssembledFlow
+
+# An initiator cannot know the responder's SPI when it sends the first message, so
+# an all-zero responder SPI marks that message as the initiator's opening offer.
+ZERO_SPI: Final = "00" * 8
+
+
+def _transform_signature(proposal: Proposal) -> frozenset[tuple[str, int, int | None]]:
+    """Identify a proposal by its transforms, ignoring its number.
+
+    The responder renumbers the proposal it accepts, so comparing numbers would report
+    every accepted proposal as a different one.
+    """
+    return frozenset(
+        (str(transform.type), transform.id, transform.key_length)
+        for transform in proposal.transforms
+    )
 
 
 def canonical_address(address: str) -> str:
@@ -99,6 +116,42 @@ class Negotiation:
     @property
     def is_aggressive(self) -> bool:
         return any(message.is_aggressive for message in self.messages)
+
+    @property
+    def response(self) -> IKEExchange | None:
+        """The responder's message carrying its chosen proposal, if it was captured.
+
+        Identified by a non-zero responder SPI: the initiator cannot know that value
+        when it sends the first message, so a message carrying one came from the
+        responder or later in the exchange. The responder's IKE_SA_INIT reply carries
+        exactly the proposal it accepted, which is how "offered but not selected" can
+        be said with certainty rather than guessed.
+        """
+        for message in sorted(self.messages, key=lambda m: m.timestamp):
+            if message.responder_spi != ZERO_SPI and message.proposals_offered:
+                return message
+        return None
+
+    @property
+    def accepted_proposal(self) -> Proposal | None:
+        """The proposal the responder chose, or None if the reply was not captured."""
+        response = self.response
+        if response is None or not response.proposals_offered:
+            return None
+        return response.proposals_offered[0]
+
+    def was_accepted(self, proposal: Proposal) -> bool | None:
+        """Whether this offered proposal is the one the responder chose.
+
+        ``None`` when the responder's reply was not captured — the honest answer, and
+        different from "no". A rule that reported "offered but not selected" on a
+        capture that simply started too late would be asserting something it cannot
+        know.
+        """
+        accepted = self.accepted_proposal
+        if accepted is None:
+            return None
+        return _transform_signature(proposal) == _transform_signature(accepted)
 
 
 @dataclass
