@@ -88,7 +88,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.7 — IKEv1 support (aggressive mode + PSK detection) — commit `e920b84`
 - [x] 4.8 — PCAP ingestion — commit `809f531`
 - [x] 4.9 — Parser fuzzing **(UNCUTTABLE)** — commit `eeca281`
-- [x] 4.10 — tshark parity check — commit `PENDING`
+- [x] 4.10 — tshark parity check — commit `6655bcb`
 - [ ] **▶ MILESTONE M4** — tag `v0.5.0-parser`
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
