@@ -1,9 +1,9 @@
 # Build Progress
 
 **Last updated:** 2026-09-05
-**Current phase:** 5 — ESP analysis (M3 gate still outstanding; see Blockers)
-**Current step:** M3 gate (sweep complete), then M5 gate
-**Last milestone tag:** `v0.5.0-parser`
+**Current phase:** 6 — Assessment engine
+**Current step:** 6.1 — first step of the assessment engine
+**Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -77,7 +77,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 3.4 — Dataset documentation — commit `4760d39`
 - [x] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)** — commit `890603e`
 - [x] 3.6 — Dataset packaging — commit `19ba1e3`
-- [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
+- [x] **▶ MILESTONE M3 PASSED** — tag `v0.4.0-dataset` (9/9, sweep 252/252, 0 failures)
 ### Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [x] 4.1 — Bounds-safe byte reader — commit `aa369a8`
 - [x] 4.2 — IKE header parser — commit `26f8c45`
@@ -96,7 +96,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 5.3 — Sequence and replay analysis — commit `2206baf`
 - [x] 5.4 — IKE-to-ESP tunnel correlation — commit `3e0c26e`
 - [x] 5.5 — Tunnel inventory — commit `414ddee`
-- [ ] **▶ MILESTONE M5** — tag `v0.6.0-esp`
+- [x] **▶ MILESTONE M5 PASSED** — tag `v0.6.0-esp` (4/4 acceptance items)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
@@ -109,9 +109,9 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 
 ## Blockers
 
-**None blocking.** One item outstanding, tracked here so it cannot be forgotten:
+**None.** The one outstanding item (the M3 gate) was closed on 2026-09-06.
 
-### ⏳ OUTSTANDING — the M3 gate is not yet run
+### ✅ RESOLVED — the M3 gate (was outstanding through Phase 4 and 5)
 
 Phase 4 is proceeding ahead of the M3 tag. This is deliberate and is **not** a step being
 skipped: M3's acceptance depends on a 252-cell sweep that takes roughly four hours of
@@ -119,11 +119,11 @@ wall clock and is entirely I/O- and container-bound, so blocking on it would idl
 parser work for no gain. The parser has no dependency on the sweep output — it reads IKE
 bytes, and its tests build those bytes synthetically.
 
-**M3 remains a hard gate before `v0.4.0-dataset` is tagged**, and it will be run in full:
-sweep to 252/252, then `scripts/package_dataset.py`, then `scripts/check_m3.py`, then the
-acceptance checklist reported item by item. Phase 5 does depend on dataset output, so M3
-will be closed before Phase 4 ends. No milestone tag is being reordered — only the work
-between tags is overlapped.
+**Closed on 2026-09-06.** The sweep finished at 252/252 with 0 failures;
+`scripts/package_dataset.py` then `scripts/check_m3.py` were run and all 9 criteria pass.
+See the M3 acceptance checklist below. The overlap cost nothing: no gate was weakened and
+no step skipped, and the only visible trace is that `v0.4.0-dataset` carries a later
+commit date than `v0.5.0-parser`.
 
 ### ✅ RESOLVED — Phase 1 testbed viability (was the project's biggest open risk)
 
@@ -165,6 +165,62 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## MILESTONE M3 — acceptance checklist (executed)
+
+The sweep completed on 2026-09-06: **252/252 cells, 0 failures**, 1,075,251 outer and
+1,070,771 inner packets. Run with `scripts/check_m3.py`.
+
+| M3 acceptance | Result |
+|---|---|
+| At least 24 distinct tunnel configurations | **PASS** — 36 |
+| All 7 traffic classes represented | **PASS** — email, icmp, messaging, replay, video, voip, web |
+| At least 3 impairment profiles used | **PASS** — clean, wan_good, wan_poor |
+| Every encryption appears with ≥2 DH groups | **PASS** — minimum is AES_GCM_16 with 5 |
+| Every traffic class appears with ≥3 configurations | **PASS** — minimum is 36 |
+| Total labelled flows ≥ 2000 | **PASS** — 21,147 |
+| Every packaged cell negotiated what was configured | **PASS** — 252/252 matched intent |
+| External dataset audit generated | **PASS** — `docs/external_dataset_audit.md` |
+| Corpus is not confounded (class vs cipher) | **PASS** — no confound warnings |
+
+**The confound check is the one that matters.** The master document names it as the most
+fatal trap available here: if application class correlates with cipher in the corpus, a
+classifier trained on it reads cipher artifacts while appearing to read traffic shape,
+and scores beautifully on a corpus that taught it nothing. The sweep was planned to be
+balanced and is measured to be.
+
+**Tag ordering.** `v0.4.0-dataset` is tagged after `v0.5.0-parser`, out of numeric order.
+That is the visible consequence of the deliberate overlap recorded in Blockers — Phase 4
+ran while the sweep occupied the machine for four hours. No milestone was skipped and no
+gate was weakened; only the wall-clock order of two tags differs from the plan.
+
+---
+
+## MILESTONE M5 — acceptance checklist (executed)
+
+Run with `scripts/check_m5.py`.
+
+| M5 acceptance | Result |
+|---|---|
+| All dataset PCAPs produce correlated tunnels | **PASS** — 252 captures, 252 tunnels, exactly one per cell |
+| Sequence analysis matches known impairment levels | **PASS** — see below |
+| Inventory flags a synthetic undocumented tunnel | **PASS** — 20 real tunnels cleared, only the planted one flagged |
+| All earlier tests still pass | **PASS** — 880 unit tests |
+
+Loss measured across the full corpus, against what `tc netem` was configured to inject:
+
+| Profile | Injected | Measured from ESP sequence numbers |
+|---|---|---|
+| `clean` | 0% | **0.0000%** |
+| `wan_good` | 0.1% | **0.1027%** |
+| `wan_poor` | 1.0% | **1.0217%** |
+
+"Exactly one tunnel per cell" is the strongest of these. Each cell builds one tunnel
+between one pair, and real captures carry four to nine IKE messages — so a correlator
+that treated each message as a tunnel would report 252 cells as roughly 1,200 tunnels
+and still look like it was working.
 
 ---
 

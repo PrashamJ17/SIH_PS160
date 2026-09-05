@@ -95,7 +95,8 @@ def check_tshark_parity() -> Check:
 def check_fuzzing() -> Check:
     name = "Fuzzing: 10,000 inputs, zero crashes, zero hangs"
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/unit/test_parser_fuzz.py", "-q"],
+        # No -q: pyproject sets it in addopts, and -qq hides the summary.
+        [sys.executable, "-m", "pytest", "tests/unit/test_parser_fuzz.py"],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
@@ -225,7 +226,7 @@ def check_parser_coverage() -> Check:
     name = f"Coverage of parser/ above {COVERAGE_FLOOR:.0f}%"
     result = subprocess.run(
         [
-            sys.executable, "-m", "pytest", "-m", "not integration", "-q",
+            sys.executable, "-m", "pytest", "-m", "not integration",
             "--cov=ipsec_sentinel.parser", "--cov-report=term", "--no-cov-on-fail",
         ],
         capture_output=True,
