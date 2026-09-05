@@ -27,19 +27,49 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from ipaddress import ip_address
 
 from ipsec_sentinel.models import IKEExchange
 from ipsec_sentinel.parser.esp import AssembledFlow
 
 
+def canonical_address(address: str) -> str:
+    """Canonicalise an IP address, leaving anything unparseable untouched.
+
+    IPv6 has many spellings of one address — ``2001:db8::1``, ``2001:0db8:0000::0001``
+    and ``2001:DB8::1`` are the same host. Comparing them as strings would file one
+    tunnel under three identities, and an operator's documented-tunnel list would then
+    never match what was observed.
+    """
+    try:
+        return str(ip_address(address))
+    except ValueError:
+        return address
+
+
+def _sort_key(address: str) -> tuple[int, int, str]:
+    """Order addresses numerically within a family, not lexicographically.
+
+    As strings, ``192.0.2.10`` sorts before ``192.0.2.9``. That is stable, so it would
+    work as a key — but it produces an inventory ordered in a way that looks broken to
+    the person reading it, and the point of this file is a list an operator trusts.
+    """
+    try:
+        parsed = ip_address(canonical_address(address))
+    except ValueError:
+        return (2, 0, address)
+    return (parsed.version, int(parsed), "")
+
+
 def endpoint_pair(left: str, right: str) -> tuple[str, str]:
-    """A direction-independent endpoint key.
+    """A direction-independent, canonical endpoint key.
 
     Sorted, because a tunnel between A and B is the same tunnel as one between B and
     A, and an inventory that lists it twice is wrong in a way an operator notices
     immediately.
     """
-    return (left, right) if left <= right else (right, left)
+    first, second = canonical_address(left), canonical_address(right)
+    return (first, second) if _sort_key(first) <= _sort_key(second) else (second, first)
 
 
 @dataclass
