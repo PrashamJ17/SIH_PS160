@@ -149,12 +149,18 @@ def plan_sweep(
     repeats: int = 1,
     matrix_path: Path | None = None,
     max_configs: int | None = None,
+    cross_impairments: bool = True,
 ) -> SweepPlan:
     """Build the full cell list: configurations x generators x impairments x repeats.
 
     Each generator's variants are cycled across configurations rather than multiplied
     into them, so variant coverage does not multiply the sweep's size while every
     variant still appears.
+
+    ``cross_impairments=False`` cycles impairment profiles across cells instead of
+    crossing them in, cutting the sweep to a third of its size while still exercising
+    every profile. Use it when wall-clock cost matters more than having every
+    configuration observed under every path condition.
     """
     for name in generators:
         spec(name)
@@ -171,7 +177,12 @@ def plan_sweep(
             for generator in generators:
                 variants = spec(generator).variants
                 variant = variants[(config_index + repeat) % len(variants)]
-                for impairment in impairments:
+                chosen = (
+                    impairments
+                    if cross_impairments
+                    else (impairments[len(cells) % len(impairments)],)
+                )
+                for impairment in chosen:
                     cells.append(
                         CellSpec(
                             config=config,
