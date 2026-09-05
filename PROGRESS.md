@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 4 — Deterministic IKE parser (M3 gate still outstanding; see Blockers)
-**Current step:** 4.10 — tshark parity check
+**Current step:** M4 gate — parser complete
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -88,7 +88,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.7 — IKEv1 support (aggressive mode + PSK detection) — commit `e920b84`
 - [x] 4.8 — PCAP ingestion — commit `809f531`
 - [x] 4.9 — Parser fuzzing **(UNCUTTABLE)** — commit `eeca281`
-- [ ] 4.10 — tshark parity check
+- [x] 4.10 — tshark parity check — commit `PENDING`
 - [ ] **▶ MILESTONE M4** — tag `v0.5.0-parser`
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
@@ -159,6 +159,34 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## Step 4.10 — tshark parity results
+
+**87/87 sweep captures agree with tshark, message for message.** Compared on version,
+exchange type, every transform (type and ID) and every key length. Wireshark 4.6.8,
+installed via `brew install --formula wireshark` — `tshark` was not present before this
+step, and the integration test skips rather than fails where it is absent.
+
+These are strongSwan's own captures, not fixtures this project wrote — which is the
+entire point. Every other parser test checks this code against fixtures built from the
+same reading of the RFCs, so a misreading would be baked into fixture and test alike.
+
+**The suite contains a negative control**, because a parity check that cannot fail
+proves nothing: three tests feed the comparator a deliberately wrong transform, a wrong
+version and a dropped message, and assert each is detected. A fourth asserts the dataset
+actually contains ISAKMP, since comparing two empty lists passes loudly while testing
+nothing.
+
+Two things worth knowing for anyone re-running it:
+
+* The display filter is `isakmp`, not `ike`. Wireshark's dissector predates the IKEv2
+  name and never adopted it; `-Y ike` matches nothing and reports no error.
+* `tshark -T json` emits **genuinely duplicate object keys**, one per repeated field. A
+  plain `json.loads` keeps only the last, so a message with four transforms appears to
+  have one — and the parity check would then pass by comparing almost nothing. The
+  comparator reads the output as an ordered pair list for that reason.
 
 ---
 
