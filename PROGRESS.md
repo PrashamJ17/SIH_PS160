@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 12:31 UTC
+**Last updated:** 2026-09-05 13:04 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** 3.1 — Single-run orchestrator
+**Current step:** 3.2 — Sweep orchestrator with resumability
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -70,7 +70,14 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Each produces a distinct traffic pattern | **yes** — measured, not eyeballed; see `reports/generator_shapes.json` |
   | Impairment profiles apply and remove cleanly | **yes** — 19 unit + 9 integration tests |
   | All Phase 0 and Phase 1 tests still pass | **341 unit (100% cov), 125 integration** |
-- [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
+### Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
+- [x] 3.1 — Single-run orchestrator — commit `(this commit)`
+- [ ] 3.2 — Sweep orchestrator with resumability
+- [ ] 3.3 — External dataset fetcher
+- [ ] 3.4 — Dataset documentation
+- [ ] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)**
+- [ ] 3.6 — Dataset packaging
+- [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)

@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -125,10 +125,20 @@ class TrafficGenerator(Protocol):
     """One application traffic class the sweep can drive through a tunnel."""
 
     name: str
-    """The ML class label for every flow captured while this generator ran."""
+    """The ML class label for every flow captured while this generator ran.
 
-    requires: list[str]
-    """Extra containers or services this generator needs beyond the pair itself."""
+    Left as an instance-variable declaration deliberately: implementations assign it
+    plainly (``name = "icmp"``), which mypy infers as an instance variable and which a
+    ClassVar declaration here would then reject.
+    """
+
+    requires: ClassVar[list[str]]
+    """Extra containers or services this generator needs beyond the pair itself.
+
+    Declared ClassVar because every implementation must be: a mutable list as a plain
+    class attribute is a shared-state bug (RUF012), and a Protocol member declared as
+    an instance variable cannot be satisfied by a ClassVar implementation.
+    """
 
     def setup(self, ctx: RunContext) -> None:
         """Prepare to run against this pair. Must be safe to call once per cell."""
