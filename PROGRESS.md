@@ -94,7 +94,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 5.1 — ESP header parser — commit `2e58048`
 - [x] 5.2 — ESP flow assembly — commit `eb2210e`
 - [x] 5.3 — Sequence and replay analysis — commit `2206baf`
-- [x] 5.4 — IKE-to-ESP tunnel correlation — commit `PENDING`
+- [x] 5.4 — IKE-to-ESP tunnel correlation — commit `3e0c26e`
 - [ ] 5.5 — Tunnel inventory
 - [ ] **▶ MILESTONE M5** — tag `v0.6.0-esp`
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
