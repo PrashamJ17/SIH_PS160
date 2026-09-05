@@ -43,7 +43,9 @@ def send_message(
             filename=f"attachment_{rng.randrange(1000)}.bin",
         )
     raw = message.as_bytes()
-    with smtplib.SMTP(host, 25, timeout=60) as smtp:
+    # Short per-operation timeout: a stalled session must fail fast and let the
+    # loop retry, rather than consuming the cell's whole duration.
+    with smtplib.SMTP(host, 25, timeout=20) as smtp:
         smtp.send_message(message)
     return len(raw)
 

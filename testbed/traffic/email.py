@@ -78,7 +78,9 @@ class EmailGenerator:
                 "the mailbox password must be supplied; it is generated per run and "
                 "passed to both the sidecar and this generator"
             )
-        if not wait_for_service(ctx.left_host, ctx.mail_origin_ip, 25):
+        # Postfix accepts a connection slightly before it will serve one, so the
+        # 220 greeting is what actually proves readiness.
+        if not wait_for_service(ctx.left_host, ctx.mail_origin_ip, 25, expect_banner=True):
             raise RuntimeError(
                 f"the sidecar at {ctx.mail_origin_ip}:{25} never accepted "
                 "a connection; starting anyway would produce a short, sparse capture"
@@ -102,7 +104,7 @@ class EmailGenerator:
                 "python3",
                 MAIL_CLIENT,
                 "--host",
-                MAIL_ORIGIN_IP,
+                ctx.mail_origin_ip,
                 "--user",
                 MAIL_USER,
                 "--password",
@@ -127,7 +129,12 @@ class EmailGenerator:
         exchanges, total_bytes, largest = _parse_client(completed.stdout)
         self.largest_burst_bytes = largest
         if exchanges == 0:
-            detail = (completed.stderr.strip() or completed.stdout.strip())[:250]
+            # Both streams, and generously: diagnosing one failed cell out of hundreds
+            # from a truncated message is not possible after the containers are gone.
+            detail = (
+                f"stderr={completed.stderr.strip()[:400]!r} "
+                f"stdout={completed.stdout.strip()[:200]!r}"
+            )
             return GenerationResult(
                 generator=self.name,
                 variant=self.variant.name,

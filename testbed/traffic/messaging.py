@@ -81,7 +81,18 @@ class MessagingGenerator:
                 "the XMPP account password must be supplied; it is generated per run "
                 "and passed to both the sidecar and this generator"
             )
-        if not wait_for_service(ctx.left_host, ctx.xmpp_origin_ip, XMPP_PORT):
+        # XMPP has the client speak first, so a stream header is sent and the
+        # server's reply is what proves Prosody is actually serving.
+        if not wait_for_service(
+            ctx.left_host,
+            ctx.xmpp_origin_ip,
+            XMPP_PORT,
+            probe=(
+                "<?xml version='1.0'?><stream:stream to='" + XMPP_DOMAIN + "' "
+                "xmlns='jabber:client' "
+                "xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>"
+            ),
+        ):
             raise RuntimeError(
                 f"the sidecar at {ctx.xmpp_origin_ip}:{XMPP_PORT} never accepted "
                 "a connection; starting anyway would produce a short, sparse capture"
@@ -92,7 +103,13 @@ class MessagingGenerator:
         self._ctx = None
 
     def _client_argv(
-        self, container: str, jid: str, peer: str, duration_s: int, seed: int | None
+        self,
+        container: str,
+        jid: str,
+        peer: str,
+        duration_s: int,
+        seed: int | None,
+        server_ip: str,
     ) -> list[str]:
         return [
             "docker",
@@ -107,7 +124,7 @@ class MessagingGenerator:
             "--peer",
             f"{peer}@{XMPP_DOMAIN}",
             "--server",
-            XMPP_ORIGIN_IP,
+            server_ip,
             "--port",
             str(XMPP_PORT),
             "--duration-s",
@@ -134,13 +151,16 @@ class MessagingGenerator:
                 "alice",
                 duration_s + 4,
                 None if self.seed is None else self.seed + 1,
+                ctx.xmpp_origin_ip,
             ),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
         alice = subprocess.Popen(
-            self._client_argv(ctx.left_host, "alice", "bob", duration_s, self.seed),
+            self._client_argv(
+                ctx.left_host, "alice", "bob", duration_s, self.seed, ctx.xmpp_origin_ip
+            ),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

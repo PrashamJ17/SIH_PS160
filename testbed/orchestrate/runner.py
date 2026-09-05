@@ -265,17 +265,13 @@ def run_cell(
             right_host=right_host,
             left_host_ip=left_host_ip,
             right_host_ip=right_host_ip,
+            left_protected_ip=left_protected,
             out_dir=out_dir,
             video_origin_ip=getattr(addresses, "video_origin", "10.2.0.20"),
             web_origin_ip=getattr(addresses, "web_origin", "10.2.0.21"),
             mail_origin_ip=getattr(addresses, "mail_origin", "10.2.0.22"),
             xmpp_origin_ip=getattr(addresses, "xmpp_origin", "10.2.0.23"),
         )
-        try:
-            built.generator.setup(ctx)
-        except Exception as exc:
-            return failure(f"generator setup failed: {type(exc).__name__}: {exc}")
-
         capture = dual_capture_for_pair(left, left_transit, left_protected, out_dir)
         with capture:
             # Capture is already running, so the handshake lands in the outer PCAP.
@@ -285,6 +281,13 @@ def run_cell(
                     f"tunnel did not establish: {initiate.stdout.strip()[:300]}"
                     f"{initiate.stderr.strip()[:300]}"
                 )
+            # setup() only after the tunnel is up. A generator's readiness probe has to
+            # reach a sidecar on the far protected subnet, which is only routable once
+            # the tunnel exists — probing before it simply waits out its timeout.
+            try:
+                built.generator.setup(ctx)
+            except Exception as exc:
+                return failure(f"generator setup failed: {type(exc).__name__}: {exc}")
             generation = built.generator.run(duration_s)
             time.sleep(1)
 

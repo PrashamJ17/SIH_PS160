@@ -43,6 +43,9 @@ class RunContext:
     # Sidecar addresses travel with the context rather than living as module constants
     # in each generator, because the sweep runs several pairs concurrently and each
     # slot gets its own subnets. Defaults are slot 0, which is what a single pair uses.
+    # The gateway's address on the protected side, needed by anything that must
+    # address the gateway itself rather than a host behind it.
+    left_protected_ip: str = "10.1.0.2"
     video_origin_ip: str = "10.2.0.20"
     web_origin_ip: str = "10.2.0.21"
     mail_origin_ip: str = "10.2.0.22"
@@ -93,30 +96,53 @@ class GenerationResult(BaseModel):
 
 
 def wait_for_service(
-    container: str, host: str, port: int, timeout_s: float = 120.0, interval_s: float = 0.5
+    container: str,
+    host: str,
+    port: int,
+    timeout_s: float = 120.0,
+    interval_s: float = 0.5,
+    *,
+    expect_banner: bool = False,
+    probe: str | None = None,
 ) -> bool:
-    """Block until ``host:port`` accepts a TCP connection from inside ``container``.
+    """Block until ``host:port`` is ready to converse, from inside ``container``.
 
     Compose's ``--wait`` only waits for a container to be *running*, not for the
     service inside it to be listening. Without this, a generator can start talking to
     a sidecar that is still initialising and produce a short, sparse capture — which
     does not fail loudly, it just yields a thin cell that quietly weakens the corpus.
-    Across a sweep of thousands of cells that is a real source of label noise.
 
-    The budget is generous because Prosody and Postfix are far slower to become
-    ready than nginx, and slower still when several pairs have run back to back:
-    a 45-second budget was enough in isolation and timed out during a sequential
-    seven-generator sweep.
+    A bare TCP connect is not always enough. Postfix and Dovecot accept a connection
+    slightly before they will serve one, so ``expect_banner`` additionally reads the
+    greeting; ``probe`` sends a string first, for protocols where the client speaks
+    first. Waiting only for the port is what let a loaded sweep hand a generator a
+    socket that then timed out mid-session.
+
+    The budget is generous because Prosody and Postfix are far slower to become ready
+    than nginx, and slower still when several pairs have run back to back.
     """
-    probe = (
-        "import socket,sys\n"
-        f"s=socket.socket(); s.settimeout(2)\n"
-        f"sys.exit(0 if s.connect_ex(({host!r}, {port})) == 0 else 1)"
-    )
+    if expect_banner or probe:
+        send = repr(probe.encode()) if probe else "None"
+        script = (
+            "import socket,sys\n"
+            "s=socket.socket(); s.settimeout(3)\n"
+            f"rc=s.connect_ex(({host!r}, {port}))\n"
+            "sys.exit(1) if rc else None\n"
+            f"payload={send}\n"
+            "s.sendall(payload) if payload else None\n"
+            "sys.exit(0 if s.recv(64) else 1)"
+        )
+    else:
+        script = (
+            "import socket,sys\n"
+            "s=socket.socket(); s.settimeout(2)\n"
+            f"sys.exit(0 if s.connect_ex(({host!r}, {port})) == 0 else 1)"
+        )
+
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         result = subprocess.run(
-            ["docker", "exec", container, "python3", "-c", probe],
+            ["docker", "exec", container, "python3", "-c", script],
             capture_output=True,
             text=True,
             timeout=30,

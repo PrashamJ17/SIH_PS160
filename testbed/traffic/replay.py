@@ -132,7 +132,7 @@ class ReplayGenerator:
             raise RuntimeError(f"could not copy the replay source in: {copied.stderr.strip()}")
 
         src_mac = self._mac_of(ctx.left_host, ctx.left_host_ip)
-        gw_mac = self._mac_of(ctx.left_gateway, "10.1.0.2")
+        gw_mac = self._mac_of(ctx.left_gateway, ctx.left_protected_ip)
 
         rewrite = self._exec(
             ctx.left_host,
