@@ -441,11 +441,46 @@ It is resumable: state is written after every cell, so re-running the same comma
 continues rather than restarting and no cell runs twice. Progress is in
 `/tmp/sweep_run.log`; the state file is `data/raw/sweep/sweep_state.json`.
 
-**The sweep has been interrupted once already** — it is a child of the shell that
-launched it, and that shell ended with the session, taking the sweep with it at 49/252
-cells (0 failures). Resumability is doing exactly what it was built for: re-issuing the
-same command picks up at cell 50. The lesson recorded here rather than silently fixed:
-`nohup` alone did not survive, so the restart uses `setsid` to detach the process group.
+### Sweep incident — 199 cells failed in under a minute (resolved, fixed in code)
+
+Recorded in full because the cause was mine and the fix is now part of the product.
+
+**What happened.** Checking whether the sweep was still alive, I used `pgrep` with a
+pattern that did not match the actual command line, concluded it had died, and started a
+second sweep. Three things then went wrong in sequence:
+
+1. The relaunch used `setsid`, which does not exist on macOS. The command failed — but
+   the shell had *already* applied its `> /tmp/sweep_run.log` redirect, truncating the
+   running sweep's log. The evidence of what the live sweep was doing was destroyed
+   before I looked at it.
+2. `pkill -f` then sent SIGTERM to the live sweep. Python's default SIGTERM action
+   terminates the interpreter outright, so the runner's `finally` teardown never ran and
+   the in-flight cell's containers survived — pinning their networks.
+3. The new sweep reused slot 0 for its first cell, collided with the orphaned subnet, and
+   failed. Because a sequential sweep never changes slot, **every** subsequent cell
+   collided too: 199 failures in well under a minute.
+
+**Why it was expensive.** `remaining_cells()` excludes failed cells as well as completed
+ones, so all 199 would have been permanently skipped — a silently 79%-empty dataset that
+still looked like a finished sweep.
+
+**Fixed in code, not by cleaning up.** `testbed/orchestrate/sweep.py` now has three
+guards, with 14 tests in `tests/unit/test_sweep_recovery.py`:
+
+| Guard | What it prevents |
+|---|---|
+| `sweep_lock()` — exclusive PID lock, stale locks reclaimed | Two sweeps sharing one state file and one slot allocator |
+| `purge_stale_cells()` — preflight removal of `sentinel-cell-*` | Starting a sweep into someone else's leftovers |
+| `teardown_on_signal()` — SIGTERM/SIGINT raise instead of terminating | A killed sweep orphaning the resources that break the next one |
+
+`--retry-failed` was added for the recovery itself: an environmental failure is
+indistinguishable from a real one in the state file, so re-running those cells is an
+explicit human decision rather than a heuristic that guesses at the cause.
+
+**Operational notes.** `setsid` is unavailable on macOS; the sweep is launched via
+`subprocess.Popen(start_new_session=True)` instead. Logs are opened in append mode — a
+`>` redirect truncates a running process's log even when the command it belongs to
+fails.
 
 **The `replay` class uses a synthesised stand-in source**, not real CIC-IDS2017, which
 requires registration. The replay *machinery* is real and tested end to end; only the

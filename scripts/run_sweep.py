@@ -21,6 +21,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max-configs", type=int, default=None)
     parser.add_argument("--cross-impairments", action="store_true")
+    parser.add_argument(
+        "--retry-failed",
+        action="store_true",
+        help=(
+            "re-run cells previously recorded as failed. Use after an environmental "
+            "failure (leftover containers, docker restart); not for configurations "
+            "the testbed genuinely cannot build."
+        ),
+    )
     args = parser.parse_args(argv)
 
     plan = plan_sweep(
@@ -44,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
 
     state = run_sweep(
         plan, args.out, duration_s=args.duration_s,
-        replay_source=args.replay_source, limit=args.limit, on_cell=report,
+        replay_source=args.replay_source, limit=args.limit,
+        retry_failed=args.retry_failed, on_cell=report,
     )
     print(f"\ncompleted={len(state.completed)} failed={len(state.failed)}")
     return 0
