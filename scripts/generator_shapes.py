@@ -45,7 +45,8 @@ class Shape:
 
 
 def measure(pcap: Path, near_ip: str) -> tuple[int, float, float, float, float, float, float, float, float]:
-    from scapy.all import IP, PcapReader
+    from scapy.layers.inet import IP
+    from scapy.utils import PcapReader
 
     sizes: list[int] = []
     times: list[float] = []
@@ -109,7 +110,12 @@ def build_generators(replay_source: Path):  # type: ignore[no-untyped-def]
 def synthesise_replay_source(path: Path) -> None:
     import random
 
-    from scapy.all import IP, TCP, UDP, Ether, Raw, wrpcap
+    # Imported from the concrete layer modules rather than scapy.all: that module
+    # is populated lazily, so the layer classes are invisible to a type checker.
+    from scapy.layers.inet import IP, TCP, UDP
+    from scapy.layers.l2 import Ether
+    from scapy.packet import Raw
+    from scapy.utils import wrpcap
 
     rng = random.Random(23)
     packets = []

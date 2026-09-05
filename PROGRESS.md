@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 13:19 UTC
+**Last updated:** 2026-09-05 13:23 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** 3.3 — External dataset fetcher
+**Current step:** 3.4 — Dataset documentation
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -72,8 +72,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | All Phase 0 and Phase 1 tests still pass | **341 unit (100% cov), 125 integration** |
 ### Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
 - [x] 3.1 — Single-run orchestrator — commit `4961d8f`
-- [x] 3.2 — Sweep orchestrator with resumability — commit `(this commit)`
-- [ ] 3.3 — External dataset fetcher
+- [x] 3.2 — Sweep orchestrator with resumability — commit `944a5d1`
+- [x] 3.3 — External dataset fetcher — commit `(this commit)`
 - [ ] 3.4 — Dataset documentation
 - [ ] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)**
 - [ ] 3.6 — Dataset packaging
@@ -375,6 +375,25 @@ exist to move real deployments off precisely this.
 
 Verified on the wire: version `0x10`, exchange type 4, 3DES_CBC / HMAC_MD5_96 /
 MODP_1024, with `negotiation_matched_intent` true.
+
+### External corpora present on this machine
+
+`scripts/fetch_external.py` has been run. Fetched automatically:
+
+* **MITRE ATT&CK** — `data/external/mitre_attack/enterprise-attack.json`, 47.9 MB,
+  26,085 objects, 858 techniques. Spot-checked: `T1040` resolves to *Network Sniffing*,
+  which is what the Appendix A rule table maps the sniffing findings to.
+
+Awaiting a manual download (the script prints exact instructions and exits 0):
+
+* **CIC-IDS2017** and **ISCXVPN2016** — require registration with the University of
+  New Brunswick.
+* **MAWI** — pick a single samplepoint archive rather than mirroring the set.
+* **NVD** — queried per product at enrichment time and cached, not mirrored.
+
+Step 3.5's audit runs over whatever is present and reports exactly that, so the
+credibility artifact is produced either way — it simply covers fewer corpora until
+those downloads happen.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
