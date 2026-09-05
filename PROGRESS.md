@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 5 — ESP analysis (M3 gate still outstanding; see Blockers)
-**Current step:** 5.3 — sequence and replay analysis
+**Current step:** 5.4 — IKE-to-ESP tunnel correlation
 **Last milestone tag:** `v0.5.0-parser`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -93,7 +93,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`) ← **CURRENT**
 - [x] 5.1 — ESP header parser — commit `2e58048`
 - [x] 5.2 — ESP flow assembly — commit `eb2210e`
-- [ ] 5.3 — Sequence and replay analysis
+- [x] 5.3 — Sequence and replay analysis — commit `PENDING`
 - [ ] 5.4 — IKE-to-ESP tunnel correlation
 - [ ] 5.5 — Tunnel inventory
 - [ ] **▶ MILESTONE M5** — tag `v0.6.0-esp`
@@ -165,6 +165,46 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## Step 5.3 — the impairment cross-check recovered the injected loss
+
+The strongest validation in the project so far, because the expected values were not
+computed by this project. `tc netem` was configured with a loss percentage per profile;
+the analyser measures loss independently, from ESP sequence numbers, on captures
+strongSwan produced.
+
+| Profile | netem was told to drop | Sequence numbers show | Flows with gaps |
+|---|---|---|---|
+| `clean` | 0% | **0.0000%** | 0 / 70 |
+| `wan_good` | 0.1% | **0.0992%** | 38 / 68 |
+| `wan_poor` | 1.0% | **0.9088%** | 51 / 68 |
+
+Not just the sign — the number. The analyser measures reality.
+
+One honest observation not asserted on: 15 of the 70 `clean` flows show **reordering**
+with zero loss. A path with no impairment should not reorder, so this is most likely a
+capture artifact — `tcpdump` writing from a ring buffer — rather than the network. It is
+recorded rather than tested against, because the cause has not been established.
+
+### A hang found by the tests, in new code
+
+`test_two_wraps_are_counted` took **82 seconds**. Gap-finding walked every integer
+between the lowest and highest sequence number, which is fine when the span is roughly
+the packet count and catastrophic otherwise: two counter wraps put four billion values
+between lowest and highest, so a **four-packet flow** stalled the analyser.
+
+That is the same defect class Step 4.9's fuzzing exists to prevent, one layer up, and
+in code written after it — ESP sequence numbers are attacker-controlled input, and an
+analyser stalled by six bytes of them is not a defence. Gaps are now read off the sorted
+arrivals, O(n log n) in packets rather than O(span): 82 s → under 5 ms. Four regression
+tests pin the timing, and a fifth pins the answer, since fast and wrong would be no
+better than slow and right.
+
+**Test-suite performance is a correctness signal, not a convenience.** `make verify` runs
+before every commit; had the suite merely been "a bit slow" and left alone, the hang
+would have shipped.
 
 ---
 

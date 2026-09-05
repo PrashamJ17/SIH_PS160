@@ -21,9 +21,10 @@ else's encrypted traffic.
 from __future__ import annotations
 
 import struct
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from itertools import pairwise
 from pathlib import Path
 from typing import Final
 
@@ -145,7 +146,12 @@ class AssembledFlow:
         return tuple(sorted((self.src_ip, self.dst_ip)))  # type: ignore[return-value]
 
     def to_model(self) -> ESPFlow:
-        """The reporting view: counts and times, without the per-packet series."""
+        """The reporting view: counts, times, and the sequence findings.
+
+        The analysis is run here rather than left to the caller so that a reported
+        flow can never disagree with its own sequence numbers.
+        """
+        analysis = analyse_sequence(self)
         return ESPFlow(
             spi=self.spi,
             src_ip=self.src_ip,
@@ -154,6 +160,8 @@ class AssembledFlow:
             byte_count=self.byte_count,
             first_seen=self.first_seen,
             last_seen=self.last_seen,
+            sequence_gaps=analysis.gap_count,
+            replay_suspected=analysis.replay_suspected,
         )
 
 
@@ -225,3 +233,140 @@ def extract_esp_packets(pcap: Path) -> list[ESPPacket]:
 def flows_from_capture(pcap: Path) -> list[AssembledFlow]:
     """Convenience: capture file straight to assembled flows."""
     return assemble_esp_flows(extract_esp_packets(pcap))
+
+
+# A backwards jump larger than half the counter space is a wrap, not a reorder. No
+# real reordering window is two billion packets wide, and no wrap is smaller.
+WRAP_THRESHOLD: Final = 1 << 31
+
+
+@dataclass(frozen=True)
+class SequenceGap:
+    """A run of sequence numbers that never arrived."""
+
+    start: int
+    end: int
+
+    @property
+    def size(self) -> int:
+        return self.end - self.start + 1
+
+
+@dataclass(frozen=True)
+class SequenceAnalysis:
+    """What the sequence numbers of one flow reveal.
+
+    Three of these findings are about the network and one is about security, and the
+    distinction matters when they are reported. Gaps and reorders are ordinary
+    behaviour of a lossy path. **Duplicates are not.** ESP sequence numbers are
+    assigned by the sender and never repeat within an SA, so the same number arriving
+    twice means either the network duplicated a packet or someone replayed it — and a
+    passive observer cannot tell which. Hence ``replay_suspected`` rather than
+    ``replay_detected``: the evidence is real, the conclusion is not certain, and
+    naming it as certainty would be the kind of overclaim this project exists to avoid.
+    """
+
+    packet_count: int
+    duplicates: int
+    reorders: int
+    wraps: int
+    gaps: tuple[SequenceGap, ...]
+    missing_count: int
+    highest: int | None = None
+    lowest: int | None = None
+
+    @property
+    def replay_suspected(self) -> bool:
+        return self.duplicates > 0
+
+    @property
+    def gap_count(self) -> int:
+        return len(self.gaps)
+
+    @property
+    def expected_count(self) -> int:
+        """How many packets should have arrived across the observed span."""
+        if self.highest is None or self.lowest is None:
+            return 0
+        return self.highest - self.lowest + 1
+
+    @property
+    def loss_ratio(self) -> float:
+        """Fraction of the observed span that never arrived, in [0, 1]."""
+        expected = self.expected_count
+        if expected <= 0:
+            return 0.0
+        return self.missing_count / expected
+
+
+def _extend_sequences(sequences: Sequence[int]) -> list[int]:
+    """Lift 32-bit sequence numbers onto a monotonic axis, counting wraps.
+
+    Without this a rollover from 0xFFFFFFFF to 0 reads as four billion missing
+    packets — a flow that ran cleanly for an hour would be reported as catastrophic
+    loss. The distinction from a reorder is the size of the backwards jump: a wrap
+    crosses half the counter space, a reorder crosses a handful.
+    """
+    extended: list[int] = []
+    epoch = 0
+    previous: int | None = None
+    for raw in sequences:
+        if previous is not None and previous - raw > WRAP_THRESHOLD:
+            epoch += 1
+        extended.append(raw + epoch * (1 << 32))
+        previous = raw
+    return extended
+
+
+def analyse_sequence(flow: AssembledFlow) -> SequenceAnalysis:
+    """Analyse one flow's sequence numbers for loss, reordering and replay.
+
+    Takes the assembled flow rather than the reporting model, because the reporting
+    model carries the *results* of this analysis (``sequence_gaps``,
+    ``replay_suspected``) and not the per-packet series it needs as input.
+    """
+    if not flow.sequences:
+        return SequenceAnalysis(
+            packet_count=0, duplicates=0, reorders=0, wraps=0, gaps=(), missing_count=0
+        )
+
+    extended = _extend_sequences(flow.sequences)
+    wraps = (extended[-1] >> 32) if extended else 0
+
+    seen: set[int] = set()
+    duplicates = 0
+    reorders = 0
+    highest_so_far = extended[0]
+    for value in extended:
+        if value in seen:
+            duplicates += 1
+        else:
+            seen.add(value)
+        if value < highest_so_far:
+            reorders += 1
+        else:
+            highest_so_far = value
+
+    # Gaps are read off the sorted arrivals, never by walking the span between them.
+    # The span is a 32-bit counter range: two wraps put four billion values between
+    # the lowest and highest sequence, and a loop over that range turns four packets
+    # into a 90-second hang. This is the same failure class the parser fuzzing exists
+    # to prevent, and it is O(n log n) in packets rather than O(span) here.
+    ordered = sorted(seen)
+    gaps: list[SequenceGap] = [
+        SequenceGap(start=earlier + 1, end=later - 1)
+        for earlier, later in pairwise(ordered)
+        if later - earlier > 1
+    ]
+    lowest, highest = ordered[0], ordered[-1]
+
+    return SequenceAnalysis(
+        packet_count=len(flow.sequences),
+        duplicates=duplicates,
+        reorders=reorders,
+        wraps=wraps,
+        gaps=tuple(gaps),
+        missing_count=sum(gap.size for gap in gaps),
+        highest=highest,
+        lowest=lowest,
+    )
