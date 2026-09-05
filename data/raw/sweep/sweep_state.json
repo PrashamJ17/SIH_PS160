@@ -1,9 +1,36 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T15:48:16.090474Z",
+  "updated_at": "2026-09-05T16:04:36.083048Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
-    "e3f0eb924f58_voip_g711_20ms_wan_good_r0"
+    "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
+    "e3f0eb924f58_video_dash_720p_wan_poor_r0",
+    "e3f0eb924f58_web_reading_clean_r0",
+    "e3f0eb924f58_email_smtp_small_wan_good_r0",
+    "e3f0eb924f58_messaging_chat_active_wan_poor_r0",
+    "e3f0eb924f58_replay_cicids2017_benign_clean_r0",
+    "0edbda4f6ce9_icmp_flood_small_wan_good_r0",
+    "0edbda4f6ce9_voip_g729_20ms_wan_poor_r0",
+    "0edbda4f6ce9_video_dash_1080p_clean_r0",
+    "0edbda4f6ce9_web_skimming_wan_good_r0",
+    "0edbda4f6ce9_email_smtp_attachment_wan_poor_r0",
+    "0edbda4f6ce9_messaging_chat_idle_clean_r0",
+    "0edbda4f6ce9_replay_mawi_sample_wan_good_r0",
+    "a9ad5f1904a0_icmp_large_payload_wan_poor_r0",
+    "a9ad5f1904a0_voip_g711_20ms_clean_r0",
+    "a9ad5f1904a0_video_hls_adaptive_wan_good_r0",
+    "a9ad5f1904a0_web_reading_wan_poor_r0",
+    "a9ad5f1904a0_email_imap_sync_clean_r0",
+    "a9ad5f1904a0_messaging_chat_active_wan_good_r0",
+    "a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0",
+    "42489de0b47d_icmp_steady_1s_clean_r0",
+    "42489de0b47d_voip_g729_20ms_wan_good_r0",
+    "42489de0b47d_video_dash_720p_wan_poor_r0",
+    "42489de0b47d_web_skimming_clean_r0",
+    "42489de0b47d_email_smtp_small_wan_good_r0",
+    "42489de0b47d_messaging_chat_idle_wan_poor_r0",
+    "42489de0b47d_replay_mawi_sample_clean_r0",
+    "5a9704bb2082_icmp_flood_small_wan_good_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -43,6 +70,546 @@
       "inner_packets": 3012,
       "started_at": "2026-09-05T15:47:33.797521Z",
       "ended_at": "2026-09-05T15:48:13.789037Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "e3f0eb924f58_video_dash_720p_wan_poor_r0": {
+      "cell_id": "e3f0eb924f58_video_dash_720p_wan_poor_r0",
+      "config_id": "e3f0eb924f58",
+      "generator": "video",
+      "variant": "dash_720p",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/e3f0eb924f58_video_dash_720p_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/e3f0eb924f58_video_dash_720p_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/e3f0eb924f58_video_dash_720p_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 7877,
+      "inner_packets": 7916,
+      "started_at": "2026-09-05T15:48:16.091015Z",
+      "ended_at": "2026-09-05T15:49:10.234109Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "e3f0eb924f58_web_reading_clean_r0": {
+      "cell_id": "e3f0eb924f58_web_reading_clean_r0",
+      "config_id": "e3f0eb924f58",
+      "generator": "web",
+      "variant": "reading",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/e3f0eb924f58_web_reading_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/e3f0eb924f58_web_reading_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/e3f0eb924f58_web_reading_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 5252,
+      "inner_packets": 5261,
+      "started_at": "2026-09-05T15:49:12.511657Z",
+      "ended_at": "2026-09-05T15:49:48.296463Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "e3f0eb924f58_email_smtp_small_wan_good_r0": {
+      "cell_id": "e3f0eb924f58_email_smtp_small_wan_good_r0",
+      "config_id": "e3f0eb924f58",
+      "generator": "email",
+      "variant": "smtp_small",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/e3f0eb924f58_email_smtp_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/e3f0eb924f58_email_smtp_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/e3f0eb924f58_email_smtp_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 176,
+      "inner_packets": 174,
+      "started_at": "2026-09-05T15:49:50.602404Z",
+      "ended_at": "2026-09-05T15:50:26.473547Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "e3f0eb924f58_messaging_chat_active_wan_poor_r0": {
+      "cell_id": "e3f0eb924f58_messaging_chat_active_wan_poor_r0",
+      "config_id": "e3f0eb924f58",
+      "generator": "messaging",
+      "variant": "chat_active",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/e3f0eb924f58_messaging_chat_active_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/e3f0eb924f58_messaging_chat_active_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/e3f0eb924f58_messaging_chat_active_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 88,
+      "inner_packets": 94,
+      "started_at": "2026-09-05T15:50:28.792866Z",
+      "ended_at": "2026-09-05T15:51:13.252661Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "e3f0eb924f58_replay_cicids2017_benign_clean_r0": {
+      "cell_id": "e3f0eb924f58_replay_cicids2017_benign_clean_r0",
+      "config_id": "e3f0eb924f58",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/e3f0eb924f58_replay_cicids2017_benign_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/e3f0eb924f58_replay_cicids2017_benign_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/e3f0eb924f58_replay_cicids2017_benign_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 912,
+      "inner_packets": 920,
+      "started_at": "2026-09-05T15:51:15.569116Z",
+      "ended_at": "2026-09-05T15:51:21.899175Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_icmp_flood_small_wan_good_r0": {
+      "cell_id": "0edbda4f6ce9_icmp_flood_small_wan_good_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_icmp_flood_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_icmp_flood_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_icmp_flood_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3002,
+      "inner_packets": 3012,
+      "started_at": "2026-09-05T15:51:24.244717Z",
+      "ended_at": "2026-09-05T15:52:05.666468Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_voip_g729_20ms_wan_poor_r0": {
+      "cell_id": "0edbda4f6ce9_voip_g729_20ms_wan_poor_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_voip_g729_20ms_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_voip_g729_20ms_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_voip_g729_20ms_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 2977,
+      "inner_packets": 3008,
+      "started_at": "2026-09-05T15:52:07.934388Z",
+      "ended_at": "2026-09-05T15:52:44.200543Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_video_dash_1080p_clean_r0": {
+      "cell_id": "0edbda4f6ce9_video_dash_1080p_clean_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "video",
+      "variant": "dash_1080p",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_video_dash_1080p_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_video_dash_1080p_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_video_dash_1080p_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 22263,
+      "inner_packets": 22256,
+      "started_at": "2026-09-05T15:52:46.462678Z",
+      "ended_at": "2026-09-05T15:53:24.405797Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_web_skimming_wan_good_r0": {
+      "cell_id": "0edbda4f6ce9_web_skimming_wan_good_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "web",
+      "variant": "skimming",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_web_skimming_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_web_skimming_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_web_skimming_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 7501,
+      "inner_packets": 7513,
+      "started_at": "2026-09-05T15:53:26.766171Z",
+      "ended_at": "2026-09-05T15:54:03.323383Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_email_smtp_attachment_wan_poor_r0": {
+      "cell_id": "0edbda4f6ce9_email_smtp_attachment_wan_poor_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "email",
+      "variant": "smtp_attachment",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_email_smtp_attachment_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_email_smtp_attachment_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_email_smtp_attachment_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3532,
+      "inner_packets": 2750,
+      "started_at": "2026-09-05T15:54:05.590071Z",
+      "ended_at": "2026-09-05T15:54:49.204953Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_messaging_chat_idle_clean_r0": {
+      "cell_id": "0edbda4f6ce9_messaging_chat_idle_clean_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "messaging",
+      "variant": "chat_idle",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_messaging_chat_idle_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_messaging_chat_idle_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_messaging_chat_idle_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 50,
+      "inner_packets": 59,
+      "started_at": "2026-09-05T15:54:51.563829Z",
+      "ended_at": "2026-09-05T15:55:31.070791Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "0edbda4f6ce9_replay_mawi_sample_wan_good_r0": {
+      "cell_id": "0edbda4f6ce9_replay_mawi_sample_wan_good_r0",
+      "config_id": "0edbda4f6ce9",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/0edbda4f6ce9_replay_mawi_sample_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/0edbda4f6ce9_replay_mawi_sample_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/0edbda4f6ce9_replay_mawi_sample_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 955,
+      "inner_packets": 919,
+      "started_at": "2026-09-05T15:55:33.418163Z",
+      "ended_at": "2026-09-05T15:55:39.631763Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_icmp_large_payload_wan_poor_r0": {
+      "cell_id": "a9ad5f1904a0_icmp_large_payload_wan_poor_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_icmp_large_payload_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_icmp_large_payload_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_icmp_large_payload_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 75,
+      "started_at": "2026-09-05T15:55:41.967811Z",
+      "ended_at": "2026-09-05T15:56:17.254029Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_voip_g711_20ms_clean_r0": {
+      "cell_id": "a9ad5f1904a0_voip_g711_20ms_clean_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_voip_g711_20ms_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_voip_g711_20ms_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_voip_g711_20ms_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3004,
+      "inner_packets": 3015,
+      "started_at": "2026-09-05T15:56:19.501434Z",
+      "ended_at": "2026-09-05T15:56:55.184435Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_video_hls_adaptive_wan_good_r0": {
+      "cell_id": "a9ad5f1904a0_video_hls_adaptive_wan_good_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "video",
+      "variant": "hls_adaptive",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_video_hls_adaptive_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_video_hls_adaptive_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_video_hls_adaptive_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 21616,
+      "inner_packets": 21632,
+      "started_at": "2026-09-05T15:56:57.565793Z",
+      "ended_at": "2026-09-05T15:57:35.574850Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_web_reading_wan_poor_r0": {
+      "cell_id": "a9ad5f1904a0_web_reading_wan_poor_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "web",
+      "variant": "reading",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_web_reading_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_web_reading_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_web_reading_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3259,
+      "inner_packets": 3282,
+      "started_at": "2026-09-05T15:57:37.889467Z",
+      "ended_at": "2026-09-05T15:58:14.542515Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_email_imap_sync_clean_r0": {
+      "cell_id": "a9ad5f1904a0_email_imap_sync_clean_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "email",
+      "variant": "imap_sync",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_email_imap_sync_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_email_imap_sync_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_email_imap_sync_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 234,
+      "inner_packets": 244,
+      "started_at": "2026-09-05T15:58:16.836039Z",
+      "ended_at": "2026-09-05T15:58:52.367036Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_messaging_chat_active_wan_good_r0": {
+      "cell_id": "a9ad5f1904a0_messaging_chat_active_wan_good_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "messaging",
+      "variant": "chat_active",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_messaging_chat_active_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_messaging_chat_active_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_messaging_chat_active_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 80,
+      "inner_packets": 86,
+      "started_at": "2026-09-05T15:58:54.717220Z",
+      "ended_at": "2026-09-05T15:59:34.592962Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0": {
+      "cell_id": "a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0",
+      "config_id": "a9ad5f1904a0",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/a9ad5f1904a0_replay_cicids2017_benign_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 933,
+      "inner_packets": 904,
+      "started_at": "2026-09-05T15:59:36.895061Z",
+      "ended_at": "2026-09-05T15:59:43.897130Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_icmp_steady_1s_clean_r0": {
+      "cell_id": "42489de0b47d_icmp_steady_1s_clean_r0",
+      "config_id": "42489de0b47d",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_icmp_steady_1s_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_icmp_steady_1s_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_icmp_steady_1s_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 73,
+      "started_at": "2026-09-05T15:59:46.105851Z",
+      "ended_at": "2026-09-05T16:00:21.171006Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_voip_g729_20ms_wan_good_r0": {
+      "cell_id": "42489de0b47d_voip_g729_20ms_wan_good_r0",
+      "config_id": "42489de0b47d",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_voip_g729_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_voip_g729_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_voip_g729_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3000,
+      "inner_packets": 3014,
+      "started_at": "2026-09-05T16:00:23.513689Z",
+      "ended_at": "2026-09-05T16:00:59.509238Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_video_dash_720p_wan_poor_r0": {
+      "cell_id": "42489de0b47d_video_dash_720p_wan_poor_r0",
+      "config_id": "42489de0b47d",
+      "generator": "video",
+      "variant": "dash_720p",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_video_dash_720p_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_video_dash_720p_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_video_dash_720p_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 4290,
+      "inner_packets": 4311,
+      "started_at": "2026-09-05T16:01:01.797039Z",
+      "ended_at": "2026-09-05T16:01:41.336779Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_web_skimming_clean_r0": {
+      "cell_id": "42489de0b47d_web_skimming_clean_r0",
+      "config_id": "42489de0b47d",
+      "generator": "web",
+      "variant": "skimming",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_web_skimming_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_web_skimming_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_web_skimming_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 16355,
+      "inner_packets": 16362,
+      "started_at": "2026-09-05T16:01:43.624808Z",
+      "ended_at": "2026-09-05T16:02:20.770227Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_email_smtp_small_wan_good_r0": {
+      "cell_id": "42489de0b47d_email_smtp_small_wan_good_r0",
+      "config_id": "42489de0b47d",
+      "generator": "email",
+      "variant": "smtp_small",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_email_smtp_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_email_smtp_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_email_smtp_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 172,
+      "inner_packets": 172,
+      "started_at": "2026-09-05T16:02:23.095122Z",
+      "ended_at": "2026-09-05T16:02:59.205023Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_messaging_chat_idle_wan_poor_r0": {
+      "cell_id": "42489de0b47d_messaging_chat_idle_wan_poor_r0",
+      "config_id": "42489de0b47d",
+      "generator": "messaging",
+      "variant": "chat_idle",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_messaging_chat_idle_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_messaging_chat_idle_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_messaging_chat_idle_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 56,
+      "inner_packets": 64,
+      "started_at": "2026-09-05T16:03:01.571166Z",
+      "ended_at": "2026-09-05T16:03:42.189988Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "42489de0b47d_replay_mawi_sample_clean_r0": {
+      "cell_id": "42489de0b47d_replay_mawi_sample_clean_r0",
+      "config_id": "42489de0b47d",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/42489de0b47d_replay_mawi_sample_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/42489de0b47d_replay_mawi_sample_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/42489de0b47d_replay_mawi_sample_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 965,
+      "inner_packets": 915,
+      "started_at": "2026-09-05T16:03:44.541717Z",
+      "ended_at": "2026-09-05T16:03:50.613312Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_icmp_flood_small_wan_good_r0": {
+      "cell_id": "5a9704bb2082_icmp_flood_small_wan_good_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_icmp_flood_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_icmp_flood_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_icmp_flood_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3004,
+      "inner_packets": 3010,
+      "started_at": "2026-09-05T16:03:52.858088Z",
+      "ended_at": "2026-09-05T16:04:33.698473Z",
       "details": {
         "mismatches": []
       }
