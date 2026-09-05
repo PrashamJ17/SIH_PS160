@@ -70,6 +70,8 @@ class IKEHeader:
     flags: int
     message_id: int
     length: int
+    truncated: bool = False
+    """The message declared more bytes than the capture holds — a snaplen cut."""
 
     @property
     def is_initiator(self) -> bool:
@@ -119,13 +121,20 @@ def _resolve_exchange(exchange_type: int, major: int) -> str:
     return f"UNKNOWN_EXCHANGE_{exchange_type}"
 
 
-def parse_ike_header(data: bytes) -> IKEHeader:
+def parse_ike_header(data: bytes, *, tolerate_truncation: bool = False) -> IKEHeader:
     """Parse the fixed IKE header.
 
     ``TruncatedError`` when there is not enough data, or when the message declares
     more than was supplied. ``MalformedError`` when the declared length is impossible
     — a message cannot be shorter than its own header, and a parser that accepted that
     would go on to compute a negative payload span.
+
+    ``tolerate_truncation`` accepts a message whose declared length exceeds the buffer,
+    marking the result ``truncated`` instead of raising. Captures taken with a snaplen
+    cut every message short, and that is the normal case in the field rather than a
+    corrupt one — the header is intact and the payloads that did arrive are still
+    readable. The default stays strict so that callers who need a whole message, and
+    the tests that pin that behaviour, are unaffected.
     """
     reader = SafeReader(data)
     initiator_spi = reader.read_bytes(IKE_SPI_LENGTH)
@@ -142,7 +151,8 @@ def parse_ike_header(data: bytes) -> IKEHeader:
             f"declared message length {length} is shorter than the {IKE_HEADER_LENGTH}-byte "
             f"IKE header"
         )
-    if length > len(data):
+    truncated = length > len(data)
+    if truncated and not tolerate_truncation:
         raise TruncatedError(f"message declares {length} bytes but only {len(data)} were supplied")
 
     major, minor, version, unknown_version = _resolve_version(raw_version)
@@ -159,6 +169,7 @@ def parse_ike_header(data: bytes) -> IKEHeader:
         flags=flags,
         message_id=message_id,
         length=length,
+        truncated=truncated,
     )
 
 

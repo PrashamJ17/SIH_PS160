@@ -1,0 +1,94 @@
+{
+  "capture_id": "dee3951778d7_email_imap_sync_clean_r0",
+  "config_id": "dee3951778d7",
+  "intent": {
+    "ike_version": "ikev2",
+    "encryption": "aes128gcm16",
+    "integrity": null,
+    "prf": "prfsha256",
+    "dh_group": "ecp256",
+    "pfs": false,
+    "child_dh_group": null,
+    "mode": "tunnel",
+    "ip_version": 4,
+    "ike_lifetime_s": 86400,
+    "child_lifetime_s": 1800,
+    "aggressive": false
+  },
+  "negotiated_ike": {
+    "established": true,
+    "ike_version": "IKEv2",
+    "encryption": "AES_GCM_16",
+    "encryption_keylen": 128,
+    "integrity": null,
+    "prf": "PRF_HMAC_SHA2_256",
+    "dh_group": "ECP_256",
+    "initiator_spi": "85a663ce0d6b8ee9",
+    "responder_spi": "c4d1aafb71ac4f37",
+    "local_host": "10.100.0.2",
+    "remote_host": "10.100.0.3",
+    "local_port": 4500,
+    "remote_port": 4500,
+    "nat_t": true
+  },
+  "negotiated_child": {
+    "installed": true,
+    "mode": "tunnel",
+    "esp_encryption": "AES_GCM_16",
+    "esp_keylen": 128,
+    "esp_integrity": null,
+    "spi_in": "c907e86b",
+    "spi_out": "c6501720",
+    "local_ts": "10.110.0.0/24",
+    "remote_ts": "10.120.0.0/24",
+    "reqid": 1
+  },
+  "kernel_sas": [
+    {
+      "src": "10.100.0.2",
+      "dst": "10.100.0.3",
+      "proto": "esp",
+      "spi": "0xc6501720",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 0,
+      "algorithm": "rfc4106(gcm(aes))",
+      "algorithm_kind": "aead",
+      "icv_bits": 128
+    },
+    {
+      "src": "10.100.0.3",
+      "dst": "10.100.0.2",
+      "proto": "esp",
+      "spi": "0xc907e86b",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 32,
+      "algorithm": "rfc4106(gcm(aes))",
+      "algorithm_kind": "aead",
+      "icv_bits": 128
+    }
+  ],
+  "negotiation_matched_intent": true,
+  "mismatches": [],
+  "capture_meta": {
+    "cell_id": "dee3951778d7_email_imap_sync_clean_r0",
+    "generator": "email",
+    "variant": "imap_sync",
+    "impairment": "clean",
+    "repeat": 0,
+    "duration_s": 30,
+    "outer_pcap": "capture_outer.pcap",
+    "inner_pcap": "capture_inner.pcap",
+    "outer_packets": 233,
+    "inner_packets": 241,
+    "packets_generated": 7,
+    "bytes_generated": 38245,
+    "netem": {
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "loss_pct": 0.0,
+      "rate_mbit": null
+    }
+  }
+}

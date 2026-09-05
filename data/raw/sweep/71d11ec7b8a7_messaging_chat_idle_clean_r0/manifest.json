@@ -1,0 +1,94 @@
+{
+  "capture_id": "71d11ec7b8a7_messaging_chat_idle_clean_r0",
+  "config_id": "71d11ec7b8a7",
+  "intent": {
+    "ike_version": "ikev2",
+    "encryption": "aes128gcm16",
+    "integrity": null,
+    "prf": "prfsha384",
+    "dh_group": "modp2048",
+    "pfs": true,
+    "child_dh_group": "modp2048",
+    "mode": "tunnel",
+    "ip_version": 4,
+    "ike_lifetime_s": 14400,
+    "child_lifetime_s": 28800,
+    "aggressive": false
+  },
+  "negotiated_ike": {
+    "established": true,
+    "ike_version": "IKEv2",
+    "encryption": "AES_GCM_16",
+    "encryption_keylen": 128,
+    "integrity": null,
+    "prf": "PRF_HMAC_SHA2_384",
+    "dh_group": "MODP_2048",
+    "initiator_spi": "efd135c5fb8e3d0c",
+    "responder_spi": "e9d2eeb95c4d3d75",
+    "local_host": "10.100.0.2",
+    "remote_host": "10.100.0.3",
+    "local_port": 4500,
+    "remote_port": 4500,
+    "nat_t": true
+  },
+  "negotiated_child": {
+    "installed": true,
+    "mode": "tunnel",
+    "esp_encryption": "AES_GCM_16",
+    "esp_keylen": 128,
+    "esp_integrity": null,
+    "spi_in": "c191d49a",
+    "spi_out": "c5b1090f",
+    "local_ts": "10.110.0.0/24",
+    "remote_ts": "10.120.0.0/24",
+    "reqid": 1
+  },
+  "kernel_sas": [
+    {
+      "src": "10.100.0.2",
+      "dst": "10.100.0.3",
+      "proto": "esp",
+      "spi": "0xc5b1090f",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 0,
+      "algorithm": "rfc4106(gcm(aes))",
+      "algorithm_kind": "aead",
+      "icv_bits": 128
+    },
+    {
+      "src": "10.100.0.3",
+      "dst": "10.100.0.2",
+      "proto": "esp",
+      "spi": "0xc191d49a",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 32,
+      "algorithm": "rfc4106(gcm(aes))",
+      "algorithm_kind": "aead",
+      "icv_bits": 128
+    }
+  ],
+  "negotiation_matched_intent": true,
+  "mismatches": [],
+  "capture_meta": {
+    "cell_id": "71d11ec7b8a7_messaging_chat_idle_clean_r0",
+    "generator": "messaging",
+    "variant": "chat_idle",
+    "impairment": "clean",
+    "repeat": 0,
+    "duration_s": 30,
+    "outer_pcap": "capture_outer.pcap",
+    "inner_pcap": "capture_inner.pcap",
+    "outer_packets": 50,
+    "inner_packets": 59,
+    "packets_generated": 7,
+    "bytes_generated": 603,
+    "netem": {
+      "delay_ms": 0,
+      "jitter_ms": 0,
+      "loss_pct": 0.0,
+      "rate_mbit": null
+    }
+  }
+}

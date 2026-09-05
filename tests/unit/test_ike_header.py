@@ -138,3 +138,39 @@ class TestMessageId:
     def test_header_length_constant(self) -> None:
         assert IKE_HEADER_LENGTH == 28
         assert len(build_ike_header()) == 28
+
+
+class TestTruncationTolerance:
+    """Captures taken with a snaplen cut every message short.
+
+    That is the normal case in the field, not a corrupt one: the header is intact and
+    the payloads that arrived are still readable. The strict default is kept for
+    callers who need a whole message, so tolerance has to be asked for explicitly.
+    """
+
+    @staticmethod
+    def _cut() -> bytes:
+        return build_ike_header(length=512)
+
+    def test_the_default_still_rejects_a_short_message(self) -> None:
+        with pytest.raises(TruncatedError):
+            parse_ike_header(self._cut())
+
+    def test_tolerance_parses_it_and_marks_it_truncated(self) -> None:
+        header = parse_ike_header(self._cut(), tolerate_truncation=True)
+        assert header.truncated is True
+        assert header.length == 512
+
+    def test_a_complete_message_is_never_marked_truncated(self) -> None:
+        data = build_ike_header(length=IKE_HEADER_LENGTH)
+        assert parse_ike_header(data, tolerate_truncation=True).truncated is False
+        assert parse_ike_header(data).truncated is False
+
+    def test_tolerance_does_not_excuse_an_impossible_length(self) -> None:
+        """A message shorter than its own header is malformed however it was captured."""
+        with pytest.raises(MalformedError):
+            parse_ike_header(build_ike_header(length=4), tolerate_truncation=True)
+
+    def test_tolerance_does_not_excuse_a_missing_header(self) -> None:
+        with pytest.raises(TruncatedError):
+            parse_ike_header(b"\x00" * 10, tolerate_truncation=True)

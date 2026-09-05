@@ -46,12 +46,17 @@ V1_ATTR_ENCRYPTION: Final = 1
 V1_ATTR_HASH: Final = 2
 V1_ATTR_AUTH_METHOD: Final = 3
 V1_ATTR_GROUP: Final = 4
+V1_ATTR_LIFE_TYPE: Final = 11
+V1_ATTR_LIFE_DURATION: Final = 12
+V1_ATTR_KEY_LENGTH: Final = 14
 V1_AUTH_PRE_SHARED_KEY: Final = 1
+V1_AUTH_RSA_SIGNATURES: Final = 3
 
 VERSION_IKEV1: Final = 0x10
 VERSION_IKEV2: Final = 0x20
 
 EXCHANGE_IKE_SA_INIT: Final = 34
+EXCHANGE_V1_MAIN: Final = 2
 EXCHANGE_V1_AGGRESSIVE: Final = 4
 
 PROTOCOL_IKE: Final = 1
@@ -308,6 +313,11 @@ def build_ikev1_aggressive(
     hash_alg: int = 1,
     group: int = 2,
     auth_method: int = V1_AUTH_PRE_SHARED_KEY,
+    exchange_type: int = EXCHANGE_V1_AGGRESSIVE,
+    life_type: int | None = None,
+    life_duration: int | None = None,
+    key_length: int | None = None,
+    doi: int = 1,
 ) -> bytes:
     """IKEv1 Aggressive Mode with PSK authentication.
 
@@ -325,12 +335,21 @@ def build_ikev1_aggressive(
         + build_v1_attribute(V1_ATTR_AUTH_METHOD, auth_method)
         + build_v1_attribute(V1_ATTR_GROUP, group)
     )
+    if key_length is not None:
+        attributes += build_v1_attribute(V1_ATTR_KEY_LENGTH, key_length)
+    if life_type is not None:
+        attributes += build_v1_attribute(V1_ATTR_LIFE_TYPE, life_type)
+    if life_duration is not None:
+        # Lifetime duration is conventionally the long (TLV) form, 4 bytes.
+        attributes += struct.pack("!HH", V1_ATTR_LIFE_DURATION, 4) + struct.pack(
+            "!I", life_duration
+        )
     # IKEv1 transform payload: header, transform #, transform-id, 2 reserved bytes.
     transform = struct.pack("!BBHBBH", 0, 0, 8 + len(attributes), 1, 1, 0) + attributes
     # IKEv1 proposal payload: header, proposal #, protocol, SPI size, # transforms.
     proposal = struct.pack("!BBHBBBB", 0, 0, 8 + len(transform), 1, PROTOCOL_IKE, 0, 1) + transform
-    # IKEv1 SA payload: header, DOI (1 = IPsec), Situation (1 = identity only).
-    sa_body = struct.pack("!II", 1, 1) + proposal
+    # IKEv1 SA payload: header, DOI, then Situation for the IPsec DOI only.
+    sa_body = (struct.pack("!II", doi, 1) if doi == 1 else struct.pack("!I", doi)) + proposal
     sa_payload = _generic_payload(V1_PAYLOAD_KE, sa_body)
 
     ke_payload = _generic_payload(V1_PAYLOAD_NONCE, b"\xcd" * _KE_LENGTH_BY_GROUP.get(group, 128))
@@ -344,8 +363,18 @@ def build_ikev1_aggressive(
         {
             "next_payload": V1_PAYLOAD_SA,
             "version": VERSION_IKEV1,
-            "exchange_type": EXCHANGE_V1_AGGRESSIVE,
+            "exchange_type": exchange_type,
             "flags": 0x00,
         },
         payloads,
     )
+
+
+def build_ikev1_main_mode(auth_method: int = V1_AUTH_PRE_SHARED_KEY, **kwargs: int) -> bytes:
+    """IKEv1 Main Mode (exchange type 2).
+
+    Structurally identical to Aggressive Mode at the SA payload; the difference that
+    matters is the exchange type, because Main Mode completes the DH exchange before
+    any authentication payload is sent. PSK here is not a crackable-hash finding.
+    """
+    return build_ikev1_aggressive(auth_method=auth_method, exchange_type=EXCHANGE_V1_MAIN, **kwargs)

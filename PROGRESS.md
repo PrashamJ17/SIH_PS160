@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 4 — Deterministic IKE parser (M3 gate still outstanding; see Blockers)
-**Current step:** 4.7 — IKEv1 support
+**Current step:** 4.8 — PCAP ingestion
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -85,7 +85,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.4 — Transform parser with attribute support — commit `444b875`
 - [x] 4.5 — Proposal and SA payload parser — commit `4079e05`
 - [x] 4.6 — KE, nonce, notify and vendor ID payloads — commit `13bd785`
-- [ ] 4.7 — IKEv1 support
+- [x] 4.7 — IKEv1 support (aggressive mode + PSK detection) — commit `PENDING`
 - [ ] 4.8 — PCAP ingestion
 - [ ] 4.9 — Parser fuzzing **(UNCUTTABLE)**
 - [ ] 4.10 — tshark parity check

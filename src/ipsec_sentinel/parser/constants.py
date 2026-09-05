@@ -302,3 +302,115 @@ def notify_protocol_name(protocol_id: int) -> str:
     if protocol_id == 0:
         return "NONE"
     return PROTOCOL_IDS.get(protocol_id, f"UNKNOWN_PROTOCOL_{protocol_id}")
+
+
+# ---------------------------------------------------------------------------
+# IKEv1 (RFC 2407/2408/2409)
+#
+# IKEv1 encodes a phase 1 proposal entirely as SA attributes, so none of the IKEv2
+# transform-type tables apply. The attribute classes and their value spaces are
+# separate registries and are kept separate here — resolving an IKEv1 encryption value
+# through the IKEv2 table would report 3DES-CBC (value 5) as ENCR_DES_IV32.
+# ---------------------------------------------------------------------------
+
+IKEV1_DOI: Final[dict[int, str]] = {0: "ISAKMP", 1: "IPSEC"}
+
+IKEV1_ATTRIBUTE_CLASSES: Final[dict[int, str]] = {
+    1: "Encryption Algorithm",
+    2: "Hash Algorithm",
+    3: "Authentication Method",
+    4: "Group Description",
+    5: "Group Type",
+    6: "Group Prime/Irreducible Polynomial",
+    7: "Group Generator One",
+    8: "Group Generator Two",
+    9: "Group Curve A",
+    10: "Group Curve B",
+    11: "Life Type",
+    12: "Life Duration",
+    13: "PRF",
+    14: "Key Length",
+    15: "Field Size",
+    16: "Group Order",
+}
+
+IKEV1_ATTR_ENCRYPTION: Final = 1
+IKEV1_ATTR_HASH: Final = 2
+IKEV1_ATTR_AUTH_METHOD: Final = 3
+IKEV1_ATTR_GROUP: Final = 4
+IKEV1_ATTR_LIFE_TYPE: Final = 11
+IKEV1_ATTR_LIFE_DURATION: Final = 12
+IKEV1_ATTR_KEY_LENGTH: Final = 14
+
+IKEV1_ENCRYPTION_ALGORITHMS: Final[dict[int, str]] = {
+    1: "DES_CBC",
+    2: "IDEA_CBC",
+    3: "BLOWFISH_CBC",
+    4: "RC5_R16_B64_CBC",
+    5: "3DES_CBC",
+    6: "CAST_CBC",
+    7: "AES_CBC",
+    8: "CAMELLIA_CBC",
+}
+
+IKEV1_HASH_ALGORITHMS: Final[dict[int, str]] = {
+    1: "MD5",
+    2: "SHA",
+    3: "TIGER",
+    4: "SHA2_256",
+    5: "SHA2_384",
+    6: "SHA2_512",
+}
+
+# Value 1 is the one that matters. Aggressive Mode sends the identity and the hash
+# before a shared key exists, so with PSK the hash is offline-crackable by anyone who
+# captured the exchange. That combination is the highest-value finding this tool makes.
+IKEV1_AUTH_METHOD_PSK: Final = 1
+
+IKEV1_AUTH_METHODS: Final[dict[int, str]] = {
+    1: "PRE_SHARED_KEY",
+    2: "DSS_SIGNATURES",
+    3: "RSA_SIGNATURES",
+    4: "ENCRYPTION_WITH_RSA",
+    5: "REVISED_ENCRYPTION_WITH_RSA",
+    64221: "HYBRID_INIT_RSA",
+    64222: "HYBRID_RESP_RSA",
+    65001: "XAUTH_INIT_PRESHARED",
+    65002: "XAUTH_RESP_PRESHARED",
+    65003: "XAUTH_INIT_RSA",
+    65004: "XAUTH_RESP_RSA",
+}
+
+IKEV1_LIFE_TYPES: Final[dict[int, str]] = {1: "seconds", 2: "kilobytes"}
+
+_IKEV1_VALUE_TABLES: Final[dict[int, dict[int, str]]] = {
+    IKEV1_ATTR_ENCRYPTION: IKEV1_ENCRYPTION_ALGORITHMS,
+    IKEV1_ATTR_HASH: IKEV1_HASH_ALGORITHMS,
+    IKEV1_ATTR_AUTH_METHOD: IKEV1_AUTH_METHODS,
+    IKEV1_ATTR_LIFE_TYPE: IKEV1_LIFE_TYPES,
+}
+
+
+def ikev1_doi_name(doi: int) -> str:
+    return IKEV1_DOI.get(doi, f"UNKNOWN_DOI_{doi}")
+
+
+def ikev1_attribute_class_name(attr_type: int) -> str:
+    """Name an IKEv1 SA attribute class, total by construction."""
+    return IKEV1_ATTRIBUTE_CLASSES.get(attr_type, f"UNKNOWN_ATTRIBUTE_{attr_type}")
+
+
+def ikev1_attribute_value_name(attr_type: int, value: int) -> str | None:
+    """Name an IKEv1 attribute's value within its own class.
+
+    Returns ``None`` for classes whose values are numbers rather than enumerations
+    (key length, lifetime duration) — inventing a name for those would be a fiction.
+    The DH group is deliberately routed through :func:`dh_group_name`, which is shared
+    with IKEv2 because the group registry genuinely is shared.
+    """
+    if attr_type == IKEV1_ATTR_GROUP:
+        return dh_group_name(value)
+    table = _IKEV1_VALUE_TABLES.get(attr_type)
+    if table is None:
+        return None
+    return table.get(value, f"UNKNOWN_{ikev1_attribute_class_name(attr_type)}_{value}")
