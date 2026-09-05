@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 5 — ESP analysis (M3 gate still outstanding; see Blockers)
-**Current step:** 5.2 — ESP flow assembly
+**Current step:** 5.3 — sequence and replay analysis
 **Last milestone tag:** `v0.5.0-parser`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -92,7 +92,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **▶ MILESTONE M4 PASSED** — tag `v0.5.0-parser` (7/7 acceptance items, `make verify-all` green)
 ### Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`) ← **CURRENT**
 - [x] 5.1 — ESP header parser — commit `2e58048`
-- [ ] 5.2 — ESP flow assembly
+- [x] 5.2 — ESP flow assembly — commit `PENDING`
 - [ ] 5.3 — Sequence and replay analysis
 - [ ] 5.4 — IKE-to-ESP tunnel correlation
 - [ ] 5.5 — Tunnel inventory

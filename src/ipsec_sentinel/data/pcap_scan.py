@@ -290,6 +290,24 @@ def find_captures(root: Path) -> list[Path]:
 
 
 @dataclass(frozen=True)
+class IPPacket:
+    """One IP packet with the addressing a finding needs to cite it.
+
+    ``wire_length`` is the size of the whole captured frame's IP packet, which is what
+    a traffic-shape feature is computed from; ``payload`` is only the transport body.
+    The two are different numbers and using one where the other belongs would shift
+    every packet-size distribution by a header.
+    """
+
+    timestamp: datetime
+    src_ip: str
+    dst_ip: str
+    protocol: int
+    payload: bytes
+    wire_length: int
+
+
+@dataclass(frozen=True)
 class UDPDatagram:
     """One UDP datagram with the addressing a finding needs to cite it."""
 
@@ -307,12 +325,12 @@ def _format_ipv6(raw: bytes) -> str:
     return str(ipaddress.IPv6Address(raw))
 
 
-def iter_udp_datagrams(path: Path) -> Iterator[UDPDatagram]:
-    """Walk a capture yielding every UDP datagram, in file order.
+def iter_ip_packets(path: Path) -> Iterator[IPPacket]:
+    """Walk a capture yielding every IPv4 or IPv6 packet, in file order.
 
     Raises :class:`UnsupportedCaptureError` for a file that is not a classic pcap.
     Stops cleanly at the first structurally impossible record rather than raising,
-    because a capture cut off mid-write is normal and the datagrams before the cut are
+    because a capture cut off mid-write is normal and the packets before the cut are
     still good.
     """
     with path.open("rb") as handle:
@@ -324,36 +342,53 @@ def iter_udp_datagrams(path: Path) -> Iterator[UDPDatagram]:
             ethertype, packet = stripped
 
             if ethertype == ETHERTYPE_IPV4:
-                if len(packet) < 20 or packet[9] != PROTO_UDP:
+                if len(packet) < 20:
                     continue
                 header_length = (packet[0] & 0x0F) * 4
-                if len(packet) < header_length + 8:
+                if header_length < 20 or len(packet) < header_length:
                     continue
+                protocol = packet[9]
                 source = ".".join(str(b) for b in packet[12:16])
                 destination = ".".join(str(b) for b in packet[16:20])
-                rest = packet[header_length:]
+                body = packet[header_length:]
             elif ethertype == ETHERTYPE_IPV6:
-                # Extension headers are not walked: an IKE datagram behind one is
-                # vanishingly rare, and guessing at the chain would misreport offsets.
-                if len(packet) < 40 or packet[6] != PROTO_UDP or len(packet) < 48:
+                # Extension headers are not walked: guessing at the chain would
+                # misreport both the protocol and every offset behind it.
+                if len(packet) < 40:
                     continue
+                protocol = packet[6]
                 source = _format_ipv6(packet[8:24])
                 destination = _format_ipv6(packet[24:40])
-                rest = packet[40:]
+                body = packet[40:]
             else:
                 continue
 
-            src_port, dst_port, udp_length = struct.unpack("!HHH", rest[:6])
-            # Trust the UDP length over the frame length: trailing padding is common
-            # on small datagrams and would otherwise be handed to the IKE parser.
-            body = rest[8:]
-            if 8 <= udp_length <= len(rest):
-                body = rest[8:udp_length]
-            yield UDPDatagram(
+            yield IPPacket(
                 timestamp=timestamp,
                 src_ip=source,
                 dst_ip=destination,
-                src_port=src_port,
-                dst_port=dst_port,
+                protocol=protocol,
                 payload=body,
+                wire_length=len(packet),
             )
+
+
+def iter_udp_datagrams(path: Path) -> Iterator[UDPDatagram]:
+    """Walk a capture yielding every UDP datagram, in file order."""
+    for packet in iter_ip_packets(path):
+        if packet.protocol != PROTO_UDP or len(packet.payload) < 8:
+            continue
+        src_port, dst_port, udp_length = struct.unpack("!HHH", packet.payload[:6])
+        # Trust the UDP length over the frame length: trailing padding is common on
+        # small datagrams and would otherwise be handed to the IKE parser.
+        body = packet.payload[8:]
+        if 8 <= udp_length <= len(packet.payload):
+            body = packet.payload[8:udp_length]
+        yield UDPDatagram(
+            timestamp=packet.timestamp,
+            src_ip=packet.src_ip,
+            dst_ip=packet.dst_ip,
+            src_port=src_port,
+            dst_port=dst_port,
+            payload=body,
+        )
