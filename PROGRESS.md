@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 4 — Deterministic IKE parser (M3 gate still outstanding; see Blockers)
-**Current step:** 4.9 — parser fuzzing (UNCUTTABLE)
+**Current step:** 4.10 — tshark parity check
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -87,7 +87,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.6 — KE, nonce, notify and vendor ID payloads — commit `13bd785`
 - [x] 4.7 — IKEv1 support (aggressive mode + PSK detection) — commit `e920b84`
 - [x] 4.8 — PCAP ingestion — commit `809f531`
-- [ ] 4.9 — Parser fuzzing **(UNCUTTABLE)**
+- [x] 4.9 — Parser fuzzing **(UNCUTTABLE)** — commit `PENDING`
 - [ ] 4.10 — tshark parity check
 - [ ] **▶ MILESTONE M4** — tag `v0.5.0-parser`
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
@@ -159,6 +159,40 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## Step 4.9 — fuzzing results (UNCUTTABLE step, evidence)
+
+**35,167 inputs per run, zero unexpected exceptions, zero inputs over the 1 s limit.**
+The whole suite runs in 2.5 s, so it is part of `make verify` rather than a nightly job.
+
+The contract under test: for **any** bytes, `parse_ike_message` returns a result or
+raises `TruncatedError` / `MalformedError`. Anything else — `IndexError`, `struct.error`,
+`MemoryError`, a hang — fails the test.
+
+| Corpus | Inputs | Purpose |
+|---|---|---|
+| Pure random | 10,000 | The plan's headline criterion. Seeded, so any finding replays. |
+| Header-shaped random | 1,000 | Random bytes rarely survive header validation; these always do |
+| Hypothesis `st.binary` | 500 | Shrinking finds minimal counterexamples the seeded loops would not |
+| Single-byte flips | 2,000 | 500 per valid fixture |
+| Truncation at every offset | 956 | Every prefix of every fixture — what a snaplen cut produces |
+| Inflated message length | 28 | The classic overread trigger |
+| Every 16-bit word inflated / zeroed | ~1,700 | Payload and transform lengths, without hardcoding their offsets |
+| Splices of two valid messages | 1,000 | Version confusion at an arbitrary boundary |
+| Every payload type, random body | 12,000 | 60 types × 200 |
+| Random SA / proposal-framed / IKEv1 SA bodies | 6,000 | Aimed at the proposal, transform and attribute parsers |
+
+**A measurement that changed the suite.** The first version passed instantly, which was
+suspicious. Instrumenting it showed why: of 10,000 pure-random inputs, 5,998 parsed and
+4,002 were rejected as truncated — but **zero** ever produced a parsed payload. Random
+bytes essentially never name a payload type the parser handles, so the corpus exercised
+the chain walker and stopped there, leaving the proposal, transform and attribute
+parsers — where the parsing actually happens — untouched. The last four corpora above
+were added to aim at them, taking `ike.py` from 90% to 94% and `ikev1.py` to 98% under
+fuzzing alone. The lesson is recorded because "the fuzzer found nothing" is only
+reassuring once you have checked the fuzzer went anywhere.
 
 ---
 
