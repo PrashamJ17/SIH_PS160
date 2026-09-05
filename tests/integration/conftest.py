@@ -7,11 +7,22 @@ failure, and reporting it as one would hide real regressions.
 
 from __future__ import annotations
 
+import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
-from tests.fixtures.dockerctl import build_image, docker_available, image_exists
+from testbed.traffic.base import RunContext
+from tests.fixtures.dockerctl import (
+    build_image,
+    compose,
+    compose_project,
+    docker_available,
+    exec_in,
+    image_exists,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_DIR = REPO_ROOT / "testbed" / "compose"
@@ -42,3 +53,36 @@ def strongswan_image(docker_daemon: str) -> str:  # noqa: ARG001
             COMPOSE_DIR,
         )
     return STRONGSWAN_IMAGE
+
+
+@contextmanager
+def running_pair(out_dir: Path) -> Iterator[RunContext]:
+    """Bring up a pair, establish the tunnel, and yield a RunContext for generators.
+
+    The tunnel is established before the block so traffic tests measure traffic rather
+    than negotiation. Tests that need the IKE handshake in the capture must start the
+    capture themselves before initiating.
+    """
+    env = {"SENTINEL_PSK": secrets.token_hex(24)}
+    with compose_project(PAIR_COMPOSE, env=env) as project:
+
+        def cid(service: str) -> str:
+            out = compose(PAIR_COMPOSE, project, "ps", "-q", service).stdout.strip()
+            if not out:
+                raise RuntimeError(f"no container for service {service}")
+            return out
+
+        left = cid("left")
+        initiate = exec_in(left, "swanctl", "--initiate", "--child", "net-net", timeout=90)
+        if initiate.returncode != 0:
+            raise RuntimeError(f"tunnel did not establish: {initiate.stdout}{initiate.stderr}")
+        yield RunContext(
+            project=project,
+            left_gateway=left,
+            right_gateway=cid("right"),
+            left_host=cid("left_host"),
+            right_host=cid("right_host"),
+            left_host_ip="10.1.0.10",
+            right_host_ip="10.2.0.10",
+            out_dir=out_dir,
+        )

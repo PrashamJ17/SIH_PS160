@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 10:44 UTC
+**Last updated:** 2026-09-05 10:46 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.2 — ICMP generator
+**Current step:** 2.3 — VoIP generator
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -53,8 +53,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Containers and networks torn down cleanly | **no leaks** |
   | All previous tests still pass | **304 unit (100% cov), 48 integration** |
 ### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
-- [x] 2.1 — Traffic generator interface — commit `(this commit)`
-- [ ] 2.2 — ICMP generator
+- [x] 2.1 — Traffic generator interface — commit `4cbe556`
+- [x] 2.2 — ICMP generator — commit `(this commit)`
 - [ ] 2.3 — VoIP generator
 - [ ] 2.4 — Video streaming generator
 - [ ] 2.5 — Web browsing generator
