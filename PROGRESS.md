@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 16:11 UTC
-**Current phase:** 3 — Dataset sweep and external data
-**Current step:** 4.6 — KE, nonce, notify and vendor ID payloads
+**Last updated:** 2026-09-05
+**Current phase:** 4 — Deterministic IKE parser (M3 gate still outstanding; see Blockers)
+**Current step:** 4.7 — IKEv1 support
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -33,7 +33,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Builders produce valid byte sequences | **4/4 valid, payload chains terminate exactly** |
 
 ### Remaining phases (not started)
-### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`) ← **CURRENT**
+### Phase 1 — Testbed (7 steps → `v0.2.0-testbed`)
 - [x] 1.1 — Single strongSwan container — commit `fad199f`
 - [x] 1.2 — Two-peer network topology — commit `7acc8ea`
 - [x] 1.3 — First working tunnel (hardcoded) — commit `4e13351`
@@ -52,7 +52,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | `negotiation_matched_intent` True for a valid config | **True**, zero mismatches |
   | Containers and networks torn down cleanly | **no leaks** |
   | All previous tests still pass | **304 unit (100% cov), 48 integration** |
-### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
+### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`)
 - [x] 2.1 — Traffic generator interface — commit `4cbe556`
 - [x] 2.2 — ICMP generator — commit `c1dc5a4`
 - [x] 2.3 — VoIP generator — commit `722d07b`
@@ -70,7 +70,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Each produces a distinct traffic pattern | **yes** — measured, not eyeballed; see `reports/generator_shapes.json` |
   | Impairment profiles apply and remove cleanly | **yes** — 19 unit + 9 integration tests |
   | All Phase 0 and Phase 1 tests still pass | **341 unit (100% cov), 125 integration** |
-### Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
+### Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [x] 3.1 — Single-run orchestrator — commit `4961d8f`
 - [x] 3.2 — Sweep orchestrator with resumability — commit `944a5d1`
 - [x] 3.3 — External dataset fetcher — commit `fbf5a0d`
@@ -78,7 +78,18 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)** — commit `890603e`
 - [x] 3.6 — Dataset packaging — commit `19ba1e3`
 - [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
-- [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
+### Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`) ← **CURRENT**
+- [x] 4.1 — Bounds-safe byte reader — commit `aa369a8`
+- [x] 4.2 — IKE header parser — commit `26f8c45`
+- [x] 4.3 — Payload chain walker with loop guards — commit `319e3fb`
+- [x] 4.4 — Transform parser with attribute support — commit `444b875`
+- [x] 4.5 — Proposal and SA payload parser — commit `4079e05`
+- [x] 4.6 — KE, nonce, notify and vendor ID payloads — commit `4843201`
+- [ ] 4.7 — IKEv1 support
+- [ ] 4.8 — PCAP ingestion
+- [ ] 4.9 — Parser fuzzing **(UNCUTTABLE)**
+- [ ] 4.10 — tshark parity check
+- [ ] **▶ MILESTONE M4** — tag `v0.5.0-parser`
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
@@ -92,7 +103,21 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 
 ## Blockers
 
-**None.**
+**None blocking.** One item outstanding, tracked here so it cannot be forgotten:
+
+### ⏳ OUTSTANDING — the M3 gate is not yet run
+
+Phase 4 is proceeding ahead of the M3 tag. This is deliberate and is **not** a step being
+skipped: M3's acceptance depends on a 252-cell sweep that takes roughly four hours of
+wall clock and is entirely I/O- and container-bound, so blocking on it would idle the
+parser work for no gain. The parser has no dependency on the sweep output — it reads IKE
+bytes, and its tests build those bytes synthetically.
+
+**M3 remains a hard gate before `v0.4.0-dataset` is tagged**, and it will be run in full:
+sweep to 252/252, then `scripts/package_dataset.py`, then `scripts/check_m3.py`, then the
+acceptance checklist reported item by item. Phase 5 does depend on dataset output, so M3
+will be closed before Phase 4 ends. No milestone tag is being reordered — only the work
+between tags is overlapped.
 
 ### ✅ RESOLVED — Phase 1 testbed viability (was the project's biggest open risk)
 
@@ -415,6 +440,12 @@ nohup .venv/bin/python scripts/run_sweep.py \
 It is resumable: state is written after every cell, so re-running the same command
 continues rather than restarting and no cell runs twice. Progress is in
 `/tmp/sweep_run.log`; the state file is `data/raw/sweep/sweep_state.json`.
+
+**The sweep has been interrupted once already** — it is a child of the shell that
+launched it, and that shell ended with the session, taking the sweep with it at 49/252
+cells (0 failures). Resumability is doing exactly what it was built for: re-issuing the
+same command picks up at cell 50. The lesson recorded here rather than silently fixed:
+`nohup` alone did not survive, so the restart uses `setsid` to detach the process group.
 
 **The `replay` class uses a synthesised stand-in source**, not real CIC-IDS2017, which
 requires registration. The replay *machinery* is real and tested end to end; only the

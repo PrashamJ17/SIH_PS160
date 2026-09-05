@@ -281,3 +281,24 @@ def check_ke_length(declared_group: int, observed_length: int) -> KELengthCheck:
         return KELengthCheck(declared_group, observed_length, candidates, True, True, message)
 
     return KELengthCheck(declared_group, observed_length, candidates, True, False, None)
+
+
+def notify_type_name(notify_type: int) -> str:
+    """Resolve an IKEv2 notify message type to its IANA name.
+
+    Total by construction: an unrecognised type yields ``UNKNOWN_NOTIFY_<n>`` rather
+    than raising. Types 1-16383 are errors, 16384 and above are status notifications;
+    a capture full of unknown error types is itself a finding, so they are kept.
+    """
+    return NOTIFY_TYPES.get(notify_type, f"UNKNOWN_NOTIFY_{notify_type}")
+
+
+def notify_protocol_name(protocol_id: int) -> str:
+    """Resolve the protocol ID in a notify payload.
+
+    Zero is legal and means the notification is not specific to a single SA
+    (RFC 7296 section 3.10), so it is named rather than treated as absent.
+    """
+    if protocol_id == 0:
+        return "NONE"
+    return PROTOCOL_IDS.get(protocol_id, f"UNKNOWN_PROTOCOL_{protocol_id}")

@@ -27,6 +27,11 @@ from ipsec_sentinel.parser.constants import (
     IKEV2_PAYLOAD_TYPES,
     PROTOCOL_IDS,
     TRANSFORM_TYPES,
+    KELengthCheck,
+    check_ke_length,
+    dh_group_name,
+    notify_protocol_name,
+    notify_type_name,
     resolve_transform_name,
 )
 from ipsec_sentinel.parser.reader import (
@@ -519,3 +524,150 @@ def parse_sa_payload(reader: SafeReader) -> SAPayload:
         if parsed.is_last:
             break
     return payload
+
+
+# RFC 7296 section 2.10: nonces are at least 16 octets. A shorter one is not a parse
+# failure — it is a peer worth reporting.
+NONCE_MINIMUM_LENGTH: Final = 16
+
+# RFC 7296 section 3.10.1: the INVALID_KE_PAYLOAD notification data is the two-octet
+# DH group number the responder would have accepted.
+NOTIFY_INVALID_KE_PAYLOAD: Final = 17
+
+
+@dataclass(frozen=True)
+class ParsedKE:
+    """A Key Exchange payload (RFC 7296 section 3.4).
+
+    The public value itself is cryptographically useless to a passive observer, but its
+    *length* is a free cross-check on the DH group the transform claimed. The two can
+    disagree — a peer can be misconfigured, or a capture can be truncated mid-payload —
+    and when they do, the declared group wins and the disagreement is recorded.
+    """
+
+    dh_group: int
+    dh_group_label: str
+    public_value: bytes
+    length_check: KELengthCheck | None = None
+
+    @property
+    def public_value_length(self) -> int:
+        return len(self.public_value)
+
+
+@dataclass(frozen=True)
+class ParsedNonce:
+    """A Nonce payload (RFC 7296 section 3.9).
+
+    Only the length is retained. The nonce value is live key material for the session
+    being observed, and storing it would give this tool a reason to be trusted less;
+    the length alone answers the only question worth asking of it.
+    """
+
+    length: int
+
+    @property
+    def below_minimum(self) -> bool:
+        return self.length < NONCE_MINIMUM_LENGTH
+
+
+@dataclass(frozen=True)
+class ParsedNotify:
+    """A Notify payload (RFC 7296 section 3.10).
+
+    Notifies are where the responder answers back in cleartext, and one of them is
+    genuinely free intelligence: ``INVALID_KE_PAYLOAD`` names the Diffie-Hellman group
+    the responder *would* have accepted. That is the gateway volunteering its own
+    preferred configuration to anyone listening, without a single packet being sent to
+    it — a passive read of policy that would otherwise need an active scan.
+    """
+
+    protocol_id: int
+    protocol: str
+    spi: str
+    notify_type: int
+    notify_name: str
+    data: bytes
+    preferred_dh_group: int | None = None
+
+
+@dataclass(frozen=True)
+class ParsedVendorID:
+    """A Vendor ID payload (RFC 7296 section 3.12).
+
+    Vendor IDs are opaque by specification, but in practice they fingerprint the
+    implementation and often its version. The stable lowercase hex is what a signature
+    database is keyed on; the printable form is a convenience for the many vendors who
+    simply put their name in the clear.
+    """
+
+    raw: bytes
+    vendor_id: str
+    printable: str | None = None
+
+
+def parse_ke_payload(reader: SafeReader, declared_group: int | None = None) -> ParsedKE:
+    """Parse a Key Exchange payload body.
+
+    ``declared_group`` is the group named by the negotiated transform, when it is
+    known. Supplying it enables the length cross-check; omitting it skips the check
+    entirely rather than guessing a group from the length, because the length is
+    genuinely ambiguous for some groups (768-bit MODP and 384-bit ECP are both 96
+    bytes) and a guess would manufacture a fact this module is not allowed to invent.
+    """
+    dh_group = reader.u16()
+    reader.u16()  # RESERVED
+    public_value = reader.rest()
+    check = (
+        check_ke_length(declared_group, len(public_value)) if declared_group is not None else None
+    )
+    return ParsedKE(
+        dh_group=dh_group,
+        dh_group_label=dh_group_name(dh_group),
+        public_value=public_value,
+        length_check=check,
+    )
+
+
+def parse_nonce_payload(reader: SafeReader) -> ParsedNonce:
+    """Measure a Nonce payload without retaining its value."""
+    return ParsedNonce(length=len(reader.rest()))
+
+
+def parse_notify_payload(reader: SafeReader) -> ParsedNotify:
+    """Parse a Notify payload body, extracting the responder's preferred group.
+
+    The preferred group is read only for ``INVALID_KE_PAYLOAD``. Every other notify
+    type carries unrelated notification data, and reading the first two bytes of it as
+    a group number would invent a fact from a field that does not hold one.
+    """
+    protocol_id = reader.u8()
+    spi_size = reader.u8()
+    notify_type = reader.u16()
+    spi = reader.read_bytes(spi_size)
+    data = reader.rest()
+
+    preferred_dh_group: int | None = None
+    if notify_type == NOTIFY_INVALID_KE_PAYLOAD and len(data) >= 2:
+        preferred_dh_group = int.from_bytes(data[:2], "big")
+
+    return ParsedNotify(
+        protocol_id=protocol_id,
+        protocol=notify_protocol_name(protocol_id),
+        spi=spi.hex(),
+        notify_type=notify_type,
+        notify_name=notify_type_name(notify_type),
+        data=data,
+        preferred_dh_group=preferred_dh_group,
+    )
+
+
+def parse_vendor_id_payload(reader: SafeReader) -> ParsedVendorID:
+    """Parse a Vendor ID payload body."""
+    raw = reader.rest()
+    printable = raw.decode("ascii") if raw and _is_printable_ascii(raw) else None
+    return ParsedVendorID(raw=raw, vendor_id=raw.hex(), printable=printable)
+
+
+def _is_printable_ascii(data: bytes) -> bool:
+    return all(0x20 <= byte <= 0x7E for byte in data)
