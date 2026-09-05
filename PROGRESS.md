@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 14:11 UTC
+**Last updated:** 2026-09-05 16:06 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** MILESTONE M3 gate — full sweep
+**Current step:** 4.3 — Payload chain walker
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,

@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T16:04:36.083048Z",
+  "updated_at": "2026-09-05T16:05:55.048089Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -30,7 +30,9 @@
     "42489de0b47d_email_smtp_small_wan_good_r0",
     "42489de0b47d_messaging_chat_idle_wan_poor_r0",
     "42489de0b47d_replay_mawi_sample_clean_r0",
-    "5a9704bb2082_icmp_flood_small_wan_good_r0"
+    "5a9704bb2082_icmp_flood_small_wan_good_r0",
+    "5a9704bb2082_voip_g711_20ms_wan_poor_r0",
+    "5a9704bb2082_video_dash_1080p_clean_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -610,6 +612,46 @@
       "inner_packets": 3010,
       "started_at": "2026-09-05T16:03:52.858088Z",
       "ended_at": "2026-09-05T16:04:33.698473Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_voip_g711_20ms_wan_poor_r0": {
+      "cell_id": "5a9704bb2082_voip_g711_20ms_wan_poor_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_voip_g711_20ms_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_voip_g711_20ms_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_voip_g711_20ms_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 2984,
+      "inner_packets": 3008,
+      "started_at": "2026-09-05T16:04:36.083814Z",
+      "ended_at": "2026-09-05T16:05:12.448422Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_video_dash_1080p_clean_r0": {
+      "cell_id": "5a9704bb2082_video_dash_1080p_clean_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "video",
+      "variant": "dash_1080p",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_video_dash_1080p_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_video_dash_1080p_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_video_dash_1080p_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 22736,
+      "inner_packets": 22722,
+      "started_at": "2026-09-05T16:05:14.748052Z",
+      "ended_at": "2026-09-05T16:05:52.783841Z",
       "details": {
         "mismatches": []
       }
