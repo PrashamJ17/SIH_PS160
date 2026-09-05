@@ -81,10 +81,10 @@ class MessagingGenerator:
                 "the XMPP account password must be supplied; it is generated per run "
                 "and passed to both the sidecar and this generator"
             )
-        if not wait_for_service(ctx.left_host, XMPP_ORIGIN_IP, XMPP_PORT):
+        if not wait_for_service(ctx.left_host, ctx.xmpp_origin_ip, XMPP_PORT):
             raise RuntimeError(
-                f"the sidecar at {XMPP_ORIGIN_IP}:{XMPP_PORT} never accepted a connection; "
-                "starting anyway would produce a short, sparse capture"
+                f"the sidecar at {ctx.xmpp_origin_ip}:{XMPP_PORT} never accepted "
+                "a connection; starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 

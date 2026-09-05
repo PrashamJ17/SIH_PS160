@@ -56,10 +56,10 @@ class WebGenerator:
         self._ctx: RunContext | None = None
 
     def setup(self, ctx: RunContext) -> None:
-        if not wait_for_service(ctx.left_host, WEB_ORIGIN_IP, WEB_ORIGIN_PORT):
+        if not wait_for_service(ctx.left_host, ctx.web_origin_ip, WEB_ORIGIN_PORT):
             raise RuntimeError(
-                f"the origin at {WEB_ORIGIN_IP}:{WEB_ORIGIN_PORT} never accepted a connection; "
-                "starting anyway would produce a short, sparse capture"
+                f"the origin at {ctx.web_origin_ip}:{WEB_ORIGIN_PORT} never accepted "
+                "a connection; starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 
@@ -80,7 +80,7 @@ class WebGenerator:
                 "python3",
                 WEB_BROWSER,
                 "--origin",
-                f"http://{WEB_ORIGIN_IP}:{WEB_ORIGIN_PORT}",
+                f"http://{ctx.web_origin_ip}:{WEB_ORIGIN_PORT}",
                 "--duration-s",
                 str(duration_s),
                 "--think-min",

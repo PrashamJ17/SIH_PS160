@@ -13,6 +13,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     iproute2 iputils-ping tcpdump iperf3 curl \
     && rm -rf /var/lib/apt/lists/*
 
+# strongSwan refuses IKEv1 Aggressive Mode with a pre-shared key unless this option
+# is set, and named it to make the refusal impossible to misread. It is right: the
+# responder hands out a hash of the PSK to anyone who asks, which is crackable
+# offline — that is precisely why rule IKE-03 is Critical rather than High.
+#
+# The testbed must be able to BUILD the insecure configuration in order to capture it
+# and prove the analyser detects it. This setting therefore belongs to the lab and to
+# nothing else; it is never emitted by the remediation generators, which exist to move
+# real deployments off exactly this.
+RUN printf 'charon {\n    i_dont_care_about_security_and_use_aggressive_mode_psk = yes\n}\n' \
+    > /etc/strongswan.d/99-testbed-aggressive-mode.conf
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

@@ -169,12 +169,17 @@ def run_cell(
     *,
     replay_source: Path | None = None,
     seed: int | None = None,
+    slot_env: dict[str, str] | None = None,
+    addresses: Any = None,
 ) -> RunOutcome:
     """Execute one cell end to end and return its outcome.
 
     Never raises for an operational failure: a cell that cannot establish a tunnel is
     a recorded result, not an exception, because the sweep must continue and the
     failure itself is data about that configuration.
+
+    ``slot_env`` and ``addresses`` place this cell in one concurrency slot's private
+    subnets. Omitting them uses slot 0, which is what a single pair uses.
     """
     started = datetime.now(UTC)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -202,12 +207,31 @@ def run_cell(
     except Exception as exc:
         return failure(f"could not build generator: {type(exc).__name__}: {exc}")
 
-    (conf_dir / "left.conf").write_text(render_swanctl_conf(cell.config, "left"))
-    (conf_dir / "right.conf").write_text(render_swanctl_conf(cell.config, "right"))
+    # The rendered traffic selectors must match the slot's subnets, or the tunnel
+    # comes up and then carries nothing.
+    topology = None
+    if addresses is not None:
+        from testbed.orchestrate.config_gen import Topology
+
+        topology = Topology(
+            left_transit=addresses.left_transit,
+            right_transit=addresses.right_transit,
+            left_subnet=addresses.left_subnet,
+            right_subnet=addresses.right_subnet,
+        )
+    (conf_dir / "left.conf").write_text(render_swanctl_conf(cell.config, "left", topology))
+    (conf_dir / "right.conf").write_text(render_swanctl_conf(cell.config, "right", topology))
+    left_transit = getattr(addresses, "left_transit", LEFT_TRANSIT)
+    right_transit = getattr(addresses, "right_transit", RIGHT_TRANSIT)
+    left_protected = getattr(addresses, "left_protected", LEFT_PROTECTED)
+    left_host_ip = getattr(addresses, "left_host", LEFT_HOST_IP)
+    right_host_ip = getattr(addresses, "right_host", RIGHT_HOST_IP)
+
     env = {
         "SENTINEL_PSK": secrets.token_hex(24),
         "LEFT_CONF": str(conf_dir / "left.conf"),
         "RIGHT_CONF": str(conf_dir / "right.conf"),
+        **(slot_env or {}),
         **built.env,
     }
 
@@ -228,8 +252,8 @@ def run_cell(
         from testbed.orchestrate.capture import interface_holding
 
         endpoints = [
-            (left, interface_holding(left, LEFT_TRANSIT)),
-            (right, interface_holding(right, RIGHT_TRANSIT)),
+            (left, interface_holding(left, left_transit)),
+            (right, interface_holding(right, right_transit)),
         ]
         apply_profile(endpoints, impairment)
 
@@ -239,16 +263,20 @@ def run_cell(
             right_gateway=right,
             left_host=left_host,
             right_host=right_host,
-            left_host_ip=LEFT_HOST_IP,
-            right_host_ip=RIGHT_HOST_IP,
+            left_host_ip=left_host_ip,
+            right_host_ip=right_host_ip,
             out_dir=out_dir,
+            video_origin_ip=getattr(addresses, "video_origin", "10.2.0.20"),
+            web_origin_ip=getattr(addresses, "web_origin", "10.2.0.21"),
+            mail_origin_ip=getattr(addresses, "mail_origin", "10.2.0.22"),
+            xmpp_origin_ip=getattr(addresses, "xmpp_origin", "10.2.0.23"),
         )
         try:
             built.generator.setup(ctx)
         except Exception as exc:
             return failure(f"generator setup failed: {type(exc).__name__}: {exc}")
 
-        capture = dual_capture_for_pair(left, LEFT_TRANSIT, LEFT_PROTECTED, out_dir)
+        capture = dual_capture_for_pair(left, left_transit, left_protected, out_dir)
         with capture:
             # Capture is already running, so the handshake lands in the outer PCAP.
             initiate = _exec(left, "swanctl", "--initiate", "--child", "net-net", timeout=180)

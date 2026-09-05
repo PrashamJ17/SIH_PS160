@@ -78,10 +78,10 @@ class EmailGenerator:
                 "the mailbox password must be supplied; it is generated per run and "
                 "passed to both the sidecar and this generator"
             )
-        if not wait_for_service(ctx.left_host, MAIL_ORIGIN_IP, 25):
+        if not wait_for_service(ctx.left_host, ctx.mail_origin_ip, 25):
             raise RuntimeError(
-                f"the sidecar at {MAIL_ORIGIN_IP}:{25} never accepted a connection; "
-                "starting anyway would produce a short, sparse capture"
+                f"the sidecar at {ctx.mail_origin_ip}:{25} never accepted "
+                "a connection; starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 

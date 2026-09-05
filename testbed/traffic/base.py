@@ -40,6 +40,14 @@ class RunContext:
     right_host_ip: str
     out_dir: Path
 
+    # Sidecar addresses travel with the context rather than living as module constants
+    # in each generator, because the sweep runs several pairs concurrently and each
+    # slot gets its own subnets. Defaults are slot 0, which is what a single pair uses.
+    video_origin_ip: str = "10.2.0.20"
+    web_origin_ip: str = "10.2.0.21"
+    mail_origin_ip: str = "10.2.0.22"
+    xmpp_origin_ip: str = "10.2.0.23"
+
 
 class GenerationResult(BaseModel):
     """What one generator run produced.

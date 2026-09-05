@@ -60,10 +60,10 @@ class VideoGenerator:
         self._ctx: RunContext | None = None
 
     def setup(self, ctx: RunContext) -> None:
-        if not wait_for_service(ctx.left_host, VIDEO_ORIGIN_IP, VIDEO_ORIGIN_PORT):
+        if not wait_for_service(ctx.left_host, ctx.video_origin_ip, VIDEO_ORIGIN_PORT):
             raise RuntimeError(
-                f"the origin at {VIDEO_ORIGIN_IP}:{VIDEO_ORIGIN_PORT} never accepted a connection; "
-                "starting anyway would produce a short, sparse capture"
+                f"the origin at {ctx.video_origin_ip}:{VIDEO_ORIGIN_PORT} never accepted "
+                "a connection; starting anyway would produce a short, sparse capture"
             )
         self._ctx = ctx
 
@@ -89,7 +89,7 @@ class VideoGenerator:
                 "python3",
                 DASH_PLAYER,
                 "--origin",
-                f"http://{VIDEO_ORIGIN_IP}:{VIDEO_ORIGIN_PORT}",
+                f"http://{ctx.video_origin_ip}:{VIDEO_ORIGIN_PORT}",
                 "--rung",
                 self.variant.rung,
                 "--segment-seconds",

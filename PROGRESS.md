@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 13:04 UTC
+**Last updated:** 2026-09-05 13:19 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** 3.2 — Sweep orchestrator with resumability
+**Current step:** 3.3 — External dataset fetcher
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -71,8 +71,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | Impairment profiles apply and remove cleanly | **yes** — 19 unit + 9 integration tests |
   | All Phase 0 and Phase 1 tests still pass | **341 unit (100% cov), 125 integration** |
 ### Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
-- [x] 3.1 — Single-run orchestrator — commit `(this commit)`
-- [ ] 3.2 — Sweep orchestrator with resumability
+- [x] 3.1 — Single-run orchestrator — commit `4961d8f`
+- [x] 3.2 — Sweep orchestrator with resumability — commit `(this commit)`
 - [ ] 3.3 — External dataset fetcher
 - [ ] 3.4 — Dataset documentation
 - [ ] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)**
@@ -351,6 +351,30 @@ else.
 
 Everything else is genuine protocol: real Postfix and Dovecot for email, real nginx
 origins for web and video, real Prosody for XMPP.
+
+### strongSwan blocks Aggressive Mode + PSK by design
+
+The `worst` anchor — IKEv1 Aggressive Mode with 3DES/MD5/DH-2 — could not establish.
+The cause is not a bug: strongSwan **refuses** aggressive mode with a pre-shared key
+unless you set
+
+```
+charon { i_dont_care_about_security_and_use_aggressive_mode_psk = yes }
+```
+
+and it named the option that way deliberately. It is right to. The responder hands a
+hash of the PSK to anyone who asks and that hash is crackable offline, which is exactly
+why rule IKE-03 is Critical rather than High — and it is a good line for the
+presentation: the reference implementation considers this configuration so dangerous
+that enabling it requires saying you do not care about security.
+
+The option is baked into **`Dockerfile.strongswan` only**, because the testbed has to be
+able to *build* the insecure configuration in order to capture it and prove the analyser
+detects it. It must never appear in anything the remediation generators emit — those
+exist to move real deployments off precisely this.
+
+Verified on the wire: version `0x10`, exchange type 4, 3DES_CBC / HMAC_MD5_96 /
+MODP_1024, with `negotiation_matched_intent` true.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
