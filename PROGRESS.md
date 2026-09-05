@@ -90,7 +90,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.9 — Parser fuzzing **(UNCUTTABLE)** — commit `eeca281`
 - [x] 4.10 — tshark parity check — commit `6655bcb`
 - [x] **▶ MILESTONE M4 PASSED** — tag `v0.5.0-parser` (7/7 acceptance items, `make verify-all` green)
-### Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`) ← **CURRENT**
+### Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [x] 5.1 — ESP header parser — commit `2e58048`
 - [x] 5.2 — ESP flow assembly — commit `eb2210e`
 - [x] 5.3 — Sequence and replay analysis — commit `2206baf`
