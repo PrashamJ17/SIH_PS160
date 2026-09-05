@@ -297,6 +297,24 @@ def run_cell(
         outer_packets = verify_pcap(capture.outer_pcap)
         inner_packets = verify_pcap(capture.inner_pcap)
 
+        # A cell is only usable if its traffic was actually protected. The daemon can
+        # report an established SA while the generated traffic never matches its
+        # traffic selectors and is routed around the tunnel in the clear — the
+        # negotiation still parses, the manifest still says it matched intent, and the
+        # capture contains no ESP at all. Labelling that cell as an encrypted flow
+        # would be a silent, corpus-wide falsehood, so it fails here instead.
+        from ipsec_sentinel.data.pcap_scan import scan_capture
+
+        outer_scan = scan_capture(capture.outer_pcap)
+        if outer_scan.esp_packets == 0:
+            return failure(
+                "no ESP in the outer capture: the tunnel established but the generated "
+                "traffic was not protected by it (traffic selectors did not match), so "
+                "this cell would be labelled as encrypted traffic it does not contain",
+                ike_packets=outer_scan.ike_packets,
+                inner_packets=inner_packets,
+            )
+
         manifest = build_manifest(
             cell.config,
             harvest_swanctl(left),

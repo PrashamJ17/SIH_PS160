@@ -1,0 +1,94 @@
+{
+  "capture_id": "0aee4b4145bd_icmp_large_payload_wan_poor_r0",
+  "config_id": "0aee4b4145bd",
+  "intent": {
+    "ike_version": "ikev2",
+    "encryption": "3des",
+    "integrity": "sha256",
+    "prf": "prfsha256",
+    "dh_group": "ecp256",
+    "pfs": false,
+    "child_dh_group": null,
+    "mode": "transport",
+    "ip_version": 4,
+    "ike_lifetime_s": 28800,
+    "child_lifetime_s": 3600,
+    "aggressive": false
+  },
+  "negotiated_ike": {
+    "established": true,
+    "ike_version": "IKEv2",
+    "encryption": "3DES_CBC",
+    "encryption_keylen": null,
+    "integrity": "HMAC_SHA2_256_128",
+    "prf": "PRF_HMAC_SHA2_256",
+    "dh_group": "ECP_256",
+    "initiator_spi": "b684ee6f64ea01c6",
+    "responder_spi": "169203dd64487e85",
+    "local_host": "10.100.0.2",
+    "remote_host": "10.100.0.3",
+    "local_port": 4500,
+    "remote_port": 4500,
+    "nat_t": true
+  },
+  "negotiated_child": {
+    "installed": true,
+    "mode": "transport",
+    "esp_encryption": "3DES_CBC/HMAC_SHA2_256_128",
+    "esp_keylen": null,
+    "esp_integrity": null,
+    "spi_in": "c328310d",
+    "spi_out": "c81f7029",
+    "local_ts": "10.100.0.2/32",
+    "remote_ts": "10.100.0.3/32",
+    "reqid": 1
+  },
+  "kernel_sas": [
+    {
+      "src": "10.100.0.2",
+      "dst": "10.100.0.3",
+      "proto": "esp",
+      "spi": "0xc81f7029",
+      "reqid": 1,
+      "mode": "transport",
+      "replay_window": 0,
+      "algorithm": "cbc(des3_ede)",
+      "algorithm_kind": "enc",
+      "icv_bits": 128
+    },
+    {
+      "src": "10.100.0.3",
+      "dst": "10.100.0.2",
+      "proto": "esp",
+      "spi": "0xc328310d",
+      "reqid": 1,
+      "mode": "transport",
+      "replay_window": 32,
+      "algorithm": "cbc(des3_ede)",
+      "algorithm_kind": "enc",
+      "icv_bits": 128
+    }
+  ],
+  "negotiation_matched_intent": true,
+  "mismatches": [],
+  "capture_meta": {
+    "cell_id": "0aee4b4145bd_icmp_large_payload_wan_poor_r0",
+    "generator": "icmp",
+    "variant": "large_payload",
+    "impairment": "wan_poor",
+    "repeat": 0,
+    "duration_s": 30,
+    "outer_pcap": "capture_outer.pcap",
+    "inner_pcap": "capture_inner.pcap",
+    "outer_packets": 4,
+    "inner_packets": 90,
+    "packets_generated": 30,
+    "bytes_generated": 42840,
+    "netem": {
+      "delay_ms": 80,
+      "jitter_ms": 15,
+      "loss_pct": 1.0,
+      "rate_mbit": 10
+    }
+  }
+}

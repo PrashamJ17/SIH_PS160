@@ -69,6 +69,23 @@ def _dh_allowed_for_version(dh_group: str, ike_version: IKEVersion, ikev2_only: 
     return not (ike_version == "ikev1" and dh_group in ikev2_only)
 
 
+def _version_for(
+    encryption: str,
+    dh_group: str,
+    preferred: IKEVersion,
+    ikev2_only_groups: list[str],
+    ikev2_only_encryptions: list[str],
+) -> IKEVersion:
+    """Force IKEv2 where IKEv1 cannot express the choice.
+
+    IKEv1 (RFC 2409) predates AEAD and has no standard Curve25519 support, so pairing
+    either with it produces a cell that simply never establishes.
+    """
+    if dh_group in ikev2_only_groups or encryption in ikev2_only_encryptions:
+        return "ikev2"
+    return preferred
+
+
 def _build(
     *,
     encryption: str,
@@ -152,7 +169,13 @@ def expand_matrix(path: Path | None = None) -> list[LabelledConfig]:
     integrities: list[str] = list(matrix["integrities"])
     prfs: list[str] = list(matrix["prfs"])
     lifetimes: dict[str, list[int]] = matrix["lifetimes"]
-    ikev2_only: list[str] = matrix.get("constraints", {}).get("ikev2_only_dh_groups", [])
+    constraints: dict[str, Any] = matrix.get("constraints", {})
+    ikev2_only: list[str] = constraints.get("ikev2_only_dh_groups", [])
+    ikev2_only_encryptions: list[str] = constraints.get("ikev2_only_encryptions", [])
+    if constraints.get("tunnel_mode_only"):
+        # Transport mode protects the gateways, not hosts behind them; this topology
+        # drives traffic host-to-host, which transport mode cannot carry.
+        modes = [m for m in modes if m == "tunnel"] or ["tunnel"]
     target: int = int(sampling["target_count"])
 
     selected: list[LabelledConfig] = []
@@ -175,8 +198,12 @@ def expand_matrix(path: Path | None = None) -> list[LabelledConfig]:
     for index, encryption in enumerate(encryptions):
         for offset in (0, 1):
             group = dh_groups[(index * 2 + offset) % len(dh_groups)]
-            version: IKEVersion = (
-                "ikev2" if group in ikev2_only else ike_versions[offset % len(ike_versions)]
+            version: IKEVersion = _version_for(
+                encryption,
+                group,
+                ike_versions[offset % len(ike_versions)],
+                ikev2_only,
+                ikev2_only_encryptions,
             )
             add(
                 LabelledConfig(
@@ -200,11 +227,18 @@ def expand_matrix(path: Path | None = None) -> list[LabelledConfig]:
     for group in dh_groups:
         if group in covered_groups:
             continue
-        version = "ikev2" if group in ikev2_only else rng.choice(ike_versions)
+        filler_encryption = rng.choice(encryptions)
+        version = _version_for(
+            filler_encryption,
+            group,
+            rng.choice(ike_versions),
+            ikev2_only,
+            ikev2_only_encryptions,
+        )
         add(
             LabelledConfig(
                 _build(
-                    encryption=rng.choice(encryptions),
+                    encryption=filler_encryption,
                     dh_group=group,
                     ike_version=version,
                     pfs=True,
@@ -225,13 +259,20 @@ def expand_matrix(path: Path | None = None) -> list[LabelledConfig]:
     while len(selected) < target and attempts < max_attempts:
         attempts += 1
         group = rng.choice(dh_groups)
-        version = rng.choice(ike_versions)
+        fill_encryption = rng.choice(encryptions)
+        version = _version_for(
+            fill_encryption,
+            group,
+            rng.choice(ike_versions),
+            ikev2_only,
+            ikev2_only_encryptions,
+        )
         if not _dh_allowed_for_version(group, version, ikev2_only):
             continue
         add(
             LabelledConfig(
                 _build(
-                    encryption=rng.choice(encryptions),
+                    encryption=fill_encryption,
                     dh_group=group,
                     ike_version=version,
                     pfs=rng.choice(matrix["pfs"]),

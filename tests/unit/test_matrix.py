@@ -65,6 +65,12 @@ class TestValidity:
             if c.ike_version == "ikev2":
                 assert c.aggressive is False
 
+    def test_aead_never_appears_with_ikev1(self) -> None:
+        """IKEv1 predates AEAD and cannot negotiate a combined-mode cipher."""
+        for c in CONFIGS:
+            if "gcm" in c.encryption or "ccm" in c.encryption:
+                assert c.ike_version == "ikev2", f"{c.encryption} paired with IKEv1"
+
     def test_curve25519_never_appears_with_ikev1(self) -> None:
         """Curve25519 is specified for IKEv2; an IKEv1 cell would waste a sweep slot."""
         for c in CONFIGS:
@@ -136,17 +142,31 @@ class TestBalance:
     def test_both_ike_versions_appear(self) -> None:
         assert {c.ike_version for c in CONFIGS} == {"ikev1", "ikev2"}
 
-    def test_both_modes_appear(self) -> None:
-        assert {c.mode for c in CONFIGS} == {"tunnel", "transport"}
+    def test_only_tunnel_mode_is_generated(self) -> None:
+        """Transport mode is excluded, and that exclusion is load-bearing.
+
+        Transport mode protects the gateways themselves, not hosts behind them. This
+        topology drives traffic host-to-host, so in transport mode the tunnel comes up
+        and the traffic routes around it in the clear — the sweep produced cells with
+        a parsed negotiation, `negotiation_matched_intent` true, and zero ESP. Those
+        would have entered the corpus labelled as encrypted traffic they do not
+        contain.
+        """
+        assert {c.mode for c in CONFIGS} == {"tunnel"}
 
     def test_pfs_appears_both_on_and_off(self) -> None:
         assert {c.pfs for c in CONFIGS} == {True, False}
 
-    def test_transport_mode_uses_host_traffic_selectors(self) -> None:
-        """Transport mode is host-to-host; subnet selectors would not establish."""
+    def test_transport_mode_still_renders_host_traffic_selectors(self) -> None:
+        """The matrix no longer emits transport mode, but the renderer must stay correct.
+
+        Transport mode is host-to-host, so its selectors are the peer addresses. The
+        logic is kept and tested directly because a host-to-host topology would make
+        transport-mode cells capturable, and it must not rot in the meantime.
+        """
         from testbed.orchestrate.config_gen import render_swanctl_conf
 
-        transport = next(c for c in CONFIGS if c.mode == "transport" and c.ip_version == 4)
+        transport = CONFIGS[0].with_(mode="transport")
         rendered = render_swanctl_conf(transport, "left")
         assert "local_ts  = 10.100.0.2/32" in rendered
         assert "10.1.0.0/24" not in rendered

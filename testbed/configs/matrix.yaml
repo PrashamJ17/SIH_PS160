@@ -32,6 +32,14 @@ constraints:
   # Curve25519 (group 31) is specified for IKEv2 (RFC 8031); IKEv1 has no standard
   # support for it.
   ikev2_only_dh_groups: [curve25519]
+  # IKEv1 (RFC 2409) predates AEAD and cannot negotiate a combined-mode cipher for
+  # the IKE SA. Pairing them produces a cell that never establishes.
+  ikev2_only_encryptions: [aes256gcm16, aes128gcm16]
+  # Transport mode protects the gateways themselves, not hosts behind them. This
+  # topology drives traffic host-to-host, which transport mode cannot carry: the
+  # tunnel comes up and the traffic routes around it unprotected. Capturing transport
+  # mode properly needs a host-to-host topology, which is recorded as future work.
+  tunnel_mode_only: true
 
 sampling:
   strategy: stratified

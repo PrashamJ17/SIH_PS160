@@ -220,6 +220,48 @@ def _count_protocol(protocol: int, rest: bytes, result: ScanResult) -> None:
             result.esp_over_udp_packets += 1
 
 
+def count_flows(path: Path) -> set[tuple[str, str, int, int, int]]:
+    """Distinct 5-tuples in a capture, direction-normalised.
+
+    Counted here rather than with a packet library because the corpus runs to hundreds
+    of captures: a parsed object per packet would take far longer than the sweep that
+    produced them. Endpoints are sorted so both directions of a conversation count as
+    one flow, which is what a flow-level label describes.
+    """
+    flows: set[tuple[str, str, int, int, int]] = set()
+    try:
+        with path.open("rb") as handle:
+            try:
+                endian, link_type = _read_global_header(handle)
+            except UnsupportedCaptureError:
+                return flows
+            for frame in _records(handle, endian):
+                stripped = _strip_link_layer(frame, link_type)
+                if stripped is None:
+                    continue
+                ethertype, payload = stripped
+                if ethertype != ETHERTYPE_IPV4 or len(payload) < 20:
+                    continue
+                header_length = (payload[0] & 0x0F) * 4
+                protocol = payload[9]
+                source = ".".join(str(b) for b in payload[12:16])
+                destination = ".".join(str(b) for b in payload[16:20])
+                rest = payload[header_length:]
+                sport = dport = 0
+                if protocol in (6, 17) and len(rest) >= 4:
+                    sport, dport = struct.unpack("!HH", rest[:4])
+                elif protocol == PROTO_ESP and len(rest) >= 4:
+                    # An ESP SA is identified by its SPI, not by ports.
+                    sport = dport = struct.unpack("!I", rest[:4])[0] & 0xFFFF
+                endpoints = sorted([(source, sport), (destination, dport)])
+                flows.add(
+                    (endpoints[0][0], endpoints[1][0], protocol, endpoints[0][1], endpoints[1][1])
+                )
+    except OSError:
+        return flows
+    return flows
+
+
 def find_captures(root: Path) -> list[Path]:
     """Every capture file beneath a directory, in a stable order."""
     if not root.exists():

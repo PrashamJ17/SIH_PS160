@@ -1,0 +1,94 @@
+{
+  "capture_id": "87c691b52954_video_dash_720p_wan_poor_r0",
+  "config_id": "87c691b52954",
+  "intent": {
+    "ike_version": "ikev1",
+    "encryption": "aes256",
+    "integrity": "md5",
+    "prf": "prfmd5",
+    "dh_group": "ecp384",
+    "pfs": true,
+    "child_dh_group": "ecp384",
+    "mode": "tunnel",
+    "ip_version": 4,
+    "ike_lifetime_s": 14400,
+    "child_lifetime_s": 3600,
+    "aggressive": false
+  },
+  "negotiated_ike": {
+    "established": true,
+    "ike_version": "IKEv1",
+    "encryption": "AES_CBC",
+    "encryption_keylen": 256,
+    "integrity": "HMAC_MD5_96",
+    "prf": "PRF_HMAC_MD5",
+    "dh_group": "ECP_384",
+    "initiator_spi": "63475b31edf84dd1",
+    "responder_spi": "631483c4a5b6e78b",
+    "local_host": "10.100.0.2",
+    "remote_host": "10.100.0.3",
+    "local_port": 500,
+    "remote_port": 500,
+    "nat_t": false
+  },
+  "negotiated_child": {
+    "installed": true,
+    "mode": "tunnel",
+    "esp_encryption": "AES_CBC-256/HMAC_MD5_96/ECP_384",
+    "esp_keylen": null,
+    "esp_integrity": null,
+    "spi_in": "c766f4e1",
+    "spi_out": "c399e563",
+    "local_ts": "10.110.0.0/24",
+    "remote_ts": "10.120.0.0/24",
+    "reqid": 1
+  },
+  "kernel_sas": [
+    {
+      "src": "10.100.0.2",
+      "dst": "10.100.0.3",
+      "proto": "esp",
+      "spi": "0xc399e563",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 0,
+      "algorithm": "cbc(aes)",
+      "algorithm_kind": "enc",
+      "icv_bits": 96
+    },
+    {
+      "src": "10.100.0.3",
+      "dst": "10.100.0.2",
+      "proto": "esp",
+      "spi": "0xc766f4e1",
+      "reqid": 1,
+      "mode": "tunnel",
+      "replay_window": 32,
+      "algorithm": "cbc(aes)",
+      "algorithm_kind": "enc",
+      "icv_bits": 96
+    }
+  ],
+  "negotiation_matched_intent": true,
+  "mismatches": [],
+  "capture_meta": {
+    "cell_id": "87c691b52954_video_dash_720p_wan_poor_r0",
+    "generator": "video",
+    "variant": "dash_720p",
+    "impairment": "wan_poor",
+    "repeat": 0,
+    "duration_s": 30,
+    "outer_pcap": "capture_outer.pcap",
+    "inner_pcap": "capture_inner.pcap",
+    "outer_packets": 5863,
+    "inner_packets": 5890,
+    "packets_generated": 4,
+    "bytes_generated": 4915200,
+    "netem": {
+      "delay_ms": 80,
+      "jitter_ms": 15,
+      "loss_pct": 1.0,
+      "rate_mbit": 10
+    }
+  }
+}

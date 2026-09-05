@@ -137,3 +137,29 @@ def test_outer_capture_contains_the_handshake(happy_cell) -> None:  # type: igno
             if p.haslayer(UDP) and (p[UDP].sport in (500, 4500) or p[UDP].dport in (500, 4500))
         ]
     assert len(ike) >= 2, "no IKE in the outer capture — capture started too late"
+
+
+def test_a_cell_whose_traffic_was_not_protected_fails(tmp_path: Path) -> None:
+    """The guard against the worst kind of corpus corruption.
+
+    In transport mode the IPsec endpoints are the gateways, so host-to-host traffic
+    is not covered by the traffic selectors and routes around the tunnel in the clear.
+    The daemon still reports an established SA and the manifest still says the
+    negotiation matched intent — the sweep produced 20 such cells before this guard
+    existed, each labelled as encrypted traffic containing none. A cell with no ESP in
+    its outer capture must fail.
+    """
+    transport = anchor("good").with_(mode="transport")
+    cell = CellSpec(transport, generator="icmp", variant="steady_1s", impairment="clean")
+    outcome = run_cell(cell, profile("clean"), duration_s=10, out_dir=tmp_path)
+    assert outcome.success is False
+    assert "no ESP in the outer capture" in (outcome.error or "")
+    # The negotiation still happened; it is the protection that did not.
+    assert outcome.details.get("ike_packets", 0) > 0
+
+
+def test_a_tunnel_mode_cell_does_carry_esp(tmp_path: Path) -> None:
+    """The control for the test above: the guard must not reject a healthy cell."""
+    cell = CellSpec(anchor("good"), generator="icmp", variant="steady_1s", impairment="clean")
+    outcome = run_cell(cell, profile("clean"), duration_s=8, out_dir=tmp_path)
+    assert outcome.success is True, outcome.error
