@@ -63,6 +63,14 @@ class SafeReader:
         """Bytes left inside this reader's window."""
         return self._end - self._position
 
+    def tell_relative(self) -> int:
+        """Bytes consumed within this reader's window.
+
+        Relative rather than absolute so a sub-reader reports offsets inside its own
+        container, which is what a finding's evidence should cite.
+        """
+        return self._position - self._start
+
     def at_end(self) -> bool:
         return self.remaining() == 0
 

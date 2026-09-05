@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T16:05:55.048089Z",
+  "updated_at": "2026-09-05T16:08:03.152630Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -32,7 +32,11 @@
     "42489de0b47d_replay_mawi_sample_clean_r0",
     "5a9704bb2082_icmp_flood_small_wan_good_r0",
     "5a9704bb2082_voip_g711_20ms_wan_poor_r0",
-    "5a9704bb2082_video_dash_1080p_clean_r0"
+    "5a9704bb2082_video_dash_1080p_clean_r0",
+    "5a9704bb2082_web_reading_wan_good_r0",
+    "5a9704bb2082_email_smtp_attachment_wan_poor_r0",
+    "5a9704bb2082_messaging_chat_active_clean_r0",
+    "5a9704bb2082_replay_cicids2017_benign_wan_good_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -652,6 +656,86 @@
       "inner_packets": 22722,
       "started_at": "2026-09-05T16:05:14.748052Z",
       "ended_at": "2026-09-05T16:05:52.783841Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_web_reading_wan_good_r0": {
+      "cell_id": "5a9704bb2082_web_reading_wan_good_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "web",
+      "variant": "reading",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_web_reading_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_web_reading_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_web_reading_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 4553,
+      "inner_packets": 4558,
+      "started_at": "2026-09-05T16:05:55.048742Z",
+      "ended_at": "2026-09-05T16:06:31.280187Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_email_smtp_attachment_wan_poor_r0": {
+      "cell_id": "5a9704bb2082_email_smtp_attachment_wan_poor_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "email",
+      "variant": "smtp_attachment",
+      "impairment": "wan_poor",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_email_smtp_attachment_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_email_smtp_attachment_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_email_smtp_attachment_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 2394,
+      "inner_packets": 1961,
+      "started_at": "2026-09-05T16:06:33.596751Z",
+      "ended_at": "2026-09-05T16:07:10.343052Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_messaging_chat_active_clean_r0": {
+      "cell_id": "5a9704bb2082_messaging_chat_active_clean_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "messaging",
+      "variant": "chat_active",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_messaging_chat_active_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_messaging_chat_active_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_messaging_chat_active_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 85,
+      "inner_packets": 94,
+      "started_at": "2026-09-05T16:07:12.656005Z",
+      "ended_at": "2026-09-05T16:07:52.115644Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "5a9704bb2082_replay_cicids2017_benign_wan_good_r0": {
+      "cell_id": "5a9704bb2082_replay_cicids2017_benign_wan_good_r0",
+      "config_id": "5a9704bb2082",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/5a9704bb2082_replay_cicids2017_benign_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/5a9704bb2082_replay_cicids2017_benign_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/5a9704bb2082_replay_cicids2017_benign_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 907,
+      "inner_packets": 917,
+      "started_at": "2026-09-05T16:07:54.454687Z",
+      "ended_at": "2026-09-05T16:08:00.892721Z",
       "details": {
         "mismatches": []
       }

@@ -53,6 +53,28 @@ IKEV2_PAYLOAD_TYPES: Final[dict[int, str]] = {
     47: "CP",
 }
 
+# IKEv1 numbers its payloads differently from IKEv2 (RFC 2408 section 3.1). Using the
+# IKEv2 table on an IKEv1 message would name an SA payload "UNKNOWN_PAYLOAD_1" and a
+# Vendor ID "UNKNOWN_PAYLOAD_13" — silently losing the two payloads that matter most.
+IKEV1_PAYLOAD_TYPES: Final[dict[int, str]] = {
+    0: "NONE",
+    1: "SA",
+    2: "Proposal",
+    3: "Transform",
+    4: "KE",
+    5: "ID",
+    6: "CERT",
+    7: "CERTREQ",
+    8: "HASH",
+    9: "SIG",
+    10: "NONCE",
+    11: "N",
+    12: "D",
+    13: "V",
+    130: "NAT-D",
+    131: "NAT-OA",
+}
+
 TRANSFORM_TYPES: Final[dict[int, str]] = {1: "ENCR", 2: "PRF", 3: "INTEG", 4: "DH", 5: "ESN"}
 
 ENCR_ALGORITHMS: Final[dict[int, str]] = {

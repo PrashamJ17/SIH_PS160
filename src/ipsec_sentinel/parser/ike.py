@@ -13,13 +13,16 @@ score. That distinction is the intellectual centre of the project and it starts 
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Final
 
 from ipsec_sentinel.parser.constants import (
     IKE_VERSIONS,
     IKEV1_EXCHANGE_TYPES,
+    IKEV1_PAYLOAD_TYPES,
     IKEV2_EXCHANGE_TYPES,
+    IKEV2_PAYLOAD_TYPES,
 )
 from ipsec_sentinel.parser.reader import MalformedError, SafeReader, TruncatedError
 
@@ -142,3 +145,135 @@ def parse_ike_header(data: bytes) -> IKEHeader:
         message_id=message_id,
         length=length,
     )
+
+
+# --------------------------------------------------------------------------------
+# Payload chain
+# --------------------------------------------------------------------------------
+
+GENERIC_PAYLOAD_HEADER_LENGTH: Final = 4
+PAYLOAD_NONE: Final = 0
+CRITICAL_BIT: Final = 0x80
+
+#: Upper bound on payloads in one message. RFC 7296 imposes no limit, but a real
+#: message carries a handful; anything beyond this is a malformed or hostile chain and
+#: continuing to follow it is how a parser is turned into a denial-of-service vector.
+MAX_PAYLOAD_CHAIN: Final = 64
+
+
+@dataclass(frozen=True)
+class RawPayload:
+    """One link of the payload chain, still unparsed.
+
+    ``offset`` is retained because findings cite byte offsets as evidence, and a
+    finding that cannot point at where it came from is an assertion rather than proof.
+    """
+
+    payload_type: int
+    payload_type_name: str
+    critical: bool
+    length: int
+    body: bytes
+    offset: int
+
+
+@dataclass
+class PayloadChain:
+    """The result of walking a chain: what was read, and what went wrong.
+
+    Iterable, so callers that only want the payloads can treat it as a sequence, while
+    the errors remain available. The plan's signature returns a bare iterator, but the
+    same step requires malformed links to be *recorded* rather than merely skipped, and
+    an iterator has nowhere to record them.
+    """
+
+    payloads: list[RawPayload] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    truncated: bool = False
+
+    def __iter__(self) -> Iterator[RawPayload]:
+        return iter(self.payloads)
+
+    def __len__(self) -> int:
+        return len(self.payloads)
+
+    def of_type(self, payload_type: int) -> list[RawPayload]:
+        return [p for p in self.payloads if p.payload_type == payload_type]
+
+    def first_of_type(self, payload_type: int) -> RawPayload | None:
+        for candidate in self.payloads:
+            if candidate.payload_type == payload_type:
+                return candidate
+        return None
+
+
+def walk_payloads(reader: SafeReader, first_type: int, *, ikev1: bool = False) -> PayloadChain:
+    """Follow the linked list of payloads to its end, or to the first thing wrong.
+
+    Terminates on every input. Three guards make that true, and each closes a distinct
+    way the chain can fail to advance:
+
+    * a payload shorter than its own 4-byte header would leave the cursor where it
+      was, looping forever on a zero length;
+    * a payload claiming more than remains would read past the message;
+    * a chain longer than :data:`MAX_PAYLOAD_CHAIN` is a self-referencing or hostile
+      message rather than a real one.
+
+    Nothing raises. Payloads read before a fault are kept, because a truncated tail
+    should not cost the proposals already parsed — those are exactly the ones a
+    finding may depend on.
+    """
+    chain = PayloadChain()
+    next_type = first_type
+
+    while next_type != PAYLOAD_NONE:
+        if len(chain.payloads) >= MAX_PAYLOAD_CHAIN:
+            chain.errors.append(
+                f"payload chain exceeded {MAX_PAYLOAD_CHAIN} links; stopped following it"
+            )
+            return chain
+
+        offset = reader.tell_relative()
+        try:
+            following = reader.u8()
+            flags = reader.u8()
+            length = reader.u16()
+        except TruncatedError as exc:
+            chain.errors.append(f"truncated payload header at offset {offset}: {exc}")
+            chain.truncated = True
+            return chain
+
+        if length < GENERIC_PAYLOAD_HEADER_LENGTH:
+            chain.errors.append(
+                f"payload at offset {offset} declares length {length}, below the "
+                f"{GENERIC_PAYLOAD_HEADER_LENGTH}-byte header; chain cannot advance"
+            )
+            return chain
+
+        body_length = length - GENERIC_PAYLOAD_HEADER_LENGTH
+        try:
+            body = reader.read_bytes(body_length)
+        except TruncatedError as exc:
+            chain.errors.append(f"payload at offset {offset} declares {length} bytes: {exc}")
+            chain.truncated = True
+            return chain
+
+        chain.payloads.append(
+            RawPayload(
+                payload_type=next_type,
+                payload_type_name=resolve_payload_name(next_type, ikev1=ikev1),
+                critical=bool(flags & CRITICAL_BIT),
+                length=length,
+                body=body,
+                offset=offset,
+            )
+        )
+        next_type = following
+
+    return chain
+
+
+def resolve_payload_name(payload_type: int, *, ikev1: bool = False) -> str:
+    """Name a payload type within its version's number space."""
+    table = IKEV1_PAYLOAD_TYPES if ikev1 else IKEV2_PAYLOAD_TYPES
+    return table.get(payload_type, f"UNKNOWN_PAYLOAD_{payload_type}")
