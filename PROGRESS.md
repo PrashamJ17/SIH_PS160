@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 13:30 UTC
+**Last updated:** 2026-09-05 13:32 UTC
 **Current phase:** 3 — Dataset sweep and external data
-**Current step:** 3.6 — Dataset packaging
+**Current step:** MILESTONE M3 gate — full sweep
 **Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -74,9 +74,9 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 3.1 — Single-run orchestrator — commit `4961d8f`
 - [x] 3.2 — Sweep orchestrator with resumability — commit `944a5d1`
 - [x] 3.3 — External dataset fetcher — commit `fbf5a0d`
-- [x] 3.4 — Dataset documentation — commit `(this commit)`
+- [x] 3.4 — Dataset documentation — commit `4760d39`
 - [x] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)** — commit `890603e`
-- [ ] 3.6 — Dataset packaging
+- [x] 3.6 — Dataset packaging — commit `(this commit)`
 - [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
