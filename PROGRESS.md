@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-04 23:20 UTC
+**Last updated:** 2026-09-05 10:44 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.1 — Traffic generator interface
+**Current step:** 2.2 — ICMP generator
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -52,7 +52,17 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | `negotiation_matched_intent` True for a valid config | **True**, zero mismatches |
   | Containers and networks torn down cleanly | **no leaks** |
   | All previous tests still pass | **304 unit (100% cov), 48 integration** |
-- [ ] Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
+### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
+- [x] 2.1 — Traffic generator interface — commit `(this commit)`
+- [ ] 2.2 — ICMP generator
+- [ ] 2.3 — VoIP generator
+- [ ] 2.4 — Video streaming generator
+- [ ] 2.5 — Web browsing generator
+- [ ] 2.6 — Email generator
+- [ ] 2.7 — Messaging generator (XMPP proxy)
+- [ ] 2.8 — PCAP replay generator
+- [ ] 2.9 — Network impairment profiles
+- [ ] **▶ MILESTONE M2** — tag `v0.3.0-traffic`
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
