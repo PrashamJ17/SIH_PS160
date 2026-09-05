@@ -1,9 +1,9 @@
 # Build Progress
 
 **Last updated:** 2026-09-05
-**Current phase:** 4 — Deterministic IKE parser (M3 gate still outstanding; see Blockers)
-**Current step:** M4 gate — parser complete
-**Last milestone tag:** `v0.3.0-traffic`
+**Current phase:** 5 — ESP analysis (M3 gate still outstanding; see Blockers)
+**Current step:** 5.1 — ESP header parser
+**Last milestone tag:** `v0.5.0-parser`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -78,7 +78,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)** — commit `890603e`
 - [x] 3.6 — Dataset packaging — commit `19ba1e3`
 - [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
-### Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`) ← **CURRENT**
+### Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [x] 4.1 — Bounds-safe byte reader — commit `aa369a8`
 - [x] 4.2 — IKE header parser — commit `26f8c45`
 - [x] 4.3 — Payload chain walker with loop guards — commit `319e3fb`
@@ -89,8 +89,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.8 — PCAP ingestion — commit `809f531`
 - [x] 4.9 — Parser fuzzing **(UNCUTTABLE)** — commit `eeca281`
 - [x] 4.10 — tshark parity check — commit `6655bcb`
-- [ ] **▶ MILESTONE M4** — tag `v0.5.0-parser`
-- [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
+- [x] **▶ MILESTONE M4 PASSED** — tag `v0.5.0-parser` (7/7 acceptance items, `make verify-all` green)
+### Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`) ← **CURRENT**
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
@@ -159,6 +159,45 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## MILESTONE M4 — acceptance checklist (executed)
+
+Run with `scripts/check_m4.py`, which is an executable gate rather than a set of
+commands typed once: anyone can re-run it, and a later regression fails it instead of
+quietly invalidating a claim made in a commit message. Checks that cannot run report
+SKIP and never count as passes.
+
+| M4 acceptance | Result |
+|---|---|
+| Parses 100% of dataset PCAPs without unhandled exceptions | **PASS** — 92 captures, 460 IKE messages, 0 exceptions |
+| Agrees with tshark on every field compared, across the dataset | **PASS** — 92/92 captures, 460 messages compared |
+| Fuzzing: 10,000 inputs, zero crashes, zero hangs | **PASS** — 35,167 inputs/run, 0 unexpected exceptions, 0 over 1 s |
+| IKEv1 Aggressive Mode detected in the `worst` anchor config | **PASS** — 7 captures show it, all 7 with PSK (hash exposed) |
+| Key length distinguishes AES-128 from AES-256 | **PASS** — both read back correctly; 128 and 256 both present in the dataset |
+| **All** proposals extracted, not just accepted | **PASS** — 2/2 from the fixture including the 3DES fallback |
+| Coverage of `parser/` above 90% | **PASS** — 99.0% |
+
+`make verify-all` green in full: ruff clean, `mypy --strict` clean over 53 source files,
+**768 unit tests** at 93.33% total coverage, and **158 integration tests** in 14 m 33 s.
+Per-module parser coverage: `constants.py` 100%, `ikev1.py` 100%, `ike.py` 99%,
+`reader.py` 98%, `message.py` 97%, `pcap.py` 96%.
+
+**Two honest notes on that table.**
+
+*Multi-proposal captures.* The dataset contains **zero** multi-proposal messages: each
+sweep cell configures strongSwan with exactly one proposal, so it offers exactly one.
+The criterion is therefore met on the synthetic fixture, which offers AES-GCM with a
+3DES fallback and proves the fallback survives. That is a real gap in the corpus, not
+in the parser, and it is worth closing later with a cell configured to offer several.
+
+*The sweep was paused for this gate.* `make verify-all` includes integration tests that
+bring up Docker tunnels, which would have collided with the running sweep. The sweep was
+stopped with SIGTERM and resumed afterwards — which incidentally exercised the Step
+"killed sweep" fix against the exact failure it was written for: clean exit, **zero**
+leftover containers, **zero** leftover networks, lock released, state intact at 93
+completed / 0 failed.
 
 ---
 

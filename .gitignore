@@ -12,6 +12,10 @@ dist/
 build/
 .coverage
 htmlcov/
+# Transient sweep runtime state. The lock is held only while a sweep runs and names
+# the owning PID; committing it would offer a later checkout a lock nobody holds.
+data/raw/**/sweep.lock
+
 data/raw/**/*.pcap
 data/raw/**/*.pcapng
 data/processed/**/*.parquet

@@ -204,6 +204,14 @@ def transforms_for(proposal: Proposal) -> list[bytes]:
     """Encode a domain :class:`Proposal`'s transforms as wire substructures."""
     encoded: list[bytes] = []
     for index, transform in enumerate(proposal.transforms):
+        if transform.type is None:
+            # The model keeps unrecognised transform types rather than dropping them,
+            # so None is a legal parse result — but it carries no type number, and
+            # there is nothing to encode it back to.
+            raise ValueError(
+                f"cannot encode transform {transform.name!r}: its type is unrecognised, "
+                f"so the wire type number is unknown"
+            )
         encoded.append(
             build_transform(
                 t_type=_TRANSFORM_TYPE_IDS[transform.type.value],
