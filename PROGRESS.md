@@ -1,6 +1,6 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 13:32 UTC
+**Last updated:** 2026-09-05 14:11 UTC
 **Current phase:** 3 — Dataset sweep and external data
 **Current step:** MILESTONE M3 gate — full sweep
 **Last milestone tag:** `v0.3.0-traffic`
@@ -76,7 +76,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 3.3 — External dataset fetcher — commit `fbf5a0d`
 - [x] 3.4 — Dataset documentation — commit `4760d39`
 - [x] 3.5 — Prove the external datasets lack IPsec **(UNCUTTABLE)** — commit `890603e`
-- [x] 3.6 — Dataset packaging — commit `(this commit)`
+- [x] 3.6 — Dataset packaging — commit `19ba1e3`
 - [ ] **▶ MILESTONE M3** — tag `v0.4.0-dataset`
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
@@ -400,6 +400,25 @@ Awaiting a manual download (the script prints exact instructions and exits 0):
 Step 3.5's audit runs over whatever is present and reports exactly that, so the
 credibility artifact is produced either way — it simply covers fewer corpora until
 those downloads happen.
+
+### Sweep in progress
+
+A 252-cell sweep is running: all 7 traffic classes against all 36 configurations,
+three impairment profiles cycled, 30 s of traffic per cell. Roughly 4 hours wall clock.
+
+```bash
+nohup .venv/bin/python scripts/run_sweep.py \
+  --out data/raw/sweep --duration-s 30 \
+  --replay-source data/raw/sweep_source/replay_source.pcap > /tmp/sweep_run.log 2>&1 &
+```
+
+It is resumable: state is written after every cell, so re-running the same command
+continues rather than restarting and no cell runs twice. Progress is in
+`/tmp/sweep_run.log`; the state file is `data/raw/sweep/sweep_state.json`.
+
+**The `replay` class uses a synthesised stand-in source**, not real CIC-IDS2017, which
+requires registration. The replay *machinery* is real and tested end to end; only the
+source corpus is substituted, and `docs/DATASET.md` says so.
 
 ### Known environment gaps (not blocking now — install before the step named)
 
