@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 11:52 UTC
+**Last updated:** 2026-09-05 11:54 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.9 — Network impairment profiles
+**Current step:** MILESTONE M2 gate
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -60,8 +60,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 2.5 — Web browsing generator — commit `ff3f895`
 - [x] 2.6 — Email generator — commit `bff1e5c`
 - [x] 2.7 — Messaging generator (XMPP proxy) — commit `cdb000f` (+ `5b469ea`, `29a4650`)
-- [x] 2.8 — PCAP replay generator — commit `(this commit)`
-- [ ] 2.9 — Network impairment profiles
+- [x] 2.8 — PCAP replay generator — commit `be6a780`
+- [x] 2.9 — Network impairment profiles — commit `(this commit)`
 - [ ] **▶ MILESTONE M2** — tag `v0.3.0-traffic`
 - [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
