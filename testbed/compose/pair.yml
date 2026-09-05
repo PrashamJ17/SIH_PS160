@@ -83,6 +83,17 @@ services:
       right_protected:
         ipv4_address: ${VIDEO_ORIGIN_IP:-10.2.0.20}
 
+  # Web corpus origin, also behind the right gateway and also behind a profile.
+  web_origin:
+    image: ${SENTINEL_WEB_IMAGE:-ipsec-sentinel-web:latest}
+    hostname: web-origin
+    profiles: [web]
+    cap_add: [NET_ADMIN]
+    entrypoint: ["sh", "-c", "ip route replace ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24} via ${RIGHT_PROTECTED_IP:-10.2.0.2} && exec nginx -g 'daemon off;'"]
+    networks:
+      right_protected:
+        ipv4_address: ${WEB_ORIGIN_IP:-10.2.0.21}
+
 networks:
   # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
   transit:

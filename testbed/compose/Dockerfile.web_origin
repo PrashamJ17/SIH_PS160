@@ -1,0 +1,33 @@
+FROM nginx:alpine
+
+# iproute2 for the return route through the right gateway — without it replies leave
+# via Docker's bridge instead of the tunnel.
+RUN apk add --no-cache iproute2
+
+# A mirrored corpus generated at build time: 24 pages whose asset count and sizes vary
+# widely, so no single page shape dominates the class. Asset bytes are random and
+# therefore incompressible, preserving the size distribution that is the only thing
+# visible through ESP.
+RUN set -eu; \
+    root=/usr/share/nginx/html; \
+    mkdir -p "$root/assets"; \
+    for i in $(seq 1 24); do \
+        n=$(( (i * 7) % 20 + 5 )); \
+        { \
+          printf '<!doctype html><html><head><title>Page %s</title>\n' "$i"; \
+          printf '<link rel="stylesheet" href="/assets/style_%s.css">\n' "$i"; \
+          printf '</head><body><h1>Page %s</h1>\n' "$i"; \
+          j=1; while [ "$j" -le "$n" ]; do \
+              printf '<img src="/assets/img_%s_%s.bin">\n' "$i" "$j"; \
+              j=$((j + 1)); \
+          done; \
+          printf '</body></html>\n'; \
+        } > "$root/page_$i.html"; \
+        dd if=/dev/urandom "of=$root/assets/style_$i.css" bs=1024 count=$(( (i % 8) + 2 )) status=none; \
+        j=1; while [ "$j" -le "$n" ]; do \
+            kb=$(( (i * j * 13) % 180 + 4 )); \
+            dd if=/dev/urandom "of=$root/assets/img_${i}_${j}.bin" bs=1024 count="$kb" status=none; \
+            j=$((j + 1)); \
+        done; \
+    done; \
+    printf 'pages=24\n' > "$root/corpus.txt"
