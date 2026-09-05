@@ -67,6 +67,22 @@ services:
       right_protected:
         ipv4_address: ${RIGHT_HOST_IP:-10.2.0.10}
 
+  # Content origin behind the RIGHT gateway, so streaming traffic crosses the tunnel
+  # and arrives downstream-heavy at the left host. Behind a compose profile: it starts
+  # only for runs that need it, which is what TrafficGenerator.requires expresses.
+  video_origin:
+    image: ${SENTINEL_VIDEO_IMAGE:-ipsec-sentinel-video:latest}
+    hostname: video-origin
+    profiles: [video]
+    cap_add: [NET_ADMIN]
+    # The return route is not optional. Without it the origin answers via Docker's
+    # bridge rather than the tunnel, so the request is encrypted and the response is
+    # not — and whether that happens at all varies between runs.
+    entrypoint: ["sh", "-c", "ip route replace ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24} via ${RIGHT_PROTECTED_IP:-10.2.0.2} && exec nginx -g 'daemon off;'"]
+    networks:
+      right_protected:
+        ipv4_address: ${VIDEO_ORIGIN_IP:-10.2.0.20}
+
 networks:
   # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
   transit:

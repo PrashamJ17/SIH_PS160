@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 10:51 UTC
+**Last updated:** 2026-09-05 11:01 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.4 — Video streaming generator
+**Current step:** 2.5 — Web browsing generator
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -55,8 +55,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
 - [x] 2.1 — Traffic generator interface — commit `4cbe556`
 - [x] 2.2 — ICMP generator — commit `c1dc5a4`
-- [x] 2.3 — VoIP generator — commit `(this commit)`
-- [ ] 2.4 — Video streaming generator
+- [x] 2.3 — VoIP generator — commit `722d07b`
+- [x] 2.4 — Video streaming generator — commit `(this commit)`
 - [ ] 2.5 — Web browsing generator
 - [ ] 2.6 — Email generator
 - [ ] 2.7 — Messaging generator (XMPP proxy)
@@ -302,6 +302,24 @@ pair-based test can forget one and fail with an unexplained "image not found".
 synthetic RTP endpoint, not a softphone. There is no SIP signalling and no real codec.
 Packet timing and size distribution are faithful — and through ESP those are the only
 observable properties — but the corpus must not be described as containing real calls.
+
+### Sidecars need a return route, or traffic silently bypasses the tunnel
+
+A sidecar placed on a protected network reaches the far side only if it has a route
+back through **its own gateway**. `video_origin` initially had none, so its replies to
+`10.1.0.0/24` left through Docker's bridge instead of the tunnel: the request was
+encrypted, the response was not, and whether the transfer worked at all varied between
+runs. The inner capture then showed 44 upstream packets and **zero** downstream.
+
+Every sidecar added on a protected network must set
+`ip route replace <far subnet> via <its gateway>` at start, exactly as the host
+containers do. `Dockerfile.video_origin` installs `iproute2` for this.
+
+Related: a profiled sidecar can survive `docker compose down` when the profile is not
+active on the teardown call, and one surviving container pins its network — whose
+subnet then collides with the next run and fails it with an unexplained
+"Pool overlaps with other one on this address space". `compose_project` now passes
+profiles to `down` **and** sweeps by compose project label afterwards.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

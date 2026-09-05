@@ -8,7 +8,7 @@ failure, and reporting it as one would hide real regressions.
 from __future__ import annotations
 
 import secrets
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -79,7 +79,7 @@ def _pair_images(strongswan_image: str, traffic_image: str) -> tuple[str, str]:
 
 
 @contextmanager
-def running_pair(out_dir: Path) -> Iterator[RunContext]:
+def running_pair(out_dir: Path, profiles: Sequence[str] = ()) -> Iterator[RunContext]:
     """Bring up a pair, establish the tunnel, and yield a RunContext for generators.
 
     The tunnel is established before the block so traffic tests measure traffic rather
@@ -87,7 +87,7 @@ def running_pair(out_dir: Path) -> Iterator[RunContext]:
     capture themselves before initiating.
     """
     env = {"SENTINEL_PSK": secrets.token_hex(24)}
-    with compose_project(PAIR_COMPOSE, env=env) as project:
+    with compose_project(PAIR_COMPOSE, env=env, profiles=profiles) as project:
 
         def cid(service: str) -> str:
             out = compose(PAIR_COMPOSE, project, "ps", "-q", service).stdout.strip()

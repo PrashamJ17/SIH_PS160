@@ -1,0 +1,26 @@
+FROM nginx:alpine
+
+# iproute2 so the origin can be given a route back through the right gateway. Without
+# it, replies to the left protected subnet leave via Docker's own bridge instead of
+# the tunnel — the request is encrypted and the response is not, non-deterministically.
+RUN apk add --no-cache iproute2
+
+# Segments are generated at BUILD time, not per run: the plan requires pre-generating
+# once and reusing across runs, and it keeps every sweep cell reproducible and
+# air-gappable — nothing here ever reaches the public internet.
+#
+# Segment sizes follow real ABR ladders at a 4-second segment duration:
+#   720p  ~2.5 Mbit/s -> ~1.2 MB per segment
+#   1080p ~5.0 Mbit/s -> ~2.5 MB per segment
+# Content is random bytes, which is incompressible and therefore preserves the size
+# distribution that is the only thing visible through ESP.
+RUN set -eu; \
+    for ladder in 720p:1200 1080p:2500; do \
+        rung="${ladder%%:*}"; kb="${ladder##*:}"; \
+        mkdir -p "/usr/share/nginx/html/$rung"; \
+        for i in $(seq 1 24); do \
+            dd if=/dev/urandom "of=/usr/share/nginx/html/$rung/seg_$i.m4s" \
+               bs=1024 count="$kb" status=none; \
+        done; \
+    done; \
+    printf 'segments=24\nsegment_seconds=4\n' > /usr/share/nginx/html/manifest.txt

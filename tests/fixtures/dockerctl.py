@@ -130,12 +130,17 @@ def compose(
     timeout: int = DEFAULT_TIMEOUT,
     check: bool = True,
     env: dict[str, str] | None = None,
+    profiles: Sequence[str] = (),
 ) -> subprocess.CompletedProcess[str]:
     """Run `docker compose` against one file under an explicit project name.
 
     The project name isolates concurrent pairs, which the Step 3.2 sweep depends on.
+    Profiles gate optional sidecars so a cell starts only the services it needs.
     """
-    argv = ["docker", "compose", "-f", str(compose_file), "-p", project, *args]
+    argv = ["docker", "compose", "-f", str(compose_file), "-p", project]
+    for profile in profiles:
+        argv += ["--profile", profile]
+    argv += list(args)
     merged = None
     if env is not None:
         import os
@@ -158,6 +163,7 @@ def compose_project(
     project: str | None = None,
     env: dict[str, str] | None = None,
     up_timeout: int = 300,
+    profiles: Sequence[str] = (),
 ) -> Iterator[str]:
     """Bring a compose project up and guarantee it is torn down.
 
@@ -166,7 +172,9 @@ def compose_project(
     """
     name = project or f"sentinel-{uuid.uuid4().hex[:10]}"
     try:
-        compose(compose_file, name, "up", "-d", "--wait", timeout=up_timeout, env=env)
+        compose(
+            compose_file, name, "up", "-d", "--wait", timeout=up_timeout, env=env, profiles=profiles
+        )
         yield name
     finally:
         compose(
@@ -178,7 +186,27 @@ def compose_project(
             timeout=180,
             check=False,
             env=env,
+            profiles=profiles,
         )
+        purge_project(name)
+
+
+def purge_project(project: str) -> None:
+    """Remove anything left carrying a project's compose labels.
+
+    `docker compose down` is the normal path, but a service behind a profile can
+    survive it if the profile is not active on the teardown call — and a single
+    surviving container pins its network, whose subnet then collides with the next
+    run and fails it with an unexplained "Pool overlaps with other one on this address
+    space". This sweep makes that impossible regardless of how down was invoked.
+    """
+    label = f"label=com.docker.compose.project={project}"
+    listed = docker("ps", "-aq", "--filter", label, check=False, timeout=60)
+    for container in listed.stdout.split():
+        docker("rm", "-f", container, check=False, timeout=60)
+    nets = docker("network", "ls", "-q", "--filter", label, check=False, timeout=60)
+    for network in nets.stdout.split():
+        docker("network", "rm", network, check=False, timeout=60)
 
 
 def network_names() -> list[str]:
