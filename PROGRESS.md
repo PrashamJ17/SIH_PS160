@@ -84,7 +84,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 4.3 — Payload chain walker with loop guards — commit `319e3fb`
 - [x] 4.4 — Transform parser with attribute support — commit `444b875`
 - [x] 4.5 — Proposal and SA payload parser — commit `4079e05`
-- [x] 4.6 — KE, nonce, notify and vendor ID payloads — commit `4843201`
+- [x] 4.6 — KE, nonce, notify and vendor ID payloads — commit `13bd785`
 - [ ] 4.7 — IKEv1 support
 - [ ] 4.8 — PCAP ingestion
 - [ ] 4.9 — Parser fuzzing **(UNCUTTABLE)**
