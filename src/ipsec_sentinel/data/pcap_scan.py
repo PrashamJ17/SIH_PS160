@@ -15,6 +15,7 @@ from __future__ import annotations
 import struct
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import BinaryIO, Final
 
@@ -80,7 +81,8 @@ class ScanResult:
         return self.ipsec_packets > 0
 
 
-def _read_global_header(handle: BinaryIO) -> tuple[str, int]:
+def _read_global_header(handle: BinaryIO) -> tuple[str, int, bool]:
+    """Return (endianness, link type, whether sub-second stamps are nanoseconds)."""
     magic = handle.read(4)
     if magic == PCAPNG_MAGIC:
         raise UnsupportedCaptureError("pcapng is not walked by this scanner")
@@ -94,21 +96,35 @@ def _read_global_header(handle: BinaryIO) -> tuple[str, int]:
     if len(rest) < 20:
         raise UnsupportedCaptureError("truncated pcap global header")
     link_type = struct.unpack(f"{endian}I", rest[16:20])[0]
-    return endian, int(link_type)
+    return endian, int(link_type), magic in (PCAP_MAGIC_LE_NS, PCAP_MAGIC_BE_NS)
 
 
-def _records(handle: BinaryIO, endian: str) -> Iterator[bytes]:
+def _timed_records(
+    handle: BinaryIO, endian: str, nanosecond: bool
+) -> Iterator[tuple[datetime, bytes]]:
+    """Yield (capture time, frame) pairs.
+
+    The sub-second field is microseconds in a classic pcap and nanoseconds in one
+    written with the alternate magic. Reading one as the other shifts every timestamp
+    by three orders of magnitude, which would silently reorder an exchange.
+    """
     header_format = f"{endian}IIII"
+    divisor = 1_000_000_000 if nanosecond else 1_000_000
     while True:
         header = handle.read(16)
         if len(header) < 16:
             return
-        _ts, _us, incl_len, _orig = struct.unpack(header_format, header)
+        seconds, fraction, incl_len, _orig = struct.unpack(header_format, header)
         if incl_len > 262_144:  # a frame larger than this is a corrupt length field
             return
         data = handle.read(incl_len)
         if len(data) < incl_len:
             return
+        yield datetime.fromtimestamp(seconds + fraction / divisor, tz=UTC), data
+
+
+def _records(handle: BinaryIO, endian: str) -> Iterator[bytes]:
+    for _timestamp, data in _timed_records(handle, endian, nanosecond=False):
         yield data
 
 
@@ -154,7 +170,7 @@ def scan_capture(path: Path, max_packets: int | None = None) -> ScanResult:
     try:
         with path.open("rb") as handle:
             try:
-                endian, link_type = _read_global_header(handle)
+                endian, link_type, _ns = _read_global_header(handle)
             except UnsupportedCaptureError as exc:
                 result.readable = False
                 result.error = str(exc)
@@ -232,7 +248,7 @@ def count_flows(path: Path) -> set[tuple[str, str, int, int, int]]:
     try:
         with path.open("rb") as handle:
             try:
-                endian, link_type = _read_global_header(handle)
+                endian, link_type, _ns = _read_global_header(handle)
             except UnsupportedCaptureError:
                 return flows
             for frame in _records(handle, endian):
@@ -271,3 +287,73 @@ def find_captures(root: Path) -> list[Path]:
     for pattern in patterns:
         found.extend(root.rglob(pattern))
     return sorted(set(found))
+
+
+@dataclass(frozen=True)
+class UDPDatagram:
+    """One UDP datagram with the addressing a finding needs to cite it."""
+
+    timestamp: datetime
+    src_ip: str
+    dst_ip: str
+    src_port: int
+    dst_port: int
+    payload: bytes
+
+
+def _format_ipv6(raw: bytes) -> str:
+    import ipaddress
+
+    return str(ipaddress.IPv6Address(raw))
+
+
+def iter_udp_datagrams(path: Path) -> Iterator[UDPDatagram]:
+    """Walk a capture yielding every UDP datagram, in file order.
+
+    Raises :class:`UnsupportedCaptureError` for a file that is not a classic pcap.
+    Stops cleanly at the first structurally impossible record rather than raising,
+    because a capture cut off mid-write is normal and the datagrams before the cut are
+    still good.
+    """
+    with path.open("rb") as handle:
+        endian, link_type, nanosecond = _read_global_header(handle)
+        for timestamp, frame in _timed_records(handle, endian, nanosecond):
+            stripped = _strip_link_layer(frame, link_type)
+            if stripped is None:
+                continue
+            ethertype, packet = stripped
+
+            if ethertype == ETHERTYPE_IPV4:
+                if len(packet) < 20 or packet[9] != PROTO_UDP:
+                    continue
+                header_length = (packet[0] & 0x0F) * 4
+                if len(packet) < header_length + 8:
+                    continue
+                source = ".".join(str(b) for b in packet[12:16])
+                destination = ".".join(str(b) for b in packet[16:20])
+                rest = packet[header_length:]
+            elif ethertype == ETHERTYPE_IPV6:
+                # Extension headers are not walked: an IKE datagram behind one is
+                # vanishingly rare, and guessing at the chain would misreport offsets.
+                if len(packet) < 40 or packet[6] != PROTO_UDP or len(packet) < 48:
+                    continue
+                source = _format_ipv6(packet[8:24])
+                destination = _format_ipv6(packet[24:40])
+                rest = packet[40:]
+            else:
+                continue
+
+            src_port, dst_port, udp_length = struct.unpack("!HHH", rest[:6])
+            # Trust the UDP length over the frame length: trailing padding is common
+            # on small datagrams and would otherwise be handed to the IKE parser.
+            body = rest[8:]
+            if 8 <= udp_length <= len(rest):
+                body = rest[8:udp_length]
+            yield UDPDatagram(
+                timestamp=timestamp,
+                src_ip=source,
+                dst_ip=destination,
+                src_port=src_port,
+                dst_port=dst_port,
+                payload=body,
+            )

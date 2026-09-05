@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-05T16:33:04.057523Z",
+  "updated_at": "2026-09-05T16:38:00.094974Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -68,7 +68,15 @@
     "87c691b52954_icmp_steady_1s_clean_r0",
     "87c691b52954_voip_g729_20ms_wan_good_r0",
     "87c691b52954_video_dash_720p_wan_poor_r0",
-    "87c691b52954_web_skimming_clean_r0"
+    "87c691b52954_web_skimming_clean_r0",
+    "87c691b52954_email_smtp_small_wan_good_r0",
+    "87c691b52954_messaging_chat_idle_wan_poor_r0",
+    "87c691b52954_replay_mawi_sample_clean_r0",
+    "bdd996a40ee9_icmp_flood_small_wan_good_r0",
+    "bdd996a40ee9_voip_g711_20ms_wan_poor_r0",
+    "bdd996a40ee9_video_dash_1080p_clean_r0",
+    "bdd996a40ee9_web_reading_wan_good_r0",
+    "bdd996a40ee9_email_smtp_attachment_wan_poor_r0"
   ],
   "failed": [],
   "outcomes": {
@@ -1418,17 +1426,19 @@
       "generator": "email",
       "variant": "smtp_small",
       "impairment": "wan_good",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-582790b726_left_protected Creating \n Network sentinel-cell-582790b726_left_protected Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-582790b726_left_protected: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.171218Z",
-      "ended_at": "2026-09-05T16:18:56.231110Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/87c691b52954_email_smtp_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/87c691b52954_email_smtp_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/87c691b52954_email_smtp_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 156,
+      "inner_packets": 155,
+      "started_at": "2026-09-05T16:33:04.058712Z",
+      "ended_at": "2026-09-05T16:33:39.975753Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "87c691b52954_messaging_chat_idle_wan_poor_r0": {
       "cell_id": "87c691b52954_messaging_chat_idle_wan_poor_r0",
@@ -1436,17 +1446,19 @@
       "generator": "messaging",
       "variant": "chat_idle",
       "impairment": "wan_poor",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-05bd978575_transit Creating \n Network sentinel-cell-05bd978575_transit Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-05bd978575_transit: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.300460Z",
-      "ended_at": "2026-09-05T16:18:56.359750Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/87c691b52954_messaging_chat_idle_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/87c691b52954_messaging_chat_idle_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/87c691b52954_messaging_chat_idle_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 61,
+      "inner_packets": 62,
+      "started_at": "2026-09-05T16:33:42.380709Z",
+      "ended_at": "2026-09-05T16:34:23.314450Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "87c691b52954_replay_mawi_sample_clean_r0": {
       "cell_id": "87c691b52954_replay_mawi_sample_clean_r0",
@@ -1454,17 +1466,19 @@
       "generator": "replay",
       "variant": "mawi_sample",
       "impairment": "clean",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-241ff0839f_transit Creating \n Network sentinel-cell-241ff0839f_transit Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-241ff0839f_transit: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.430042Z",
-      "ended_at": "2026-09-05T16:18:56.487689Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/87c691b52954_replay_mawi_sample_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/87c691b52954_replay_mawi_sample_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/87c691b52954_replay_mawi_sample_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 962,
+      "inner_packets": 918,
+      "started_at": "2026-09-05T16:34:25.703641Z",
+      "ended_at": "2026-09-05T16:34:31.963332Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_icmp_flood_small_wan_good_r0": {
       "cell_id": "bdd996a40ee9_icmp_flood_small_wan_good_r0",
@@ -1472,17 +1486,19 @@
       "generator": "icmp",
       "variant": "flood_small",
       "impairment": "wan_good",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-d4374bbbc1_left_protected Creating \n Network sentinel-cell-d4374bbbc1_left_protected Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-d4374bbbc1_left_protected: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.556905Z",
-      "ended_at": "2026-09-05T16:18:56.615287Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/bdd996a40ee9_icmp_flood_small_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/bdd996a40ee9_icmp_flood_small_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/bdd996a40ee9_icmp_flood_small_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3000,
+      "inner_packets": 3011,
+      "started_at": "2026-09-05T16:34:34.249277Z",
+      "ended_at": "2026-09-05T16:35:15.602632Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_voip_g711_20ms_wan_poor_r0": {
       "cell_id": "bdd996a40ee9_voip_g711_20ms_wan_poor_r0",
@@ -1490,17 +1506,19 @@
       "generator": "voip",
       "variant": "g711_20ms",
       "impairment": "wan_poor",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-e98c7a6b8f_left_protected Creating \n Network sentinel-cell-e98c7a6b8f_left_protected Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-e98c7a6b8f_left_protected: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.685340Z",
-      "ended_at": "2026-09-05T16:18:56.742157Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/bdd996a40ee9_voip_g711_20ms_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/bdd996a40ee9_voip_g711_20ms_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/bdd996a40ee9_voip_g711_20ms_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 2978,
+      "inner_packets": 3003,
+      "started_at": "2026-09-05T16:35:17.882016Z",
+      "ended_at": "2026-09-05T16:35:54.216582Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_video_dash_1080p_clean_r0": {
       "cell_id": "bdd996a40ee9_video_dash_1080p_clean_r0",
@@ -1508,17 +1526,19 @@
       "generator": "video",
       "variant": "dash_1080p",
       "impairment": "clean",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-b88101d328_right_protected Creating \n Network sentinel-cell-b88101d328_right_protected Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-b88101d328_right_protected: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.812453Z",
-      "ended_at": "2026-09-05T16:18:56.877350Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/bdd996a40ee9_video_dash_1080p_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/bdd996a40ee9_video_dash_1080p_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/bdd996a40ee9_video_dash_1080p_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 22541,
+      "inner_packets": 22548,
+      "started_at": "2026-09-05T16:35:56.559466Z",
+      "ended_at": "2026-09-05T16:36:34.519365Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_web_reading_wan_good_r0": {
       "cell_id": "bdd996a40ee9_web_reading_wan_good_r0",
@@ -1526,17 +1546,19 @@
       "generator": "web",
       "variant": "reading",
       "impairment": "wan_good",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-be91ca9562_transit Creating \n Network sentinel-cell-be91ca9562_transit Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-be91ca9562_transit: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:56.948237Z",
-      "ended_at": "2026-09-05T16:18:57.012188Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/bdd996a40ee9_web_reading_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/bdd996a40ee9_web_reading_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/bdd996a40ee9_web_reading_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 5992,
+      "inner_packets": 6002,
+      "started_at": "2026-09-05T16:36:36.851374Z",
+      "ended_at": "2026-09-05T16:37:13.362363Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_email_smtp_attachment_wan_poor_r0": {
       "cell_id": "bdd996a40ee9_email_smtp_attachment_wan_poor_r0",
@@ -1544,17 +1566,19 @@
       "generator": "email",
       "variant": "smtp_attachment",
       "impairment": "wan_poor",
-      "success": false,
-      "error": "RuntimeError: docker compose up -d --wait exited 1: Network sentinel-cell-f2b98618ec_right_protected Creating \n Network sentinel-cell-f2b98618ec_right_protected Error Error response from daemon: invalid pool request: Pool overlaps with other one on this address space\nfailed to create network sentinel-cell-f2b98618ec_right_protected: Error response from daemon: invalid pool request: Pool overlaps with other one on this address space",
-      "outer_pcap": null,
-      "inner_pcap": null,
-      "manifest_path": null,
-      "negotiation_matched_intent": false,
-      "outer_packets": 0,
-      "inner_packets": 0,
-      "started_at": "2026-09-05T16:18:57.080603Z",
-      "ended_at": "2026-09-05T16:18:57.137782Z",
-      "details": {}
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/bdd996a40ee9_email_smtp_attachment_wan_poor_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/bdd996a40ee9_email_smtp_attachment_wan_poor_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/bdd996a40ee9_email_smtp_attachment_wan_poor_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 2616,
+      "inner_packets": 2154,
+      "started_at": "2026-09-05T16:37:15.573295Z",
+      "ended_at": "2026-09-05T16:37:57.724802Z",
+      "details": {
+        "mismatches": []
+      }
     },
     "bdd996a40ee9_messaging_chat_active_clean_r0": {
       "cell_id": "bdd996a40ee9_messaging_chat_active_clean_r0",

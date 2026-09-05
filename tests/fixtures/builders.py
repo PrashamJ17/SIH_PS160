@@ -12,6 +12,7 @@ cannot silently drift out of agreement with what it claims to build.
 from __future__ import annotations
 
 import struct
+from pathlib import Path
 from typing import Final
 
 from ipsec_sentinel.models import Proposal, TransformType
@@ -378,3 +379,69 @@ def build_ikev1_main_mode(auth_method: int = V1_AUTH_PRE_SHARED_KEY, **kwargs: i
     any authentication payload is sent. PSK here is not a crackable-hash finding.
     """
     return build_ikev1_aggressive(auth_method=auth_method, exchange_type=EXCHANGE_V1_MAIN, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Capture-file construction
+#
+# Written by hand rather than with a packet library: the tests below assert on how the
+# ingestion layer treats malformed and adversarial captures, and a library that
+# normalises its output cannot produce those.
+# ---------------------------------------------------------------------------
+
+PCAP_MAGIC_US: Final = b"\xd4\xc3\xb2\xa1"
+PCAP_MAGIC_NS: Final = b"\x4d\x3c\xb2\xa1"
+DLT_ETHERNET: Final = 1
+IKE_PORT: Final = 500
+NAT_T_PORT: Final = 4500
+
+
+def build_udp_frame(
+    payload: bytes,
+    src_ip: str = "192.0.2.1",
+    dst_ip: str = "192.0.2.2",
+    src_port: int = IKE_PORT,
+    dst_port: int = IKE_PORT,
+) -> bytes:
+    """An Ethernet + IPv4 + UDP frame carrying ``payload``."""
+    udp = struct.pack("!HHHH", src_port, dst_port, 8 + len(payload), 0) + payload
+    total = 20 + len(udp)
+    ipv4 = (
+        struct.pack("!BBHHHBBH", 0x45, 0, total, 0, 0, 64, 17, 0)
+        + bytes(int(part) for part in src_ip.split("."))
+        + bytes(int(part) for part in dst_ip.split("."))
+    )
+    ethernet = b"\x02" * 6 + b"\x03" * 6 + struct.pack("!H", 0x0800)
+    return ethernet + ipv4 + udp
+
+
+def build_pcap(
+    frames: list[bytes], nanosecond: bool = False, base_time: int = 1_700_000_000
+) -> bytes:
+    """A classic pcap file containing ``frames``, one record each."""
+    magic = PCAP_MAGIC_NS if nanosecond else PCAP_MAGIC_US
+    out = magic + struct.pack("<HHiIII", 2, 4, 0, 0, 262_144, DLT_ETHERNET)
+    for index, frame in enumerate(frames):
+        out += struct.pack("<IIII", base_time + index, 0, len(frame), len(frame))
+        out += frame
+    return out
+
+
+def write_pcap(path: Path, frames: list[bytes], **kwargs: object) -> Path:
+    """Write ``frames`` to ``path`` as a pcap and return the path."""
+    path.write_bytes(build_pcap(frames, **kwargs))  # type: ignore[arg-type]
+    return path
+
+
+def build_esp_over_udp_frame(spi: int = 0xDEADBEEF) -> bytes:
+    """ESP on port 4500 — no non-ESP marker, so the first four bytes are the SPI.
+
+    An SPI cannot be zero, which is precisely what makes the marker unambiguous.
+    """
+    body = struct.pack("!II", spi, 1) + b"\xa5" * 64
+    return build_udp_frame(body, src_port=NAT_T_PORT, dst_port=NAT_T_PORT)
+
+
+def build_natt_ike_frame(message: bytes) -> bytes:
+    """IKE on port 4500, behind the four-byte non-ESP marker."""
+    return build_udp_frame(b"\x00\x00\x00\x00" + message, src_port=NAT_T_PORT, dst_port=NAT_T_PORT)
