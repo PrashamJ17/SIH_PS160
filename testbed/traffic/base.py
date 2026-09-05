@@ -85,7 +85,7 @@ class GenerationResult(BaseModel):
 
 
 def wait_for_service(
-    container: str, host: str, port: int, timeout_s: float = 45.0, interval_s: float = 0.5
+    container: str, host: str, port: int, timeout_s: float = 120.0, interval_s: float = 0.5
 ) -> bool:
     """Block until ``host:port`` accepts a TCP connection from inside ``container``.
 
@@ -94,6 +94,11 @@ def wait_for_service(
     a sidecar that is still initialising and produce a short, sparse capture — which
     does not fail loudly, it just yields a thin cell that quietly weakens the corpus.
     Across a sweep of thousands of cells that is a real source of label noise.
+
+    The budget is generous because Prosody and Postfix are far slower to become
+    ready than nginx, and slower still when several pairs have run back to back:
+    a 45-second budget was enough in isolation and timed out during a sequential
+    seven-generator sweep.
     """
     probe = (
         "import socket,sys\n"

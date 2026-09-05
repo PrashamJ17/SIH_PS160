@@ -1,9 +1,9 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 11:54 UTC
-**Current phase:** 2 — Traffic generation
-**Current step:** MILESTONE M2 gate
-**Last milestone tag:** `v0.2.0-testbed`
+**Last updated:** 2026-09-05 12:31 UTC
+**Current phase:** 3 — Dataset sweep and external data
+**Current step:** 3.1 — Single-run orchestrator
+**Last milestone tag:** `v0.3.0-traffic`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -61,9 +61,16 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 2.6 — Email generator — commit `bff1e5c`
 - [x] 2.7 — Messaging generator (XMPP proxy) — commit `cdb000f` (+ `5b469ea`, `29a4650`)
 - [x] 2.8 — PCAP replay generator — commit `be6a780`
-- [x] 2.9 — Network impairment profiles — commit `(this commit)`
-- [ ] **▶ MILESTONE M2** — tag `v0.3.0-traffic`
-- [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`)
+- [x] 2.9 — Network impairment profiles — commit `b36e9f1`
+- [x] **▶ MILESTONE M2 PASSED** — tag `v0.3.0-traffic`
+
+  | M2 acceptance | Result |
+  |---|---|
+  | All 7 generators run without error | **7/7**, measured over 60 s each |
+  | Each produces a distinct traffic pattern | **yes** — measured, not eyeballed; see `reports/generator_shapes.json` |
+  | Impairment profiles apply and remove cleanly | **yes** — 19 unit + 9 integration tests |
+  | All Phase 0 and Phase 1 tests still pass | **341 unit (100% cov), 125 integration** |
+- [ ] Phase 3 — Dataset and external data (6 steps → `v0.4.0-dataset`) ← **CURRENT**
 - [ ] Phase 4 — Deterministic IKE parser (10 steps → `v0.5.0-parser`)
 - [ ] Phase 5 — ESP analysis (5 steps → `v0.6.0-esp`)
 - [ ] Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`)

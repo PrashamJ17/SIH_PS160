@@ -1,0 +1,28 @@
+[
+  {
+    "generator": "messaging",
+    "variant": "chat_active",
+    "packets": 115,
+    "mean_size": 177.16521739130434,
+    "size_stdev": 126.2646585849003,
+    "mean_iat_ms": 526.5986229244031,
+    "iat_stdev_ms": 814.7276398579604,
+    "forward_ratio": 0.7386926096603516,
+    "idle_fraction": 0.8730821847303057,
+    "near_mtu_fraction": 0.0,
+    "small_packet_fraction": 0.5826086956521739
+  },
+  {
+    "generator": "replay",
+    "variant": "cicids2017_benign",
+    "packets": 726,
+    "mean_size": 335.3884297520661,
+    "size_stdev": 445.493493137793,
+    "mean_iat_ms": 0.4953200241615032,
+    "iat_stdev_ms": 0.7365637592480696,
+    "forward_ratio": 11.78844537815126,
+    "idle_fraction": 0.0,
+    "near_mtu_fraction": 0.06198347107438017,
+    "small_packet_fraction": 0.6942148760330579
+  }
+]

@@ -1,0 +1,93 @@
+[
+  {
+    "generator": "icmp",
+    "variant": "steady_1s",
+    "packets": 120,
+    "mean_size": 98,
+    "size_stdev": 0.0,
+    "mean_iat_ms": 508.0226549581319,
+    "iat_stdev_ms": 511.98319479453426,
+    "forward_ratio": 1.0,
+    "idle_fraction": 0.9996389333491525,
+    "near_mtu_fraction": 0.0,
+    "small_packet_fraction": 1.0
+  },
+  {
+    "generator": "voip",
+    "variant": "g711_20ms",
+    "packets": 6001,
+    "mean_size": 214.0046658890185,
+    "size_stdev": 0.3614182092778126,
+    "mean_iat_ms": 9.99673867225647,
+    "iat_stdev_ms": 9.827125446545223,
+    "forward_ratio": 1.0003769470404984,
+    "idle_fraction": 0.0,
+    "near_mtu_fraction": 0.0,
+    "small_packet_fraction": 0.0
+  },
+  {
+    "generator": "video",
+    "variant": "dash_720p",
+    "packets": 20691,
+    "mean_size": 1076.065825721328,
+    "size_stdev": 621.8462612439982,
+    "mean_iat_ms": 2.7081179814732783,
+    "iat_stdev_ms": 103.66655359045977,
+    "forward_ratio": 0.016192858350063448,
+    "idle_fraction": 0.9960987594089472,
+    "near_mtu_fraction": 0.7238412836498961,
+    "small_packet_fraction": 0.2743221690590112
+  },
+  {
+    "generator": "web",
+    "variant": "skimming",
+    "packets": 28909,
+    "mean_size": 802.882631706389,
+    "size_stdev": 689.995677496483,
+    "mean_iat_ms": 1.9332736594491897,
+    "iat_stdev_ms": 81.79870073469247,
+    "forward_ratio": 0.03738138603389616,
+    "idle_fraction": 0.9935111599855674,
+    "near_mtu_fraction": 0.5213601300633021,
+    "small_packet_fraction": 0.4512781486734235
+  },
+  {
+    "generator": "email",
+    "variant": "smtp_attachment",
+    "packets": 1318,
+    "mean_size": 5477.9226100151745,
+    "size_stdev": 15275.699213402662,
+    "mean_iat_ms": 44.04185953335773,
+    "iat_stdev_ms": 605.5777832414483,
+    "forward_ratio": 101.75685292192081,
+    "idle_fraction": 0.9971295622777309,
+    "near_mtu_fraction": 0.17905918057663125,
+    "small_packet_fraction": 0.8110773899848255
+  },
+  {
+    "generator": "messaging",
+    "variant": "chat_active",
+    "packets": 114,
+    "mean_size": 178.81578947368422,
+    "size_stdev": 135.79793850265074,
+    "mean_iat_ms": 531.241186952169,
+    "iat_stdev_ms": 816.748432534015,
+    "forward_ratio": 0.7276887871853547,
+    "idle_fraction": 0.873309343698944,
+    "near_mtu_fraction": 0.0,
+    "small_packet_fraction": 0.5877192982456141
+  },
+  {
+    "generator": "replay",
+    "variant": "cicids2017_benign",
+    "packets": 726,
+    "mean_size": 335.3884297520661,
+    "size_stdev": 445.493493137793,
+    "mean_iat_ms": 0.4952910850787985,
+    "iat_stdev_ms": 0.7342777514002542,
+    "forward_ratio": 11.78844537815126,
+    "idle_fraction": 0.0,
+    "near_mtu_fraction": 0.06198347107438017,
+    "small_packet_fraction": 0.6942148760330579
+  }
+]

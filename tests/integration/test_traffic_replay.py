@@ -41,15 +41,15 @@ def synthesise_source(path: Path) -> list[int]:
     rng = random.Random(17)
     packets = []
     for index in range(SOURCE_PACKETS):
-        payload = bytes(rng.randrange(256) for _ in range(1))  # placeholder, resized below
         size = rng.choice([40, 60, 90, 140, 300, 576, 900, 1200, 1400])
         payload = b"\x5a" * size
+        ether = Ether(src="02:00:00:00:00:01", dst="02:00:00:00:00:02")
         if index % 7 == 0:
-            pkt = Ether() / IP(src="192.168.5.10", dst="93.184.216.34") / UDP() / Raw(payload)
+            pkt = ether / IP(src="192.168.5.10", dst="93.184.216.34") / UDP() / Raw(payload)
         elif index % 11 == 0:
-            pkt = Ether() / IP(src="192.168.5.10", dst="8.8.8.8") / ICMP() / Raw(payload)
+            pkt = ether / IP(src="192.168.5.10", dst="8.8.8.8") / ICMP() / Raw(payload)
         else:
-            pkt = Ether() / IP(src="192.168.5.10", dst="93.184.216.34") / TCP() / Raw(payload)
+            pkt = ether / IP(src="192.168.5.10", dst="93.184.216.34") / TCP() / Raw(payload)
         packets.append(pkt)
     wrpcap(str(path), packets)
     return [len(p) for p in packets]

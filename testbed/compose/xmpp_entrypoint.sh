@@ -36,4 +36,12 @@ chown -R prosody:prosody /var/run/prosody /var/lib/prosody
 prosodyctl register alice "$XMPP_DOMAIN" "$XMPP_PASSWORD" || true
 prosodyctl register bob "$XMPP_DOMAIN" "$XMPP_PASSWORD" || true
 
-exec prosody -F
+# Registration ran as root, so the data directory must be handed back.
+chown -R prosody:prosody /var/lib/prosody /var/run/prosody
+
+# Prosody REFUSES to run as root: mod_posix activates c2s, then immediately shuts
+# down and deactivates it again. The container still looks healthy, and whether a
+# client connects depends on whether it happens to probe during that brief window —
+# an intermittent failure that is very hard to read from the outside. Everything above
+# needs root (the route, the config, registration); the daemon itself must not have it.
+exec su -s /bin/sh prosody -c "exec prosody -F"
