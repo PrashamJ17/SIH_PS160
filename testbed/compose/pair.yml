@@ -48,7 +48,7 @@ services:
   # interface, so capturing on the gateway alone yields only the inbound decrypted
   # half — enough to look like it works, and badly wrong as ML training data.
   left_host:
-    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    image: ${SENTINEL_TRAFFIC_IMAGE:-ipsec-sentinel-traffic:latest}
     hostname: left-host
     cap_add: [NET_ADMIN]
     entrypoint: ["sh", "-c", "ip route replace ${RIGHT_PROTECTED_SUBNET:-10.2.0.0/24} via ${LEFT_PROTECTED_IP:-10.1.0.2} && sleep infinity"]
@@ -58,7 +58,7 @@ services:
         ipv4_address: ${LEFT_HOST_IP:-10.1.0.10}
 
   right_host:
-    image: ${SENTINEL_IMAGE:-ipsec-sentinel-strongswan:latest}
+    image: ${SENTINEL_TRAFFIC_IMAGE:-ipsec-sentinel-traffic:latest}
     hostname: right-host
     cap_add: [NET_ADMIN]
     entrypoint: ["sh", "-c", "ip route replace ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24} via ${RIGHT_PROTECTED_IP:-10.2.0.2} && sleep infinity"]

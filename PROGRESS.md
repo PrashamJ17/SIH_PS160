@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 10:46 UTC
+**Last updated:** 2026-09-05 10:51 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.3 — VoIP generator
+**Current step:** 2.4 — Video streaming generator
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -54,8 +54,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
   | All previous tests still pass | **304 unit (100% cov), 48 integration** |
 ### Phase 2 — Traffic generation (9 steps → `v0.3.0-traffic`) ← **CURRENT**
 - [x] 2.1 — Traffic generator interface — commit `4cbe556`
-- [x] 2.2 — ICMP generator — commit `(this commit)`
-- [ ] 2.3 — VoIP generator
+- [x] 2.2 — ICMP generator — commit `c1dc5a4`
+- [x] 2.3 — VoIP generator — commit `(this commit)`
 - [ ] 2.4 — Video streaming generator
 - [ ] 2.5 — Web browsing generator
 - [ ] 2.6 — Email generator
@@ -287,6 +287,21 @@ Rules that follow:
 * `test` needs no such care — coreutils provides `/usr/bin/test`.
 * tcpdump is launched with its PID recorded to a file, since without procps there is no
   other way to find it again.
+
+### Two images now: gateways and hosts
+
+Gateways run `Dockerfile.strongswan`; the hosts behind them run
+`Dockerfile.traffic` (python3, curl, iperf3, tcpreplay, tcpdump, **procps**). Splitting
+them keeps traffic tooling out of the daemon image and gives the remaining generators
+somewhere to put their dependencies — which is what `TrafficGenerator.requires` is for.
+
+An autouse session fixture in `tests/integration/conftest.py` builds both, so no
+pair-based test can forget one and fail with an unexplained "image not found".
+
+**Honesty note carried into `docs/DATASET.md` at Step 3.4:** the VoIP generator drives a
+synthetic RTP endpoint, not a softphone. There is no SIP signalling and no real codec.
+Packet timing and size distribution are faithful — and through ESP those are the only
+observable properties — but the corpus must not be described as containing real calls.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

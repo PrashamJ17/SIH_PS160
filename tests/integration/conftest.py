@@ -27,6 +27,7 @@ from tests.fixtures.dockerctl import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE_DIR = REPO_ROOT / "testbed" / "compose"
 STRONGSWAN_IMAGE = "ipsec-sentinel-strongswan:latest"
+TRAFFIC_IMAGE = "ipsec-sentinel-traffic:latest"
 PAIR_COMPOSE = COMPOSE_DIR / "pair.yml"
 
 
@@ -36,6 +37,17 @@ def docker_daemon() -> str:
     if not available:
         pytest.skip(f"Docker unavailable: {detail}")
     return detail
+
+
+@pytest.fixture(scope="session")
+def traffic_image(docker_daemon: str) -> str:  # noqa: ARG001
+    """Build the host traffic image once per session if it is not already present.
+
+    ``docker_daemon`` is requested for its skip-if-absent side effect only.
+    """
+    if not image_exists(TRAFFIC_IMAGE):
+        build_image(TRAFFIC_IMAGE, COMPOSE_DIR / "Dockerfile.traffic", COMPOSE_DIR)
+    return TRAFFIC_IMAGE
 
 
 @pytest.fixture(scope="session")
@@ -53,6 +65,17 @@ def strongswan_image(docker_daemon: str) -> str:  # noqa: ARG001
             COMPOSE_DIR,
         )
     return STRONGSWAN_IMAGE
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _pair_images(strongswan_image: str, traffic_image: str) -> tuple[str, str]:
+    """Ensure both images the pair needs exist before any integration test runs.
+
+    The gateways run the strongSwan image and the hosts run the traffic image. Making
+    this autouse means a test that brings up a pair cannot forget one of them and fail
+    with an unexplained "image not found" from compose.
+    """
+    return strongswan_image, traffic_image
 
 
 @contextmanager

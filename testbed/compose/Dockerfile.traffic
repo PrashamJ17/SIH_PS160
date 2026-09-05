@@ -1,0 +1,18 @@
+FROM debian:bookworm-slim
+
+# The hosts behind each gateway generate application traffic. Keeping this separate
+# from the strongSwan gateway image means traffic tooling never bloats the daemon
+# image, and the two evolve independently.
+#
+# procps is included deliberately: the capture and generator code needs to signal and
+# inspect processes, and its absence in the gateway image cost real debugging time.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-minimal python3-venv \
+    iproute2 iputils-ping procps \
+    curl tcpdump iperf3 tcpreplay \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY scripts/ /opt/sentinel/
+RUN chmod +x /opt/sentinel/*.py 2>/dev/null || true
+
+ENTRYPOINT ["sleep", "infinity"]
