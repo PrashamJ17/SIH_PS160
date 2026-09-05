@@ -1,0 +1,15 @@
+FROM debian:bookworm-slim
+
+# A real mail stack, not a simulation: Postfix speaks SMTP and Dovecot speaks IMAP,
+# so the corpus contains genuine protocol exchanges rather than something shaped to
+# look like them.
+ENV DEBIAN_FRONTEND=noninteractive
+RUN echo "postfix postfix/main_mailer_type string 'Internet Site'" | debconf-set-selections \
+    && echo "postfix postfix/mailname string mail.testbed.local" | debconf-set-selections \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       postfix dovecot-imapd dovecot-core iproute2 procps \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY mail_entrypoint.sh /mail_entrypoint.sh
+RUN chmod +x /mail_entrypoint.sh
+ENTRYPOINT ["/mail_entrypoint.sh"]

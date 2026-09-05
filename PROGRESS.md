@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 11:04 UTC
+**Last updated:** 2026-09-05 11:13 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.6 — Email generator
+**Current step:** 2.7 — Messaging generator (XMPP proxy)
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -57,8 +57,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 2.2 — ICMP generator — commit `c1dc5a4`
 - [x] 2.3 — VoIP generator — commit `722d07b`
 - [x] 2.4 — Video streaming generator — commit `d66a4c5`
-- [x] 2.5 — Web browsing generator — commit `(this commit)`
-- [ ] 2.6 — Email generator
+- [x] 2.5 — Web browsing generator — commit `ff3f895`
+- [x] 2.6 — Email generator — commit `(this commit)`
 - [ ] 2.7 — Messaging generator (XMPP proxy)
 - [ ] 2.8 — PCAP replay generator
 - [ ] 2.9 — Network impairment profiles

@@ -79,14 +79,18 @@ def _pair_images(strongswan_image: str, traffic_image: str) -> tuple[str, str]:
 
 
 @contextmanager
-def running_pair(out_dir: Path, profiles: Sequence[str] = ()) -> Iterator[RunContext]:
+def running_pair(
+    out_dir: Path,
+    profiles: Sequence[str] = (),
+    extra_env: dict[str, str] | None = None,
+) -> Iterator[RunContext]:
     """Bring up a pair, establish the tunnel, and yield a RunContext for generators.
 
     The tunnel is established before the block so traffic tests measure traffic rather
     than negotiation. Tests that need the IKE handshake in the capture must start the
     capture themselves before initiating.
     """
-    env = {"SENTINEL_PSK": secrets.token_hex(24)}
+    env = {"SENTINEL_PSK": secrets.token_hex(24), **(extra_env or {})}
     with compose_project(PAIR_COMPOSE, env=env, profiles=profiles) as project:
 
         def cid(service: str) -> str:

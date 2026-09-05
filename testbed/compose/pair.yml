@@ -94,6 +94,22 @@ services:
       right_protected:
         ipv4_address: ${WEB_ORIGIN_IP:-10.2.0.21}
 
+  # Real Postfix + Dovecot behind the right gateway. The mailbox password is
+  # generated per run and passed in, so no credential is committed or baked in.
+  mail_origin:
+    image: ${SENTINEL_MAIL_IMAGE:-ipsec-sentinel-mail:latest}
+    hostname: mail-origin
+    profiles: [mail]
+    cap_add: [NET_ADMIN]
+    environment:
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_USER: ${MAIL_USER:-tester}
+      FAR_SUBNET: ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24}
+      VIA_GATEWAY: ${RIGHT_PROTECTED_IP:-10.2.0.2}
+    networks:
+      right_protected:
+        ipv4_address: ${MAIL_ORIGIN_IP:-10.2.0.22}
+
 networks:
   # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
   transit:
