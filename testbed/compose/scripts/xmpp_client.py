@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import random
 import sys
 
@@ -47,10 +48,10 @@ class Chatter(slixmpp.ClientXMPP):  # type: ignore[misc]
 
     async def on_session_start(self, _event: object) -> None:
         self.send_presence()
-        try:
+        # The roster is not required to exchange messages; a failure fetching it must
+        # not abort the conversation.
+        with contextlib.suppress(Exception):
             await self.get_roster()
-        except Exception:
-            pass
         await self.chat_loop()
 
     def on_message(self, message: slixmpp.Message) -> None:
