@@ -1,8 +1,8 @@
 # Build Progress
 
-**Last updated:** 2026-09-05 11:13 UTC
+**Last updated:** 2026-09-05 11:37 UTC
 **Current phase:** 2 — Traffic generation
-**Current step:** 2.7 — Messaging generator (XMPP proxy)
+**Current step:** 2.8 — PCAP replay generator
 **Last milestone tag:** `v0.2.0-testbed`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -58,8 +58,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 2.3 — VoIP generator — commit `722d07b`
 - [x] 2.4 — Video streaming generator — commit `d66a4c5`
 - [x] 2.5 — Web browsing generator — commit `ff3f895`
-- [x] 2.6 — Email generator — commit `(this commit)`
-- [ ] 2.7 — Messaging generator (XMPP proxy)
+- [x] 2.6 — Email generator — commit `bff1e5c`
+- [x] 2.7 — Messaging generator (XMPP proxy) — commit `(this commit)`
 - [ ] 2.8 — PCAP replay generator
 - [ ] 2.9 — Network impairment profiles
 - [ ] **▶ MILESTONE M2** — tag `v0.3.0-traffic`
@@ -320,6 +320,23 @@ active on the teardown call, and one surviving container pins its network — wh
 subnet then collides with the next run and fails it with an unexplained
 "Pool overlaps with other one on this address space". `compose_project` now passes
 profiles to `down` **and** sweeps by compose project label afterwards.
+
+### Disclosures owed to `docs/DATASET.md` at Step 3.4
+
+Two generators stand in for something they are not, and both must be named plainly in
+the dataset card. This honesty is a scoring asset, not a weakness — a claimed WhatsApp
+corpus would be indefensible, and a panel that spots the overclaim discounts everything
+else.
+
+* **messaging is XMPP** (Prosody + slixmpp), used as a shape proxy. It is not WhatsApp,
+  Signal or any specific consumer messenger; none can be scripted or lawfully captured.
+  `MessagingGenerator.PROXY_DISCLOSURE` carries the wording and a test asserts it.
+* **voip is a synthetic RTP endpoint**, not a softphone: no SIP signalling, no real
+  codec. Packet timing and size distribution are faithful and are the only properties
+  visible through ESP, but the corpus contains no real calls.
+
+Everything else is genuine protocol: real Postfix and Dovecot for email, real nginx
+origins for web and video, real Prosody for XMPP.
 
 ### Known environment gaps (not blocking now — install before the step named)
 

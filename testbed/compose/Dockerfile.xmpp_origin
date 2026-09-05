@@ -1,0 +1,13 @@
+FROM debian:bookworm-slim
+
+# Prosody is a real XMPP server. The corpus therefore contains genuine XMPP, which is
+# used as a documented *shape proxy* for consumer messaging — see docs/DATASET.md.
+# Nothing here is or claims to be WhatsApp, which cannot be scripted at all.
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    prosody iproute2 procps \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY xmpp_entrypoint.sh /xmpp_entrypoint.sh
+RUN chmod +x /xmpp_entrypoint.sh
+ENTRYPOINT ["/xmpp_entrypoint.sh"]

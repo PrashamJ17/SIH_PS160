@@ -44,6 +44,13 @@ strict = true
 warn_unreachable = true
 files = ["src", "testbed"]
 
+# slixmpp runs inside the traffic container, not on the host, so it is deliberately
+# absent from the host venv. Only its stubs are waived — the script's own code is
+# still fully type-checked.
+[[tool.mypy.overrides]]
+module = "slixmpp.*"
+ignore_missing_imports = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

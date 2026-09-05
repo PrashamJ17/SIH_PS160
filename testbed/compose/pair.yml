@@ -110,6 +110,22 @@ services:
       right_protected:
         ipv4_address: ${MAIL_ORIGIN_IP:-10.2.0.22}
 
+  # Prosody, behind the right gateway. Genuine XMPP, used as a documented shape
+  # proxy for consumer messaging — never presented as WhatsApp.
+  xmpp_origin:
+    image: ${SENTINEL_XMPP_IMAGE:-ipsec-sentinel-xmpp:latest}
+    hostname: xmpp-origin
+    profiles: [messaging]
+    cap_add: [NET_ADMIN]
+    environment:
+      XMPP_PASSWORD: ${XMPP_PASSWORD:-}
+      XMPP_DOMAIN: ${XMPP_DOMAIN:-testbed.local}
+      FAR_SUBNET: ${LEFT_PROTECTED_SUBNET:-10.1.0.0/24}
+      VIA_GATEWAY: ${RIGHT_PROTECTED_IP:-10.2.0.2}
+    networks:
+      right_protected:
+        ipv4_address: ${XMPP_ORIGIN_IP:-10.2.0.23}
+
 networks:
   # The link an observer taps: carries IKE on UDP 500/4500 and ESP.
   transit:
