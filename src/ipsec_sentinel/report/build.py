@@ -19,12 +19,14 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Final
 
+from ipsec_sentinel.assess.enrich import corpus_status
 from ipsec_sentinel.assess.inventory import Inventory
 from ipsec_sentinel.assess.scoring import score_estate
 from ipsec_sentinel.models import Finding, Severity, TunnelAssessment
 from ipsec_sentinel.remediate.models import ChangePackage
 from ipsec_sentinel.report.exposure import build_exposure
 from ipsec_sentinel.report.models import (
+    EnrichmentStatus,
     ExecutiveSummary,
     MetadataExposure,
     PQCSummary,
@@ -184,6 +186,15 @@ def key_points(
     return points
 
 
+def _observed_enrichment() -> EnrichmentStatus:
+    """What enrichment actually had available on this host, counted from disk."""
+    status = corpus_status()
+    return EnrichmentStatus(
+        attack_techniques=status.attack_techniques,
+        cve_cache_entries=status.cve_cache_entries,
+    )
+
+
 def build_report(
     assessments: Sequence[TunnelAssessment],
     inventory: Inventory,
@@ -196,6 +207,7 @@ def build_report(
     threat_matrix: ThreatMatrix | None = None,
     pqc: PQCSummary | None = None,
     criticality: dict[str, float] | None = None,
+    enrichment: EnrichmentStatus | None = None,
 ) -> Report:
     """Route each finding to Section A or B and assemble the report around them.
 
@@ -225,6 +237,7 @@ def build_report(
             tool_version=tool_version(),
             git_sha=git_sha(),
             working_tree_dirty=git_dirty(),
+            enrichment=enrichment if enrichment is not None else _observed_enrichment(),
         ),
         executive=ExecutiveSummary(
             estate_score=score,

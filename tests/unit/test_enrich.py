@@ -9,6 +9,7 @@ make reports non-reproducible and the tool unusable when it is most needed.
 from __future__ import annotations
 
 import json
+import socket
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,7 @@ import pytest
 from ipsec_sentinel.assess.enrich import (
     VENDOR_FINGERPRINTS,
     CVEReference,
+    corpus_status,
     identify_vendor,
     load_attack_index,
     load_cve_cache,
@@ -224,3 +226,65 @@ class TestAtomicWrites:
         target = tmp_path / "nested" / "deeper" / "out.json"
         write_json_atomically(target, [1, 2])
         assert target.exists()
+
+
+class TestCorpusStatus:
+    """A report should say when enrichment was unavailable rather than look complete."""
+
+    def test_a_present_corpus_is_reported_as_present(self, tmp_path: Path) -> None:
+        index = tmp_path / "index.json"
+        index.write_text(json.dumps({"T1040": {"name": "Network Sniffing", "url": "u"}}))
+        cache = tmp_path / "cve.json"
+        cache.write_text(json.dumps({"strongswan|5.9.8": [{"cve_id": "CVE-1"}]}))
+
+        status = corpus_status(index_path=index, cache_path=cache)
+
+        assert status.attack_techniques == 1
+        assert status.cve_cache_entries == 1
+        assert not status.degraded
+        assert status.note is None
+
+    def test_an_absent_corpus_is_counted_as_zero_not_guessed(self, tmp_path: Path) -> None:
+        status = corpus_status(
+            index_path=tmp_path / "absent.json", cache_path=tmp_path / "absent.json"
+        )
+        assert status.attack_techniques == 0
+        assert status.cve_cache_entries == 0
+        assert status.degraded
+
+    def test_the_note_names_what_is_missing_and_what_is_unaffected(self, tmp_path: Path) -> None:
+        """A reader must be able to tell 'nothing found' from 'nothing looked'."""
+        status = corpus_status(
+            index_path=tmp_path / "absent.json", cache_path=tmp_path / "absent.json"
+        )
+        note = status.note
+        assert note is not None
+        assert "ATT&CK" in note
+        assert "CVE" in note
+        assert "built in" in note, "the note must say the protocol CVEs are unaffected"
+
+    def test_a_partial_corpus_names_only_the_missing_half(self, tmp_path: Path) -> None:
+        index = tmp_path / "index.json"
+        index.write_text(json.dumps({"T1040": {"name": "Network Sniffing", "url": "u"}}))
+
+        note = corpus_status(index_path=index, cache_path=tmp_path / "absent.json").note
+
+        assert note is not None
+        assert "ATT&CK" not in note
+        assert "CVE" in note
+
+    def test_an_unreadable_corpus_counts_as_absent_rather_than_raising(
+        self, tmp_path: Path
+    ) -> None:
+        broken = tmp_path / "broken.json"
+        broken.write_text("{not json")
+        status = corpus_status(index_path=broken, cache_path=broken)
+        assert status.degraded
+
+    def test_it_opens_no_socket(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        def refuse(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("corpus_status opened a socket")
+
+        monkeypatch.setattr(socket, "socket", refuse)
+        monkeypatch.setattr(socket, "getaddrinfo", refuse)
+        assert corpus_status(index_path=tmp_path / "a", cache_path=tmp_path / "b").degraded

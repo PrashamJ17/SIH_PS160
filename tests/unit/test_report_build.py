@@ -13,11 +13,12 @@ from collections import Counter
 from datetime import UTC, datetime
 
 import pytest
+from pydantic import ValidationError
 
 from ipsec_sentinel.assess.inventory import Inventory, InventoryEntry, InventoryStatus, KnownTunnel
 from ipsec_sentinel.models import Confidence, Finding, Severity, TunnelAssessment
 from ipsec_sentinel.report.build import build_report, headline, route
-from ipsec_sentinel.report.models import Report
+from ipsec_sentinel.report.models import EnrichmentStatus, Report
 
 NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
 
@@ -509,3 +510,56 @@ class TestTheHeadlineIsGrammatical:
         assert text[0].isupper()
         assert text.rstrip().endswith(".")
         assert "  " not in text
+
+
+class TestEnrichmentIsRecorded:
+    """An air-gapped run must read as an air-gapped run, not as a clean bill of health."""
+
+    def test_the_metadata_carries_the_corpus_status(self) -> None:
+        status = build().metadata.enrichment
+        assert status.attack_techniques >= 0
+        assert status.cve_cache_entries >= 0
+
+    def test_a_degraded_run_carries_a_note(self) -> None:
+        report = build_report(
+            [],
+            Inventory(),
+            "default",
+            source="s",
+            generated_at=NOW,
+            enrichment=EnrichmentStatus(attack_techniques=0, cve_cache_entries=0),
+        )
+        assert report.metadata.enrichment.degraded
+        note = report.metadata.enrichment.note
+        assert note is not None
+        assert "built in" in note
+
+    def test_a_complete_run_carries_no_note(self) -> None:
+        report = build_report(
+            [],
+            Inventory(),
+            "default",
+            source="s",
+            generated_at=NOW,
+            enrichment=EnrichmentStatus(attack_techniques=800, cve_cache_entries=12),
+        )
+        assert not report.metadata.enrichment.degraded
+        assert report.metadata.enrichment.note is None
+
+    def test_the_status_survives_a_round_trip_through_json(self) -> None:
+        report = build_report(
+            [],
+            Inventory(),
+            "default",
+            source="s",
+            generated_at=NOW,
+            enrichment=EnrichmentStatus(attack_techniques=0, cve_cache_entries=3),
+        )
+        restored = Report.model_validate_json(report.model_dump_json())
+        assert restored.metadata.enrichment.attack_techniques == 0
+        assert restored.metadata.enrichment.cve_cache_entries == 3
+        assert restored.metadata.enrichment.degraded
+
+    def test_a_negative_count_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            EnrichmentStatus(attack_techniques=-1, cve_cache_entries=0)

@@ -26,17 +26,19 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ipsec_sentinel.assess.enrich import CorpusStatus
 from ipsec_sentinel.assess.inventory import Inventory
 from ipsec_sentinel.assess.rules.pqc import PQCGrade
 from ipsec_sentinel.models import Confidence, Finding, Grade, Severity
 from ipsec_sentinel.remediate.models import ChangePackage
 
-# 1.1 adds InferenceExplanation and ExposureEntry.explanation. Bumped rather than
+# 1.1 adds InferenceExplanation and ExposureEntry.explanation. 1.2 adds
+# ReportMetadata.enrichment, so an air-gapped run is legible as one. Bumped rather than
 # regenerated in place because these models forbid unknown fields, so the published
 # schema carries `additionalProperties: false` — a consumer validating new output
 # against 1.0 would reject it. The version travels in every report, so a consumer
 # validates against the one the payload declares.
-SCHEMA_VERSION: Final = "1.1"
+SCHEMA_VERSION: Final = "1.2"
 
 
 class ReportModel(BaseModel):
@@ -53,6 +55,32 @@ class ReportModel(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+
+class EnrichmentStatus(ReportModel):
+    """Which reference corpora enrichment had available when this report was built.
+
+    A report with no ATT&CK technique names and no vendor CVEs looks identical whether
+    the corpora were missing or the findings genuinely mapped to nothing. On an
+    air-gapped host — the deployment this tool is most often used in — the first is the
+    normal case, so recording it is what stops a degraded run from reading as a clean
+    one.
+    """
+
+    attack_techniques: int = Field(ge=0)
+    """Techniques in the local ATT&CK index. Zero means the bundle was absent."""
+
+    cve_cache_entries: int = Field(ge=0)
+    """Products in the local CVE cache. Zero means no vendor advisories were available."""
+
+    @property
+    def degraded(self) -> bool:
+        return self.attack_techniques == 0 or self.cve_cache_entries == 0
+
+    @property
+    def note(self) -> str | None:
+        """A sentence for the report, or ``None`` when nothing was missing."""
+        return _corpus_status(self).note
 
 
 class ReportMetadata(ReportModel):
@@ -73,6 +101,10 @@ class ReportMetadata(ReportModel):
     """
 
     schema_version: str = SCHEMA_VERSION
+
+    enrichment: EnrichmentStatus = EnrichmentStatus(attack_techniques=0, cve_cache_entries=0)
+    """What enrichment had to work with. Defaults to "nothing", which is the honest
+    default: a caller that does not say gets the reading that claims least."""
 
     @property
     def provenance(self) -> str:
@@ -346,3 +378,11 @@ class Report(ReportModel):
     @property
     def is_empty(self) -> bool:
         return not self.all_findings and len(self.inventory) == 0
+
+
+def _corpus_status(status: EnrichmentStatus) -> CorpusStatus:
+    """Reuse the wording in :mod:`enrich` rather than restating it here."""
+    return CorpusStatus(
+        attack_techniques=status.attack_techniques,
+        cve_cache_entries=status.cve_cache_entries,
+    )

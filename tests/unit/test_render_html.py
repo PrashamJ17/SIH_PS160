@@ -26,7 +26,7 @@ from ipsec_sentinel.assess.inventory import Inventory, InventoryEntry, Inventory
 from ipsec_sentinel.assess.rules.pqc import PQCGrade
 from ipsec_sentinel.models import Confidence, ESPFlow, Finding, Severity, TunnelAssessment
 from ipsec_sentinel.report.build import build_report
-from ipsec_sentinel.report.models import PQCEntry, PQCSummary, Report
+from ipsec_sentinel.report.models import EnrichmentStatus, PQCEntry, PQCSummary, Report
 from ipsec_sentinel.report.render_html import human_bytes, render_html, write_html
 from ipsec_sentinel.report.threat_matrix import build_threat_matrix
 
@@ -418,3 +418,32 @@ def test_a_report_with_a_change_package_renders_its_steps() -> None:
 def test_the_threat_matrix_is_consistent_with_the_findings() -> None:
     built = report([assessment("t-001", [parsed()])])
     assert built.threat_matrix.rows == build_threat_matrix([assessment("t-001", [parsed()])]).rows
+
+
+class TestTheEnrichmentNoteIsRendered:
+    """A missing corpus must be visible in the document, not only in the JSON."""
+
+    def _rendered(self, status: EnrichmentStatus) -> str:
+        return render_html(
+            build_report(
+                [],
+                Inventory(),
+                "default",
+                source="s.pcap",
+                generated_at=NOW,
+                enrichment=status,
+            )
+        )
+
+    def test_a_degraded_run_says_so(self) -> None:
+        html = self._rendered(EnrichmentStatus(attack_techniques=0, cve_cache_entries=0))
+        assert "reduced reference data" in html
+        assert "built in and unaffected" in html
+
+    def test_a_complete_run_adds_no_note(self) -> None:
+        html = self._rendered(EnrichmentStatus(attack_techniques=800, cve_cache_entries=12))
+        assert "reduced reference data" not in html
+
+    def test_the_note_is_escaped_like_everything_else(self) -> None:
+        html = self._rendered(EnrichmentStatus(attack_techniques=0, cve_cache_entries=0))
+        assert "ATT&amp;CK" in html, "the ampersand must be escaped, not emitted raw"

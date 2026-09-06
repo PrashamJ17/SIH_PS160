@@ -313,3 +313,71 @@ def store_cves(
         for ref in references
     ]
     write_json_atomically(path, cache)
+
+
+@dataclass(frozen=True)
+class CorpusStatus:
+    """Which reference corpora were readable when a report was built.
+
+    A report with no ATT&CK technique names and no vendor CVEs looks exactly the same
+    whether the corpora were absent or the findings genuinely mapped to nothing. On an
+    air-gapped host the first is the normal case, so without this a degraded run reads
+    as a clean one — the failure mode this whole module exists to avoid.
+    """
+
+    attack_techniques: int
+    cve_cache_entries: int
+
+    @property
+    def degraded(self) -> bool:
+        return self.attack_techniques == 0 or self.cve_cache_entries == 0
+
+    @property
+    def note(self) -> str | None:
+        """A sentence for the report, or ``None`` when nothing is missing."""
+        missing: list[str] = []
+        if self.attack_techniques == 0:
+            missing.append(
+                "ATT&CK technique names are unavailable — the MITRE bundle is not "
+                "present on this host, so technique IDs appear unexpanded"
+            )
+        if self.cve_cache_entries == 0:
+            missing.append(
+                "vendor CVE enrichment is unavailable — no local CVE cache was found, "
+                "so this report lists no product-specific advisories"
+            )
+        if not missing:
+            return None
+        return (
+            "Enrichment ran with reduced reference data: "
+            + "; ".join(missing)
+            + ". The protocol CVEs in the threat matrix are built in and unaffected, "
+            "and every finding in this report was produced without them."
+        )
+
+
+def corpus_status(
+    *, index_path: Path | None = None, cache_path: Path | None = None
+) -> CorpusStatus:
+    """Count what enrichment has to work with, without fetching anything.
+
+    Reads the caches directly rather than calling :func:`load_attack_index`, which would
+    rebuild a 48 MB bundle just to answer "is it there?".
+    """
+    index_path = index_path or ATTACK_INDEX
+    return CorpusStatus(
+        attack_techniques=len(_read_json_mapping(index_path)),
+        cve_cache_entries=len(load_cve_cache(cache_path)),
+    )
+
+
+def _read_json_mapping(path: Path) -> dict[str, Any]:
+    """A JSON object from disk, or an empty one when absent or unreadable."""
+    if not path.exists():
+        return {}
+    try:
+        loaded = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        logger.warning("corpus_unreadable", extra={"path": str(path)})
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
