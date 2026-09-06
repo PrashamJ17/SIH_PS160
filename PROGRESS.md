@@ -139,6 +139,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.7 — SIEM output formats — commit `43cecb8`
 - [x] pipeline — `analyse.py`, capture to report — commit `7b60ca9`
 - [x] **M9 gate — 10/10 passed, 0 failed** — tag `v0.10.0-reporting`
+- [x] 10.1a — active IKE prober and observed-config reconstruction — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -574,6 +575,60 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.1a — the prober, and two registries that must not be confused
+
+Two pieces the CLI needs, each validated against something outside this codebase.
+
+### The prober transmits, so the gate is in the library
+
+`probe.py` is the **only module in the project that transmits**, so
+`enumerate_transforms` refuses without `authorised=True` rather than relying on the CLI
+to hold the line. A test walks the AST of every module in the passive lane and asserts
+none of them imports it: a passive lane that *can* reach the prober is one that
+eventually will.
+
+It never completes a handshake. Each probe is one IKE_SA_INIT with a random key exchange
+value of the correct length — the responder selects or refuses before that value is used.
+A test asserts an established tunnel is untouched after a full enumeration, because the
+tool tells operators this is safe and that claim should rest on something.
+
+**Validated against a real strongSwan**, which is the only way to know an encoder is
+right: a frame both halves of one codebase agree on can still be one a real daemon drops
+without a word, and a dropped frame reads as "no response" — a filtered target rather
+than our own bug. Against a responder configured for `aes128-sha256-prfsha256-modp2048`,
+that exact proposal is **accepted** and every other candidate **refused**. Three real
+replies are checked in as fixtures so the rejection path is testable without Docker.
+
+One behaviour worth recording: strongSwan answers an unacceptable group with
+`NO_PROPOSAL_CHOSEN`, not `INVALID_KE_PAYLOAD`. The latter is for a proposal it *would*
+accept offered with the wrong group; reading the two as the same would report "the
+responder wants a different group" about a device that wants a different everything.
+
+### IKEv1 and IKEv2 number their algorithms differently
+
+`observed.py` turns a negotiation back into a `TunnelConfig`, which is what lets a change
+package come from a real capture rather than from a config the operator already had. It
+matched the corpus manifests on the first eight captures — and then failed on a quarter
+of the next forty with *"encryption transform 7 has no configuration equivalent"*.
+
+**Value 7 is CAST in IKEv2 and AES in IKEv1. Value 5 is DES-IV32 in IKEv2 and 3DES in
+IKEv1.** They are separate registries. Reading one through the other's table does not
+fail — it yields a different, plausible algorithm, and the change package built from it
+would correct a configuration the device does not have. The parser keeps the two apart
+and says why in a comment; this module did not, until the corpus said so.
+
+IKEv1 also has no separate PRF: one hash attribute serves as both integrity and PRF
+(RFC 2409 §5), so the reconstructed PRF now follows the hash instead of being assumed.
+
+Everything the wire does not carry is **declared, not guessed**: SA lifetimes (IKEv2
+removed them from the SA payload) and PFS with the child group (negotiated inside an
+encrypted exchange). PFS is assumed *present* rather than absent — assuming absent would
+make the generator "enable PFS" on every tunnel including those that already have it,
+which is a change an operator would rightly refuse, and one that would discredit every
+other recommendation beside it.
 
 ---
 

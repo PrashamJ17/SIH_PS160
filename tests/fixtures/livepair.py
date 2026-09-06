@@ -9,6 +9,7 @@ daemon through some other door would not be exercising those instructions.
 
 from __future__ import annotations
 
+import base64
 import re
 import secrets
 import subprocess
@@ -276,6 +277,54 @@ class LivePair:
 
     def sa_carrying(self, config: TunnelConfig, container: str | None = None) -> LiveSa | None:
         return next((sa for sa in self.sas(container) if sa.carries(config)), None)
+
+    # A self-contained sender, run with the container's own python3. The package is not
+    # installed in the image, so this uses nothing but the standard library: the probe
+    # is built on the host, sent from inside the network, and the reply comes back for
+    # the host to interpret.
+    _SENDER: Final = (
+        "import base64, socket, sys\n"
+        "payload = base64.b64decode(sys.argv[1])\n"
+        "s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\n"
+        "s.settimeout(float(sys.argv[4]))\n"
+        "try:\n"
+        "    s.sendto(payload, (sys.argv[2], int(sys.argv[3])))\n"
+        "    reply, _ = s.recvfrom(65535)\n"
+        "    print(base64.b64encode(reply).decode())\n"
+        "except Exception as exc:\n"
+        "    print('ERR:' + type(exc).__name__)\n"
+    )
+
+    def send_datagram(
+        self, payload: bytes, target: str, port: int = 500, timeout_s: float = 3.0
+    ) -> bytes | None:
+        """Send one UDP datagram from inside the pair's network and return the reply.
+
+        ``None`` means nothing came back. Used to put a probe in front of the live
+        strongSwan responder, which is not reachable from the host: Docker Desktop does
+        not route to container addresses.
+
+        Sent from the **gateway**, not the host behind it. Only the gateways are on the
+        transit network where the peer's IKE port lives; a datagram from the protected
+        host has no route to it and is lost without an error, which looks exactly like a
+        target that is filtered.
+        """
+        encoded = base64.b64encode(payload).decode()
+        result = exec_in(
+            self.left,
+            "python3",
+            "-c",
+            self._SENDER,
+            encoded,
+            target,
+            str(port),
+            str(timeout_s),
+            timeout=int(timeout_s) + 30,
+        )
+        output = result.stdout.strip()
+        if not output or output.startswith("ERR:"):
+            return None
+        return base64.b64decode(output)
 
     @contextmanager
     def reachability(self) -> Iterator[list[Reachability]]:
