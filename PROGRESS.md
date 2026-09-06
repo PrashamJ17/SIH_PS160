@@ -1,8 +1,8 @@
 # Build Progress
 
 **Last updated:** 2026-09-05
-**Current phase:** 6 — Assessment engine
-**Current step:** M6 gate — assessment engine complete
+**Current phase:** 7 — Feature extraction and ML
+**Current step:** 7.2 — ML dataset assembly
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -109,7 +109,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.8 — ATT&CK and CVE enrichment — commit `387f0b4`
 - [x] 6.9 — Configuration anomaly detection — commit `5f42efd`
 - [ ] **▶ MILESTONE M6** — tag `v0.7.0-assessment`
-- [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
+### Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`) ← **CURRENT**
+- [x] 7.1 — Flow feature extractor (42 features) — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
