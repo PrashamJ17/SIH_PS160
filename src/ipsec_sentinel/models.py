@@ -227,6 +227,14 @@ class Finding(BaseModel):
     attack_technique: str | None = None
     remediation_hint: str
     confidence: Confidence | None = None
+    tunnel_id: str | None = None
+    """Which tunnel this finding is about, once it has left that tunnel's assessment.
+
+    A rule evaluates one tunnel and has no need for this, so it is ``None`` as produced.
+    The report builder fills it in when findings from many tunnels are flattened into
+    one list, because at that point "3DES is in use" without saying where is a fact
+    nobody can act on.
+    """
 
     @property
     def is_deterministic(self) -> bool:

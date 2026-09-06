@@ -131,6 +131,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.6 — automatic fix verification from traffic — commit `3ad23d3`
 - [x] **M8 gate — 7/8 passed, 0 failed, 1 blocked** — tag `v0.9.0-remediation`
 - [x] 9.1 — report model with verified/inferred separation — commit `4ca8cde`
+- [x] 9.2 — report builder — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -566,6 +567,36 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.2 — attribution, and a summary that cannot drift
+
+Two decisions worth recording.
+
+**Findings gain a `tunnel_id` when they are flattened.** Rules evaluate one tunnel at a
+time and have no need for it, so a rule-produced finding leaves it `None`. But the report
+model carries two *flat* lists, and "3DES is in use" without saying where is a fact
+nobody can act on. The builder stamps each finding on the way through, and leaves an
+existing attribution alone — a caller that already attributed one knows something the
+builder does not.
+
+Findings are deliberately **not** deduplicated across tunnels. The same rule firing on
+two tunnels is two tunnels to fix, and collapsing them hides the second.
+
+**The executive summary is generated from the findings it summarises**, never passed in.
+The model already validates the two against each other; building it this way means the
+mismatch cannot arise in the first place. The summary is the part that gets read, so a
+summary that disagrees with the body is worse than none.
+
+The headline is written for the M9 criterion — understandable by a non-technical reader —
+and a test asserts it contains no algorithm names at all. It also counts *affected
+tunnels* rather than findings, because three findings on one tunnel is one tunnel to fix.
+A clean estate does not get a blank headline: it points the reader at the exposure
+section, since a perfectly configured tunnel still reveals who is talking to whom.
+
+An empty capture produces a valid report graded A, not F. Nothing observed is not the
+same as everything broken, and the headline says which of the two it is.
 
 ---
 
