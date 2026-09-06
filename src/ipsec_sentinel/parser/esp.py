@@ -50,6 +50,24 @@ class ESPCaptureError(ValueError):
 ESP_HEADER_LENGTH: Final = 8
 ESP_SPI_LENGTH: Final = 4
 
+# The smallest an authenticated ESP packet can be, from RFC 4303 section 2:
+#
+#   SPI 4 + Sequence 4 + (payload >= 0) + (padding >= 0) + Pad Length 1
+#   + Next Header 1 + ICV 12
+#
+# Twelve is the shortest ICV in common use (HMAC-SHA1-96 and HMAC-MD5-96); every
+# stronger integrity algorithm produces more. Anything below this cannot carry the
+# fields RFC 4303 makes mandatory, so it is not ESP whatever its IP protocol number
+# says.
+#
+# This matters because IP protocol 50 is only a claim. A replayed corpus, a scanner,
+# or a misconfigured host can put protocol-50 packets on a link that are nothing of
+# the sort — and this project's own replay generator does exactly that, emitting
+# 32-byte protocol-50 packets from its source corpus. Counted as ESP they became
+# hundreds of single-packet pseudo-flows and inflated one traffic class to 61% of the
+# ML dataset.
+MIN_AUTHENTICATED_ESP_BODY: Final = 22
+
 # The sequence number is a 32-bit counter, so it wraps.
 SEQUENCE_MODULUS: Final = 1 << 32
 
@@ -212,7 +230,9 @@ def extract_esp_packets(pcap: Path) -> list[ESPPacket]:
                     candidate = packet.payload[8:]
                     if candidate[:4] != NON_ESP_MARKER:
                         body = candidate
-            if body is None or len(body) < ESP_HEADER_LENGTH:
+            if body is None or len(body) < MIN_AUTHENTICATED_ESP_BODY:
+                # Too small to hold an ICV, pad length and next header, so it is not
+                # an authenticated ESP packet regardless of the protocol number.
                 continue
             header = parse_esp_header(body)
             packets.append(

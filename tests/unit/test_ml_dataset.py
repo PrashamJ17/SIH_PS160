@@ -185,3 +185,45 @@ class TestDeterminism:
         first = build_ml_dataset(SAMPLE)
         second = build_ml_dataset(SAMPLE)
         assert first.equals(second)
+
+
+class TestMinimumPacketThreshold:
+    """A window with too few packets has no shape to measure.
+
+    Its inter-arrival, burst and percentile features are all finite zeros — correct
+    behaviour from the extractor and useless training data, because a row of zeros
+    labelled "voip" teaches a model that voip looks like nothing.
+    """
+
+    def test_the_threshold_is_documented_and_nonzero(self) -> None:
+        from ipsec_sentinel.features.dataset import MIN_PACKETS_PER_WINDOW
+
+        assert MIN_PACKETS_PER_WINDOW >= 10
+
+    @pytest.mark.skipif(not SAMPLE, reason="no sweep captures present")
+    def test_every_emitted_window_meets_the_threshold(self) -> None:
+        from ipsec_sentinel.features.dataset import MIN_PACKETS_PER_WINDOW
+
+        frame = build_ml_dataset(SAMPLE)
+        assert (frame["packet_count"] >= MIN_PACKETS_PER_WINDOW).all()
+
+    @pytest.mark.skipif(not SAMPLE, reason="no sweep captures present")
+    def test_lowering_the_threshold_admits_more_rows(self) -> None:
+        strict = build_ml_dataset(SAMPLE, min_packets=10)
+        loose = build_ml_dataset(SAMPLE, min_packets=1)
+        assert len(loose) >= len(strict)
+
+    @pytest.mark.skipif(not MANIFESTS, reason="no sweep captures present")
+    def test_the_corpus_is_balanced_across_traffic_classes(self) -> None:
+        """The artefacts skewed one class to 61% of the dataset; balance is the check."""
+        from pathlib import Path as _Path
+
+        built = _Path("data/processed/ml_dataset.parquet")
+        if not built.exists():
+            pytest.skip("the full dataset has not been built")
+        import pandas as pd
+
+        frame = pd.read_parquet(built)
+        share = frame["inner_traffic"].value_counts(normalize=True)
+        assert share.max() < 0.30, f"one class dominates: {share.to_dict()}"
+        assert len(share) == 7

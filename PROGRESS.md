@@ -3,7 +3,7 @@
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
 **Current step:** 7.4 — baseline heuristic for mode inference
-**Last milestone tag:** `v0.6.0-esp`
+**Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
 13 milestone gates). Domain reference: `ipsec_ai_platform_master_document.md`.
@@ -108,7 +108,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.7 — Scoring and grading — commit `6a953b1`
 - [x] 6.8 — ATT&CK and CVE enrichment — commit `387f0b4`
 - [x] 6.9 — Configuration anomaly detection — commit `5f42efd`
-- [ ] **▶ MILESTONE M6** — tag `v0.7.0-assessment`
+- [x] **▶ MILESTONE M6 PASSED** — tag `v0.7.0-assessment` (8/8, at commit `97b5a0f`)
 ### Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`) ← **CURRENT**
 - [x] 7.1 — Flow feature extractor (42 features) — commit `36d8609`
 - [x] 7.2 — ML dataset assembly (1,745 rows) — commit `f5a7681`
@@ -498,6 +498,48 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Two-thirds of the ML dataset was an artefact
+
+Found in Phase 7 while measuring the mode-inference baseline, in data that had already
+passed the M3 gate.
+
+**IP protocol 50 is a claim, not a proof.** The replay generator replays a source
+corpus onto the transit link, and that corpus contains protocol-50 packets. They are
+not ESP — they carry a distinct random SPI each and sequence numbers near 10⁹, which
+no 30-second capture of a fresh SA can reach — but the extractor counted them, and each
+became a one-packet pseudo-flow.
+
+One replay capture: **49 flows, of which 2 were real.** The two genuine SAs carried 500
+and 406 packets with sequences starting at 1; the other 47 were 32-byte singletons.
+
+| | Rows | Replay share | I(traffic; cipher) |
+|---|---|---|---|
+| As first built | 1,745 | 61% | **6.3%** of H(traffic) |
+| After the RFC structural floor | 982 | 36% | 5.3% |
+| After the minimum-packet threshold | **581** | **12%** | **0.1%** |
+
+Two fixes, each justified rather than tuned:
+
+1. **A structural floor in the parser.** RFC 4303 makes Pad Length, Next Header and an
+   ICV mandatory, so an ESP body below 4+4+1+1+12 = 22 bytes cannot be authenticated
+   ESP whatever its protocol number says.
+2. **A minimum packet count per window in the dataset.** Below ten packets a window has
+   no inter-arrival distribution, no burst structure and no meaningful percentiles. The
+   extractor correctly returns finite zeros, and a row of zeros labelled `voip` teaches
+   a model that voip looks like nothing.
+
+**Why M3 did not catch this.** M3 measured the confound at *cell* level, where it is
+exactly 0.0000 nats — the sweep is genuinely balanced. The confound appeared only at
+*row* level, because the artefacts gave one traffic class 29.4 windows per capture
+against 2.4 for the others. The corpus design was sound; the row weighting was not.
+
+The corrected dataset is 581 rows with every class at 2.0–2.7 windows per capture and
+essentially zero mutual information between traffic class and cipher. Had this gone
+unnoticed, every accuracy figure in Phase 7 would have been measured on data that was
+two-thirds fabricated.
 
 ---
 

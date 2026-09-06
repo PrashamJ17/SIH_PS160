@@ -35,6 +35,22 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle avoidance only
 
 DEFAULT_WINDOW_S: Final = 30
 
+# A window with fewer packets than this produces a feature vector with nothing in it:
+# no inter-arrival distribution, no burst structure, no meaningful percentiles. The
+# extractor returns finite zeros for all of them, which is correct behaviour and
+# useless training data — a row of zeros labelled "voip" teaches a model that voip
+# looks like nothing.
+#
+# It also removes a class of artefact this corpus actually contains. The replay
+# generator emits protocol-50 packets from its source corpus onto the transit link;
+# each carries a distinct random SPI, so each becomes a one-packet pseudo-flow. Those
+# survive the parser's structural floor when they are large enough, and they inflated
+# one traffic class from 36% to 61% of the dataset before this threshold was added.
+#
+# Ten is the smallest count at which the inter-arrival and burst features have more
+# than one sample to describe.
+MIN_PACKETS_PER_WINDOW: Final = 10
+
 # Columns that are neither features nor labels: they identify the row's provenance and
 # drive leakage-free splitting.
 GROUPING_COLUMNS: Final[tuple[str, ...]] = (
@@ -158,9 +174,11 @@ def _to_directed(packets: list[ESPPacket]) -> list[DirectedPacket]:
 
 
 def windows_for_capture(
-    manifest_path: Path, window_s: int = DEFAULT_WINDOW_S
+    manifest_path: Path,
+    window_s: int = DEFAULT_WINDOW_S,
+    min_packets: int = MIN_PACKETS_PER_WINDOW,
 ) -> list[LabelledFlowWindow]:
-    """Every labelled flow window from one capture."""
+    """Every labelled flow window from one capture with enough packets to have a shape."""
     manifest = load_manifest(manifest_path)
     meta = manifest.get("capture_meta") or {}
     pcap = manifest_path.parent / str(meta.get("outer_pcap", "capture_outer.pcap"))
@@ -184,6 +202,8 @@ def windows_for_capture(
             )
         ]
         for index, window in _windows(packets, window_s):
+            if len(window) < min_packets:
+                continue
             rows.append(
                 LabelledFlowWindow(
                     capture_id=str(manifest.get("capture_id", manifest_path.parent.name)),
@@ -197,7 +217,11 @@ def windows_for_capture(
     return rows
 
 
-def build_ml_dataset(manifests: Iterable[Path], window_s: int = DEFAULT_WINDOW_S) -> pd.DataFrame:
+def build_ml_dataset(
+    manifests: Iterable[Path],
+    window_s: int = DEFAULT_WINDOW_S,
+    min_packets: int = MIN_PACKETS_PER_WINDOW,
+) -> pd.DataFrame:
     """Build the full labelled dataset, one row per (flow, window).
 
     Columns are ordered grouping keys, then features, then labels, so a reader opening
@@ -208,7 +232,7 @@ def build_ml_dataset(manifests: Iterable[Path], window_s: int = DEFAULT_WINDOW_S
     rows = [
         window.as_row()
         for manifest in manifests
-        for window in windows_for_capture(Path(manifest), window_s)
+        for window in windows_for_capture(Path(manifest), window_s, min_packets)
     ]
     columns = [*GROUPING_COLUMNS, *FEATURE_NAMES, *LABEL_COLUMNS]
     if not rows:

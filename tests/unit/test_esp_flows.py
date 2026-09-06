@@ -171,3 +171,60 @@ class TestAgainstRealCaptures:
             assert flow.packet_count == len(flow.sizes) == len(flow.timestamps)
             assert flow.byte_count == sum(flow.sizes)
             assert flow.first_seen <= flow.last_seen
+
+
+class TestStructuralFloor:
+    """IP protocol 50 is a claim, not a proof.
+
+    This project's own replay generator emits protocol-50 packets from its source
+    corpus onto the transit link. Counted as ESP they became hundreds of one-packet
+    pseudo-flows with random SPIs, and inflated one traffic class from 36% to 61% of
+    the ML dataset before the floor below was added.
+    """
+
+    @staticmethod
+    def _esp_frame(body: bytes) -> bytes:
+        import struct
+
+        total = 20 + len(body)
+        ipv4 = (
+            struct.pack("!BBHHHBBH", 0x45, 0, total, 0, 0, 64, 50, 0)
+            + bytes((192, 0, 2, 1))
+            + bytes((192, 0, 2, 2))
+        )
+        return b"\x02" * 6 + b"\x03" * 6 + struct.pack("!H", 0x0800) + ipv4 + body
+
+    def test_a_packet_too_small_to_hold_an_icv_is_not_esp(self, tmp_path: Path) -> None:
+        from ipsec_sentinel.parser.esp import MIN_AUTHENTICATED_ESP_BODY
+        from tests.fixtures.builders import write_pcap
+
+        body = b"\x00\x46\x4c\x77" + b"\xba\xaa\x30\xfd" + b"\xed\xff\xaa\xc0"
+        assert len(body) < MIN_AUTHENTICATED_ESP_BODY
+        pcap = write_pcap(tmp_path / "bogus.pcap", [self._esp_frame(body)])
+        assert extract_esp_packets(pcap) == []
+
+    def test_a_packet_large_enough_is_kept(self, tmp_path: Path) -> None:
+        from ipsec_sentinel.parser.esp import MIN_AUTHENTICATED_ESP_BODY
+        from tests.fixtures.builders import write_pcap
+
+        body = b"\xaa" * MIN_AUTHENTICATED_ESP_BODY
+        pcap = write_pcap(tmp_path / "real.pcap", [self._esp_frame(body)])
+        assert len(extract_esp_packets(pcap)) == 1
+
+    def test_the_floor_matches_the_rfc_arithmetic(self) -> None:
+        """SPI 4 + Seq 4 + PadLength 1 + NextHeader 1 + the shortest common ICV, 12."""
+        from ipsec_sentinel.parser.esp import MIN_AUTHENTICATED_ESP_BODY
+
+        assert MIN_AUTHENTICATED_ESP_BODY == 4 + 4 + 1 + 1 + 12
+
+    @pytest.mark.skipif(
+        not sorted(Path("data/raw/sweep").glob("*replay*/capture_outer.pcap")),
+        reason="no replay captures present",
+    )
+    def test_real_replay_captures_yield_only_the_two_real_flows(self) -> None:
+        """A tunnel is two SAs. Anything more in these captures was an artefact."""
+        for pcap in sorted(Path("data/raw/sweep").glob("*replay*/capture_outer.pcap"))[:6]:
+            flows = flows_from_capture(pcap)
+            assert len(flows) == 2, f"{pcap.parent.name} produced {len(flows)} flows"
+            for flow in flows:
+                assert flow.sequences[0] == 1, "a real SA starts its counter at 1"
