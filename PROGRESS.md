@@ -114,7 +114,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.2 — ML dataset assembly (1,745 rows) — commit `f5a7681`
 - [x] 7.3 — Leakage-free splitting — commit `1ee6faa`
 - [x] 7.4 — Heuristic baseline for mode inference — commit `4197c81`
-- [x] 7.5 — Traffic classifier training — commit `PENDING`
+- [x] 7.5 — Traffic classifier training — commit `41e3fbe`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
