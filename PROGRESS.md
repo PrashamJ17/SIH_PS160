@@ -149,7 +149,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M10 gate — 8/8 passed, 0 failed** — tag `v0.11.0-interfaces`
 - [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `5aa3e14`
 - [x] 11.1 — end-to-end integration test — commit `e846f8e`
-- [x] 11.2 — performance benchmarks — commit `PENDING`
+- [x] 11.2 — performance benchmarks — commit `f084504`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
