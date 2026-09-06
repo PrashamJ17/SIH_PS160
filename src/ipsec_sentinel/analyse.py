@@ -7,11 +7,15 @@ next, and every judgement it appears to make belongs to a module that has its ow
 
 Two things it does *not* do, both on purpose.
 
-**It does not infer.** The classifier lane produces Section B findings, and wiring it in
-here would mean loading a trained model to analyse a capture. A tunnel's inferred traffic
-class is attached only when a caller supplies it, so an analysis run has no dependency on
-a model file existing and cannot silently degrade to "no inferences" while looking
-complete. :func:`attach_inferences` is the seam for callers that have a model.
+**It loads no model.** The classifier produces Section B findings, and wiring it in by
+default would mean an analysis run depends on a model file existing — and a missing file
+would then look exactly like a tunnel with nothing to infer. ``model_path`` is opt-in for
+that reason, and :func:`attach_inferences` is the seam for callers that have a model.
+
+The distinction is the *artefact*, not inference itself. Tunnel-versus-transport mode is
+estimated from packet sizes by a heuristic that needs nothing on disk, so it is attached
+always — and it carries a confidence like any other estimate, and abstains outright when
+the flow never carried a packet small enough to tell the two apart.
 
 **It opens no socket.** Analysis is passive from end to end. Delivering the result to a
 SIEM is a separate, explicit step.
@@ -106,6 +110,46 @@ def attach_inferences(
     )
 
 
+def infer_mode(assessment: TunnelAssessment, tunnel: Tunnel) -> TunnelAssessment:
+    """Estimate tunnel versus transport mode from the flow's smallest packets.
+
+    Tunnel mode adds a full inner IP header that transport mode does not, so the floor a
+    bare acknowledgement sets differs by twenty bytes (forty for IPv6). That is enough to
+    tell the two apart and little enough that the estimate abstains readily: a flow that
+    never carried a small packet gets ``unknown`` rather than a guess.
+
+    Read from the **assembled** flows rather than the assessment's summaries. An
+    :class:`~ipsec_sentinel.models.ESPFlow` carries counts and totals, so the smallest
+    packet is not recoverable from it — dividing bytes by packets gives the mean, which
+    sits nowhere near either floor and would make the heuristic abstain on every tunnel
+    while looking as though it had run.
+
+    Needs no model file, so unlike the traffic classifier it is attached to every
+    analysis: the classifier is opt-in because a missing artefact would be
+    indistinguishable from an absent inference, and a heuristic has no artefact to miss.
+    """
+    from ipsec_sentinel.ml.heuristic import MODE_UNKNOWN, estimate_mode
+
+    sizes = [size for flow in tunnel.flows for size in flow.sizes]
+    if not sizes:
+        return assessment
+
+    estimate = estimate_mode(
+        {"packet_count": float(len(sizes)), "size_min": float(min(sizes))},
+        ipv6=":" in assessment.endpoints[0],
+    )
+    if estimate.mode == MODE_UNKNOWN:
+        return assessment
+    return assessment.model_copy(
+        update={
+            "inferred_mode": estimate.mode,
+            "inferred_mode_confidence": Confidence(
+                value=estimate.confidence, method="packet_size_floor_heuristic"
+            ),
+        }
+    )
+
+
 def pqc_summary(tunnels: Sequence[Tunnel]) -> PQCSummary:
     """Post-quantum readiness for every tunnel whose negotiation was captured."""
     entries = []
@@ -155,7 +199,7 @@ def analyse_capture(
             tunnel.config = observed_config
 
     rules = registry or default_registry()
-    assessments = [assess_tunnel(tunnel, baseline, rules) for tunnel in tunnels]
+    assessments = [infer_mode(assess_tunnel(tunnel, baseline, rules), tunnel) for tunnel in tunnels]
 
     exposure = None
     if model_path is not None:

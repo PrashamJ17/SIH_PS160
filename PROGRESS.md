@@ -147,6 +147,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.4 — watch mode with drift detection — commit `9c9b490`
 - [x] 10.4b — device state collector, closing the rekey blind spot — commit `f572822`
 - [x] **M10 gate — 8/8 passed, 0 failed** — tag `v0.11.0-interfaces`
+- [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -582,6 +583,49 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.1a — 3DES was invisible on every IKEv1 tunnel
+
+Building the end-to-end test found the most serious correctness bug in the project.
+
+```
+CRY-05 did not fire on the weak tunnel; got
+['CRY-02', 'CRY-06', 'CRY-11', 'IKE-01', 'IKE-03', 'PQC-01', 'SA-01']
+```
+
+The tunnel is 3DES. CRY-05 is "3DES encryption offered", severity **critical**. It did
+not fire, and it had not been firing on any IKEv1 tunnel since Phase 6.
+
+The rules matched on the raw transform ID. IKEv1 and IKEv2 number their algorithms in
+separate registries:
+
+| Value | IKEv2 | IKEv1 | Consequence |
+|---|---|---|---|
+| 2 | DES | **IDEA** | CRY-04 would report IDEA as DES |
+| 3 | 3DES | **Blowfish** | CRY-05 would report Blowfish as 3DES |
+| 5 | RC5 | **3DES** | CRY-05 **missed every IKEv1 3DES tunnel** |
+| 7 | CAST | **AES** | any rule on 7 misfires |
+
+A critical finding silently absent from compliance-grade Section A, and false positives
+standing ready in the other direction.
+
+**Why it hid for four phases.** MD5 and SHA-1 happen to share their value between the two
+registries — IKEv1 hash 1 is MD5 and IKEv2 INTEG 1 is HMAC-MD5-96 — so CRY-06 and CRY-07
+kept working on IKEv1 captures. Every IKEv1 tunnel in the corpus produced *some* findings
+and graded F on the strength of them, so nothing looked wrong. The corpus's own IKEv1
+3DES captures were graded F for MD5 and a weak DH group while the 3DES went unreported.
+
+**The fix** is to match the name the parser resolved rather than the number. The parser
+already knows which registry applies and has applied it, so the name is the one place the
+two versions agree on meaning. This is the third time this registry split has caused a
+bug — after `observed.py` in Step 10.1a and the device-state mapping in 10.4b — and the
+first time it reached the assessment engine.
+
+Eight regression tests pin it from both directions: 3DES is found under both spellings,
+and Blowfish, RC5 and IDEA are each asserted **not** to be reported as something else. A
+ninth runs a real IKEv1 3DES capture from the corpus through the whole pipeline.
 
 ---
 

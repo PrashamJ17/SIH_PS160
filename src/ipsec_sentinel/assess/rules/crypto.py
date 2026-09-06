@@ -48,12 +48,25 @@ DH_MODP_768 = 1
 DH_MODP_1024 = 2
 DH_MODP_1536 = 5
 
-ENCR_DES_IDS = frozenset({1, 2})  # DES_IV64, DES
-ENCR_3DES_ID = 3
-ENCR_NULL_ID = 11
+# Algorithms are matched by the **name** the parser resolved, not by transform ID.
+#
+# IKEv1 and IKEv2 number their algorithms in separate registries, and the overlap is
+# actively hostile: value 5 is 3DES in IKEv1 and RC5 in IKEv2, value 3 is Blowfish in
+# IKEv1 and 3DES in IKEv2, value 2 is IDEA in IKEv1 and DES in IKEv2. Matching on the
+# raw ID therefore **missed 3DES on every IKEv1 tunnel** — a critical finding, silently
+# absent — while standing ready to report Blowfish as 3DES and IDEA as DES.
+#
+# The parser already knows which registry applies and has applied it, so the resolved
+# name is the one place the two versions agree on meaning. Found by an end-to-end run
+# against an IKEv1 aggressive-mode tunnel that reported no 3DES.
+ENCR_DES_NAMES = frozenset({"ENCR_DES", "ENCR_DES_IV64", "ENCR_DES_IV32", "DES_CBC"})
+ENCR_3DES_NAMES = frozenset({"ENCR_3DES", "3DES_CBC"})
+ENCR_NULL_NAMES = frozenset({"ENCR_NULL", "NULL"})
 INTEG_NONE_ID = 0
-INTEG_MD5_ID = 1
-INTEG_SHA1_ID = 2
+# IKEv1 carries one hash attribute serving as both integrity and PRF; IKEv2 names them
+# separately. Both spellings appear here for the same reason as above.
+INTEG_MD5_NAMES = frozenset({"AUTH_HMAC_MD5_96", "MD5", "HMAC_MD5_96"})
+INTEG_SHA1_NAMES = frozenset({"AUTH_HMAC_SHA1_96", "SHA", "SHA1", "HMAC_SHA1_96"})
 
 # Encryption transforms whose name marks them as CBC mode. AEAD ciphers carry their
 # own integrity, so "no integrity transform" is correct for them and alarming for CBC.
@@ -160,23 +173,25 @@ def _match_dh_group(group_id: int) -> Callable[[Proposal], list[str]]:
     return matcher
 
 
-def _match_encryption(ids: frozenset[int]) -> Callable[[Proposal], list[str]]:
+def _match_encryption(names: frozenset[str]) -> Callable[[Proposal], list[str]]:
+    """Match an encryption transform by resolved name, across both IKE versions."""
+
     def matcher(proposal: Proposal) -> list[str]:
         return [
             transform.name
             for transform in _transforms_of(proposal, TransformType.ENCR)
-            if transform.id in ids
+            if transform.name in names
         ]
 
     return matcher
 
 
-def _match_integrity(integ_id: int) -> Callable[[Proposal], list[str]]:
+def _match_integrity(names: frozenset[str]) -> Callable[[Proposal], list[str]]:
     def matcher(proposal: Proposal) -> list[str]:
         return [
             transform.name
             for transform in _transforms_of(proposal, TransformType.INTEG)
-            if transform.id == integ_id
+            if transform.name in names
         ]
 
     return matcher
@@ -266,7 +281,7 @@ CRY_04 = ProposalRule(
         "Remove DES from the ESP and IKE proposals. Its 56-bit key is brute-forceable "
         "in hours on commodity hardware. Use AES-GCM-256 or AES-CBC-256."
     ),
-    match=_match_encryption(ENCR_DES_IDS),
+    match=_match_encryption(ENCR_DES_NAMES),
 )
 
 CRY_05 = ProposalRule(
@@ -280,7 +295,7 @@ CRY_05 = ProposalRule(
         "birthday-bound collision attacks (Sweet32) on long-lived connections, and "
         "NIST disallowed it for new use after 2023. Use AES-GCM-256."
     ),
-    match=_match_encryption(frozenset({ENCR_3DES_ID})),
+    match=_match_encryption(ENCR_3DES_NAMES),
 )
 
 CRY_06 = ProposalRule(
@@ -292,7 +307,7 @@ CRY_06 = ProposalRule(
     remediation_hint=(
         "Remove AUTH_HMAC_MD5_96 from the proposals. Use AUTH_HMAC_SHA2_256_128 or stronger."
     ),
-    match=_match_integrity(INTEG_MD5_ID),
+    match=_match_integrity(INTEG_MD5_NAMES),
 )
 
 CRY_07 = ProposalRule(
@@ -302,7 +317,7 @@ CRY_07 = ProposalRule(
     standard_ref="NIST SP 800-131A Rev. 2",
     attack_technique="T1600.001",
     remediation_hint=("Replace AUTH_HMAC_SHA1_96 with AUTH_HMAC_SHA2_256_128 or stronger."),
-    match=_match_integrity(INTEG_SHA1_ID),
+    match=_match_integrity(INTEG_SHA1_NAMES),
 )
 
 CRY_08 = ProposalRule(
@@ -419,7 +434,7 @@ CRY_12 = ProposalRule(
         "what looks like an encrypted tunnel, which is worse than no tunnel because it "
         "is not visible as plaintext to anyone auditing the estate."
     ),
-    match=_match_encryption(frozenset({ENCR_NULL_ID})),
+    match=_match_encryption(ENCR_NULL_NAMES),
 )
 
 

@@ -296,3 +296,124 @@ class TestRegistryIntegration:
         orphan = Tunnel(tunnel_id="x", endpoints=("192.0.2.1", "192.0.2.2"))
         for rule in CRYPTO_RULES:
             assert rule.evaluate(orphan) is None, rule.id
+
+
+class TestTheTwoRegistriesDoNotConfuseTheRules:
+    """IKEv1 and IKEv2 number their algorithms separately, and the overlap is hostile.
+
+    Value 5 is 3DES in IKEv1 and RC5 in IKEv2. Value 3 is Blowfish in IKEv1 and 3DES in
+    IKEv2. Value 2 is IDEA in IKEv1 and DES in IKEv2. Matching on the raw transform ID
+    therefore missed 3DES on **every IKEv1 tunnel** — a critical finding, silently absent
+    — while standing ready to report Blowfish as 3DES and IDEA as DES.
+
+    Found by the end-to-end run: an IKEv1 aggressive-mode 3DES tunnel came back without
+    CRY-05. Fixed by matching the name the parser resolved, since the parser is the one
+    place that knows which registry applies and has already applied it.
+    """
+
+    @staticmethod
+    def _encryption(name: str, transform_id: int) -> Tunnel:
+        return tunnel_with(
+            [
+                proposal(
+                    [
+                        Transform(type=TransformType.ENCR, id=transform_id, name=name),
+                        Transform(type=TransformType.INTEG, id=12, name="AUTH_HMAC_SHA2_256_128"),
+                        Transform(type=TransformType.DH, id=14, name="2048-bit MODP"),
+                    ]
+                )
+            ]
+        )
+
+    @staticmethod
+    def _fired(tunnel: Tunnel) -> set[str]:
+        from ipsec_sentinel.assess.rules import default_registry
+
+        return {f.rule_id for f in default_registry().run(tunnel, DEFAULT_BASELINE).findings}
+
+    def test_3des_is_found_under_ikev2(self) -> None:
+        assert "CRY-05" in self._fired(self._encryption("ENCR_3DES", 3))
+
+    def test_3des_is_found_under_ikev1(self) -> None:
+        """The regression: IKEv1 3DES is transform 5, which the IKEv2 table calls RC5."""
+        assert "CRY-05" in self._fired(self._encryption("3DES_CBC", 5)), (
+            "3DES over IKEv1 was not detected"
+        )
+
+    def test_blowfish_is_not_reported_as_3des(self) -> None:
+        """IKEv1 transform 3 is Blowfish; the IKEv2 table calls 3 3DES."""
+        assert "CRY-05" not in self._fired(self._encryption("BLOWFISH_CBC", 3))
+
+    def test_rc5_is_not_reported_as_3des(self) -> None:
+        """The mirror image: IKEv2 transform 5 is RC5, which IKEv1 calls 3DES."""
+        assert "CRY-05" not in self._fired(self._encryption("ENCR_RC5", 5))
+
+    def test_idea_is_not_reported_as_des(self) -> None:
+        """IKEv1 transform 2 is IDEA; the IKEv2 table calls 2 DES."""
+        assert "CRY-04" not in self._fired(self._encryption("IDEA_CBC", 2))
+
+    def test_des_is_found_under_both_spellings(self) -> None:
+        assert "CRY-04" in self._fired(self._encryption("ENCR_DES", 2))
+        assert "CRY-04" in self._fired(self._encryption("DES_CBC", 1))
+
+    def test_null_encryption_is_found(self) -> None:
+        """CRY-12. IKEv1 has no NULL in its encryption registry, so only one spelling."""
+        assert "CRY-12" in self._fired(self._encryption("ENCR_NULL", 11))
+
+    def test_md5_integrity_is_found_under_both_spellings(self) -> None:
+        """These share a value by luck, which is exactly why the bug hid: CRY-06 kept
+        working while CRY-05 quietly stopped."""
+        for name, identifier in (("AUTH_HMAC_MD5_96", 1), ("MD5", 1)):
+            fired = self._fired(
+                tunnel_with(
+                    [
+                        proposal(
+                            [
+                                Transform(
+                                    type=TransformType.ENCR,
+                                    id=12,
+                                    name="ENCR_AES_CBC",
+                                    key_length=256,
+                                ),
+                                Transform(type=TransformType.INTEG, id=identifier, name=name),
+                                Transform(type=TransformType.DH, id=14, name="2048-bit MODP"),
+                            ]
+                        )
+                    ]
+                )
+            )
+            assert "CRY-06" in fired, f"MD5 spelled {name} was not detected"
+
+    def test_the_matched_names_are_ones_the_parser_actually_emits(self) -> None:
+        """A rule matching a name no parser produces is a rule that never fires."""
+        from ipsec_sentinel.assess.rules.crypto import ENCR_3DES_NAMES, ENCR_DES_NAMES
+        from ipsec_sentinel.parser.constants import (
+            ENCR_ALGORITHMS,
+            IKEV1_ENCRYPTION_ALGORITHMS,
+        )
+
+        emitted = set(ENCR_ALGORITHMS.values()) | set(IKEV1_ENCRYPTION_ALGORITHMS.values())
+        assert {"ENCR_3DES", "3DES_CBC"} <= ENCR_3DES_NAMES & emitted
+        assert {"ENCR_DES", "DES_CBC"} <= ENCR_DES_NAMES & emitted
+
+    def test_a_real_ikev1_capture_reports_3des(self) -> None:
+        """The end-to-end shape of the bug, on a capture from the corpus."""
+        import json
+        from pathlib import Path
+
+        from ipsec_sentinel.analyse import analyse_capture
+
+        sweep = Path(__file__).resolve().parents[2] / "data" / "raw" / "sweep"
+        for manifest_path in sorted(sweep.glob("*/manifest.json")):
+            intent = json.loads(manifest_path.read_text())["intent"]
+            if intent["ike_version"] != "ikev1" or intent["encryption"] != "3des":
+                continue
+            report = analyse_capture(
+                manifest_path.parent / "capture_outer.pcap", baseline="default"
+            )
+            fired = {f.rule_id for f in report.all_findings}
+            assert "CRY-05" in fired, (
+                f"{manifest_path.parent.name} is IKEv1 3DES; got {sorted(fired)}"
+            )
+            return
+        pytest.skip("no IKEv1 3DES capture in the corpus")
