@@ -1,6 +1,6 @@
 {
   "started_at": "2026-09-05T15:46:56.052010Z",
-  "updated_at": "2026-09-06T09:40:14.789288Z",
+  "updated_at": "2026-09-06T09:50:19.324974Z",
   "completed": [
     "e3f0eb924f58_icmp_steady_1s_clean_r0",
     "e3f0eb924f58_voip_g711_20ms_wan_good_r0",
@@ -263,14 +263,35 @@
     "e3e0f0146135_icmp_steady_1s_clean_r0",
     "e3e0f0146135_voip_g729_20ms_wan_good_r0",
     "31259f5ad9ce_icmp_flood_small_clean_r0",
-    "31259f5ad9ce_voip_g711_20ms_wan_good_r0"
+    "31259f5ad9ce_voip_g711_20ms_wan_good_r0",
+    "35e7d59573e6_icmp_large_payload_clean_r0",
+    "35e7d59573e6_voip_g729_20ms_wan_good_r0",
+    "d4cef7f69dfc_icmp_steady_1s_clean_r0",
+    "d4cef7f69dfc_voip_g711_20ms_wan_good_r0",
+    "559f25dba032_icmp_flood_small_clean_r0",
+    "559f25dba032_voip_g729_20ms_wan_good_r0",
+    "c6fe411c6bcf_icmp_large_payload_clean_r0",
+    "c6fe411c6bcf_voip_g711_20ms_wan_good_r0",
+    "1bd18e1b5f0d_icmp_steady_1s_clean_r0",
+    "1bd18e1b5f0d_voip_g729_20ms_wan_good_r0",
+    "c0fe4d470547_icmp_flood_small_clean_r0",
+    "c0fe4d470547_voip_g711_20ms_wan_good_r0",
+    "39b9604c134e_icmp_large_payload_clean_r0",
+    "39b9604c134e_voip_g729_20ms_wan_good_r0"
   ],
   "failed": [
     "3fbcd8ca304b_replay_cicids2017_benign_wan_poor_r0",
     "db032c07f847_replay_mawi_sample_wan_poor_r0",
     "a162d7acf52c_replay_cicids2017_benign_wan_poor_r0",
     "e3e0f0146135_replay_mawi_sample_wan_poor_r0",
-    "31259f5ad9ce_replay_cicids2017_benign_wan_poor_r0"
+    "31259f5ad9ce_replay_cicids2017_benign_wan_poor_r0",
+    "35e7d59573e6_replay_mawi_sample_wan_poor_r0",
+    "d4cef7f69dfc_replay_cicids2017_benign_wan_poor_r0",
+    "559f25dba032_replay_mawi_sample_wan_poor_r0",
+    "c6fe411c6bcf_replay_cicids2017_benign_wan_poor_r0",
+    "1bd18e1b5f0d_replay_mawi_sample_wan_poor_r0",
+    "c0fe4d470547_replay_cicids2017_benign_wan_poor_r0",
+    "39b9604c134e_replay_mawi_sample_wan_poor_r0"
   ],
   "outcomes": {
     "e3f0eb924f58_icmp_steady_1s_clean_r0": {
@@ -5616,6 +5637,433 @@
       "details": {
         "ike_packets": 4,
         "inner_packets": 1
+      }
+    },
+    "35e7d59573e6_icmp_large_payload_clean_r0": {
+      "cell_id": "35e7d59573e6_icmp_large_payload_clean_r0",
+      "config_id": "35e7d59573e6",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/35e7d59573e6_icmp_large_payload_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/35e7d59573e6_icmp_large_payload_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/35e7d59573e6_icmp_large_payload_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 9,
+      "started_at": "2026-09-06T09:40:14.790266Z",
+      "ended_at": "2026-09-06T09:40:49.959118Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "35e7d59573e6_voip_g729_20ms_wan_good_r0": {
+      "cell_id": "35e7d59573e6_voip_g729_20ms_wan_good_r0",
+      "config_id": "35e7d59573e6",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/35e7d59573e6_voip_g729_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/35e7d59573e6_voip_g729_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/35e7d59573e6_voip_g729_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3003,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:40:52.345914Z",
+      "ended_at": "2026-09-06T09:41:27.975149Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "35e7d59573e6_replay_mawi_sample_wan_poor_r0": {
+      "cell_id": "35e7d59573e6_replay_mawi_sample_wan_poor_r0",
+      "config_id": "35e7d59573e6",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:41:30.359681Z",
+      "ended_at": "2026-09-06T09:41:36.945075Z",
+      "details": {
+        "ike_packets": 4,
+        "inner_packets": 9
+      }
+    },
+    "d4cef7f69dfc_icmp_steady_1s_clean_r0": {
+      "cell_id": "d4cef7f69dfc_icmp_steady_1s_clean_r0",
+      "config_id": "d4cef7f69dfc",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/d4cef7f69dfc_icmp_steady_1s_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/d4cef7f69dfc_icmp_steady_1s_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/d4cef7f69dfc_icmp_steady_1s_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 6,
+      "started_at": "2026-09-06T09:41:39.307549Z",
+      "ended_at": "2026-09-06T09:42:14.184430Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "d4cef7f69dfc_voip_g711_20ms_wan_good_r0": {
+      "cell_id": "d4cef7f69dfc_voip_g711_20ms_wan_good_r0",
+      "config_id": "d4cef7f69dfc",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/d4cef7f69dfc_voip_g711_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/d4cef7f69dfc_voip_g711_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/d4cef7f69dfc_voip_g711_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3001,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:42:16.466918Z",
+      "ended_at": "2026-09-06T09:42:52.161750Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "d4cef7f69dfc_replay_cicids2017_benign_wan_poor_r0": {
+      "cell_id": "d4cef7f69dfc_replay_cicids2017_benign_wan_poor_r0",
+      "config_id": "d4cef7f69dfc",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:42:54.471056Z",
+      "ended_at": "2026-09-06T09:43:01.052395Z",
+      "details": {
+        "ike_packets": 4,
+        "inner_packets": 9
+      }
+    },
+    "559f25dba032_icmp_flood_small_clean_r0": {
+      "cell_id": "559f25dba032_icmp_flood_small_clean_r0",
+      "config_id": "559f25dba032",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/559f25dba032_icmp_flood_small_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/559f25dba032_icmp_flood_small_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/559f25dba032_icmp_flood_small_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3004,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:43:03.390826Z",
+      "ended_at": "2026-09-06T09:43:41.529806Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "559f25dba032_voip_g729_20ms_wan_good_r0": {
+      "cell_id": "559f25dba032_voip_g729_20ms_wan_good_r0",
+      "config_id": "559f25dba032",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/559f25dba032_voip_g729_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/559f25dba032_voip_g729_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/559f25dba032_voip_g729_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3005,
+      "inner_packets": 9,
+      "started_at": "2026-09-06T09:43:43.842171Z",
+      "ended_at": "2026-09-06T09:44:19.405613Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "559f25dba032_replay_mawi_sample_wan_poor_r0": {
+      "cell_id": "559f25dba032_replay_mawi_sample_wan_poor_r0",
+      "config_id": "559f25dba032",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:44:21.656370Z",
+      "ended_at": "2026-09-06T09:44:27.924604Z",
+      "details": {
+        "ike_packets": 4,
+        "inner_packets": 7
+      }
+    },
+    "c6fe411c6bcf_icmp_large_payload_clean_r0": {
+      "cell_id": "c6fe411c6bcf_icmp_large_payload_clean_r0",
+      "config_id": "c6fe411c6bcf",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/c6fe411c6bcf_icmp_large_payload_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/c6fe411c6bcf_icmp_large_payload_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/c6fe411c6bcf_icmp_large_payload_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 64,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:44:30.269087Z",
+      "ended_at": "2026-09-06T09:45:05.257843Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "c6fe411c6bcf_voip_g711_20ms_wan_good_r0": {
+      "cell_id": "c6fe411c6bcf_voip_g711_20ms_wan_good_r0",
+      "config_id": "c6fe411c6bcf",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/c6fe411c6bcf_voip_g711_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/c6fe411c6bcf_voip_g711_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/c6fe411c6bcf_voip_g711_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3002,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:45:07.648462Z",
+      "ended_at": "2026-09-06T09:45:43.379358Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "c6fe411c6bcf_replay_cicids2017_benign_wan_poor_r0": {
+      "cell_id": "c6fe411c6bcf_replay_cicids2017_benign_wan_poor_r0",
+      "config_id": "c6fe411c6bcf",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:45:45.722990Z",
+      "ended_at": "2026-09-06T09:45:56.392932Z",
+      "details": {
+        "ike_packets": 5,
+        "inner_packets": 11
+      }
+    },
+    "1bd18e1b5f0d_icmp_steady_1s_clean_r0": {
+      "cell_id": "1bd18e1b5f0d_icmp_steady_1s_clean_r0",
+      "config_id": "1bd18e1b5f0d",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/1bd18e1b5f0d_icmp_steady_1s_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/1bd18e1b5f0d_icmp_steady_1s_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/1bd18e1b5f0d_icmp_steady_1s_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 69,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:45:58.742674Z",
+      "ended_at": "2026-09-06T09:46:33.730906Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "1bd18e1b5f0d_voip_g729_20ms_wan_good_r0": {
+      "cell_id": "1bd18e1b5f0d_voip_g729_20ms_wan_good_r0",
+      "config_id": "1bd18e1b5f0d",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/1bd18e1b5f0d_voip_g729_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/1bd18e1b5f0d_voip_g729_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/1bd18e1b5f0d_voip_g729_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3007,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:46:36.040794Z",
+      "ended_at": "2026-09-06T09:47:11.766484Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "1bd18e1b5f0d_replay_mawi_sample_wan_poor_r0": {
+      "cell_id": "1bd18e1b5f0d_replay_mawi_sample_wan_poor_r0",
+      "config_id": "1bd18e1b5f0d",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:47:14.138573Z",
+      "ended_at": "2026-09-06T09:47:20.921886Z",
+      "details": {
+        "ike_packets": 9,
+        "inner_packets": 11
+      }
+    },
+    "c0fe4d470547_icmp_flood_small_clean_r0": {
+      "cell_id": "c0fe4d470547_icmp_flood_small_clean_r0",
+      "config_id": "c0fe4d470547",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/c0fe4d470547_icmp_flood_small_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/c0fe4d470547_icmp_flood_small_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/c0fe4d470547_icmp_flood_small_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3004,
+      "inner_packets": 10,
+      "started_at": "2026-09-06T09:47:23.236475Z",
+      "ended_at": "2026-09-06T09:48:01.795303Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "c0fe4d470547_voip_g711_20ms_wan_good_r0": {
+      "cell_id": "c0fe4d470547_voip_g711_20ms_wan_good_r0",
+      "config_id": "c0fe4d470547",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/c0fe4d470547_voip_g711_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/c0fe4d470547_voip_g711_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/c0fe4d470547_voip_g711_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3002,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:48:04.149442Z",
+      "ended_at": "2026-09-06T09:48:39.761866Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "c0fe4d470547_replay_cicids2017_benign_wan_poor_r0": {
+      "cell_id": "c0fe4d470547_replay_cicids2017_benign_wan_poor_r0",
+      "config_id": "c0fe4d470547",
+      "generator": "replay",
+      "variant": "cicids2017_benign",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:48:42.054924Z",
+      "ended_at": "2026-09-06T09:48:48.714642Z",
+      "details": {
+        "ike_packets": 4,
+        "inner_packets": 11
+      }
+    },
+    "39b9604c134e_icmp_large_payload_clean_r0": {
+      "cell_id": "39b9604c134e_icmp_large_payload_clean_r0",
+      "config_id": "39b9604c134e",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/39b9604c134e_icmp_large_payload_clean_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/39b9604c134e_icmp_large_payload_clean_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/39b9604c134e_icmp_large_payload_clean_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 69,
+      "inner_packets": 11,
+      "started_at": "2026-09-06T09:48:51.062608Z",
+      "ended_at": "2026-09-06T09:49:25.881709Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "39b9604c134e_voip_g729_20ms_wan_good_r0": {
+      "cell_id": "39b9604c134e_voip_g729_20ms_wan_good_r0",
+      "config_id": "39b9604c134e",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "success": true,
+      "error": null,
+      "outer_pcap": "data/raw/sweep/39b9604c134e_voip_g729_20ms_wan_good_r0/capture_outer.pcap",
+      "inner_pcap": "data/raw/sweep/39b9604c134e_voip_g729_20ms_wan_good_r0/capture_inner.pcap",
+      "manifest_path": "data/raw/sweep/39b9604c134e_voip_g729_20ms_wan_good_r0/manifest.json",
+      "negotiation_matched_intent": true,
+      "outer_packets": 3006,
+      "inner_packets": 9,
+      "started_at": "2026-09-06T09:49:28.169381Z",
+      "ended_at": "2026-09-06T09:50:03.954607Z",
+      "details": {
+        "mismatches": []
+      }
+    },
+    "39b9604c134e_replay_mawi_sample_wan_poor_r0": {
+      "cell_id": "39b9604c134e_replay_mawi_sample_wan_poor_r0",
+      "config_id": "39b9604c134e",
+      "generator": "replay",
+      "variant": "mawi_sample",
+      "impairment": "wan_poor",
+      "success": false,
+      "error": "no ESP in the outer capture: the tunnel established but the generated traffic was not protected by it (traffic selectors did not match), so this cell would be labelled as encrypted traffic it does not contain",
+      "outer_pcap": null,
+      "inner_pcap": null,
+      "manifest_path": null,
+      "negotiation_matched_intent": false,
+      "outer_packets": 0,
+      "inner_packets": 0,
+      "started_at": "2026-09-06T09:50:06.239604Z",
+      "ended_at": "2026-09-06T09:50:17.021143Z",
+      "details": {
+        "ike_packets": 12,
+        "inner_packets": 8
       }
     }
   }

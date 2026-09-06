@@ -1,6 +1,6 @@
 # Datacard: IPsec Sentinel corpus
 
-*Generated 2026-09-05 20:44 UTC by `scripts/package_dataset.py`.*
+*Generated 2026-09-06 09:58 UTC by `scripts/package_dataset.py`.*
 
 ## What this is
 
@@ -17,48 +17,48 @@ methodology and limitations.
 
 ## Contents
 
-* **252 cells**, of which **252** negotiated exactly what was configured
-* 1,075,251 outer packets, 1,070,771 inner packets
-* 1794.8 MiB total
+* **276 cells**, of which **276** negotiated exactly what was configured
+* 1,123,836 outer packets, 1,071,008 inner packets
+* 1803.5 MiB total
 
 ### Cells per traffic class
 
 | Class | Cells |
 |---|---:|
 | email | 36 |
-| icmp | 36 |
+| icmp | 48 |
 | messaging | 36 |
 | replay | 36 |
 | video | 36 |
-| voip | 36 |
+| voip | 48 |
 | web | 36 |
 
 ### Cells per impairment profile
 
 | Profile | Cells |
 |---|---:|
-| clean | 84 |
-| wan_good | 84 |
+| clean | 96 |
+| wan_good | 96 |
 | wan_poor | 84 |
 
 ### Cells per negotiated encryption
 
 | Encryption | Cells |
 |---|---:|
-| 3DES_CBC | 63 |
-| AES_CBC | 119 |
-| AES_GCM_16 | 70 |
+| 3DES_CBC | 65 |
+| AES_CBC | 131 |
+| AES_GCM_16 | 80 |
 
 ### Cells per negotiated DH group
 
 | DH group | Cells |
 |---|---:|
-| CURVE_25519 | 63 |
-| ECP_256 | 21 |
-| ECP_384 | 35 |
-| MODP_1024 | 49 |
-| MODP_1536 | 56 |
-| MODP_2048 | 28 |
+| CURVE_25519 | 67 |
+| ECP_256 | 23 |
+| ECP_384 | 39 |
+| MODP_1024 | 57 |
+| MODP_1536 | 58 |
+| MODP_2048 | 32 |
 
 ## Labels and how they were obtained
 

@@ -32,6 +32,10 @@ from ipsec_sentinel.ml.calibrate import (  # noqa: E402
     calibrate_classifier,
 )
 from ipsec_sentinel.ml.explain import explain_prediction  # noqa: E402
+from ipsec_sentinel.ml.heuristic import (  # noqa: E402
+    heuristic_accuracy,
+    majority_class_baseline,
+)
 from ipsec_sentinel.ml.predict import (  # noqa: E402
     MAX_REASONABLE_ABSTENTION,
     abstention_rate,
@@ -107,24 +111,74 @@ def check_generalisation_published() -> Check:
     return Check(name, "PASS", f"4 splits, {matrices} confusion matrices")
 
 
+def modes_shared_by_traffic_class(frame: pd.DataFrame) -> list[str]:
+    """Traffic classes observed under both modes.
+
+    Mode inference must be measured on these only. Transport cells exist for icmp and
+    voip alone — the sidecar-backed generators cannot produce protected traffic under
+    transport mode — so across the full corpus 33.6% of the mode label is predictable
+    from the traffic class. A classifier evaluated there would score well by learning
+    "video implies tunnel" without learning anything about mode. Restricted to the
+    shared classes that leakage measures 0.0%.
+    """
+    transport = set(frame[frame["mode"] == "transport"]["inner_traffic"].dropna())
+    tunnel = set(frame[frame["mode"] == "tunnel"]["inner_traffic"].dropna())
+    return sorted(transport & tunnel)
+
+
 def check_beats_mode_heuristic() -> Check:
     name = "Model beats the heuristic baseline for mode inference"
     if not DATASET.exists():
         return Check(name, "SKIP", "the ML dataset has not been built")
-    modes = sorted(_frame()["mode"].dropna().unique().tolist())
+
+    frame = _frame()
+    modes = sorted(frame["mode"].dropna().unique().tolist())
     if len(modes) < 2:
         return Check(
-            name,
-            "BLOCKED",
-            f"the corpus contains a single mode {modes}. Transport-mode cells were "
-            f"dropped in Phase 2 because they produced zero ESP, so no classifier can "
-            f"be compared against the heuristic here - one answering 'tunnel' "
-            f"unconditionally would score 100%. Recorded in docs/BASELINES.md, which "
-            f"states that no model may claim to beat this baseline on this corpus. "
-            f"Closing it needs transport-mode cells carrying real ESP: a testbed "
-            f"change, not a modelling one.",
+            name, "BLOCKED",
+            f"the corpus contains a single mode {modes}; no comparison is possible",
         )
-    return Check(name, "FAIL", "two modes present but no comparison implemented")
+
+    shared = modes_shared_by_traffic_class(frame)
+    if not shared:
+        return Check(
+            name, "BLOCKED",
+            "no traffic class appears under both modes, so any comparison would "
+            "measure traffic-class leakage rather than mode inference",
+        )
+
+    subset = frame[frame["inner_traffic"].isin(shared)]
+    rows: list[tuple[dict[str, float], str]] = [
+        (
+            {name: float(row[name]) for name in FEATURE_NAMES},
+            str(row["mode"]),
+        )
+        for _, row in subset.iterrows()
+    ]
+    heuristic = heuristic_accuracy(rows)
+    majority = majority_class_baseline(subset["mode"].astype(str).tolist())
+    model = cross_validate(subset, target="mode", folds=5)
+
+    if model.accuracy <= heuristic["accuracy"]:
+        return Check(
+            name, "FAIL",
+            f"model {model.accuracy:.1%} does not beat the heuristic "
+            f"{heuristic['accuracy']:.1%}",
+        )
+    if model.accuracy <= majority.accuracy:
+        return Check(
+            name, "FAIL",
+            f"model {model.accuracy:.1%} does not beat the majority class "
+            f"{majority.accuracy:.1%}, so it has learned nothing about mode",
+        )
+    return Check(
+        name, "PASS",
+        f"model {model.accuracy:.1%} (macro-F1 {model.macro_f1:.3f}) vs heuristic "
+        f"{heuristic['accuracy']:.1%} at {heuristic['coverage']:.1%} coverage and "
+        f"majority class {majority.accuracy:.1%}; measured on {len(subset)} rows in "
+        f"{subset['capture_id'].nunique()} captures, restricted to {shared} which "
+        f"appear under both modes",
+    )
 
 
 def check_ece() -> Check:

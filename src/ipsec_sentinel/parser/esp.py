@@ -183,6 +183,23 @@ class AssembledFlow:
         )
 
 
+# RFC 4303 section 3.3.3: a sender's counter starts at 1 for a new SA. A capture window
+# of tens of seconds therefore cannot legitimately observe a *single* packet bearing a
+# sequence number in the millions — a genuinely long-lived SA at that point in its life
+# shows many packets with neighbouring sequences, not one in isolation.
+#
+# One-off packets with huge sequence numbers are the signature of traffic that is not
+# ESP at all: this project's replay generator emits protocol-50 frames from its source
+# corpus, each with a random SPI and a random sequence, and those large enough to clear
+# the structural floor became one-packet pseudo-flows.
+LONE_PACKET_SEQUENCE_CEILING: Final = 1 << 20
+
+
+def _is_implausible_sa(flow: AssembledFlow) -> bool:
+    """A single packet with a huge sequence number is not an observation of an SA."""
+    return flow.packet_count == 1 and flow.sequences[0] > LONE_PACKET_SEQUENCE_CEILING
+
+
 def assemble_esp_flows(packets: Iterable[ESPPacket]) -> list[AssembledFlow]:
     """Group ESP packets into flows keyed on (source, destination, SPI).
 
@@ -196,6 +213,11 @@ def assemble_esp_flows(packets: Iterable[ESPPacket]) -> list[AssembledFlow]:
 
     Insertion order is preserved so that flows come back in the order their first
     packet was seen, which makes output stable across runs on the same capture.
+
+    Flows that cannot be security associations are dropped — see
+    :func:`_is_implausible_sa`. Reporting them would inflate a tunnel inventory with
+    hundreds of phantom SAs and give ESP-01 a capture full of unassessable tunnels
+    that were never tunnels.
     """
     flows: dict[tuple[str, str, str], AssembledFlow] = {}
     for packet in packets:
@@ -207,7 +229,7 @@ def assemble_esp_flows(packets: Iterable[ESPPacket]) -> list[AssembledFlow]:
         flow.sizes.append(packet.size)
         flow.sequences.append(packet.sequence)
         flow.timestamps.append(packet.timestamp)
-    return list(flows.values())
+    return [flow for flow in flows.values() if not _is_implausible_sa(flow)]
 
 
 def extract_esp_packets(pcap: Path) -> list[ESPPacket]:

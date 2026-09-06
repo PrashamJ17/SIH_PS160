@@ -222,9 +222,34 @@ class TestStructuralFloor:
         reason="no replay captures present",
     )
     def test_real_replay_captures_yield_only_the_two_real_flows(self) -> None:
-        """A tunnel is two SAs. Anything more in these captures was an artefact."""
-        for pcap in sorted(Path("data/raw/sweep").glob("*replay*/capture_outer.pcap"))[:6]:
+        """A tunnel is two SAs. Anything more in these captures was an artefact.
+
+        Cells without a manifest are skipped: those are runs the ESP guard rejected,
+        so their capture holds no protected traffic and is not an observation of a
+        tunnel at all.
+        """
+        checked = 0
+        for pcap in sorted(Path("data/raw/sweep").glob("*replay*/capture_outer.pcap")):
+            if not (pcap.parent / "manifest.json").exists():
+                continue
             flows = flows_from_capture(pcap)
             assert len(flows) == 2, f"{pcap.parent.name} produced {len(flows)} flows"
             for flow in flows:
                 assert flow.sequences[0] == 1, "a real SA starts its counter at 1"
+            checked += 1
+        assert checked >= 5, "too few successful replay cells to be a real check"
+
+    def test_no_capture_in_the_corpus_reports_a_phantom_sa(self) -> None:
+        """Every successful cell is one tunnel: exactly two SAs, one per direction.
+
+        Before the sequence-plausibility filter, six captures reported 48 or 49 flows
+        because replayed protocol-50 frames each became a one-packet pseudo-flow.
+        """
+        offenders = []
+        for pcap in sorted(Path("data/raw/sweep").glob("*/capture_outer.pcap")):
+            if not (pcap.parent / "manifest.json").exists():
+                continue
+            count = len(flows_from_capture(pcap))
+            if count != 2:
+                offenders.append((pcap.parent.name, count))
+        assert not offenders, f"captures with an implausible SA count: {offenders[:5]}"

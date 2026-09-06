@@ -1,26 +1,26 @@
 {
-  "generated_at": "2026-09-05T20:44:22.581039+00:00",
+  "generated_at": "2026-09-06T09:58:52.260930+00:00",
   "source": "/Users/prasham/Desktop/SIH_Hackathon/data/raw/sweep",
-  "cells": 252,
-  "cells_matching_intent": 252,
+  "cells": 276,
+  "cells_matching_intent": 276,
   "cells_not_matching_intent": 0,
   "counts": {
     "per_class": {
       "email": 36,
-      "icmp": 36,
+      "icmp": 48,
       "messaging": 36,
       "replay": 36,
       "video": 36,
-      "voip": 36,
+      "voip": 48,
       "web": 36
     },
     "per_variant": {
       "email/imap_sync": 12,
       "email/smtp_attachment": 12,
       "email/smtp_small": 12,
-      "icmp/flood_small": 12,
-      "icmp/large_payload": 12,
-      "icmp/steady_1s": 12,
+      "icmp/flood_small": 16,
+      "icmp/large_payload": 16,
+      "icmp/steady_1s": 16,
       "messaging/chat_active": 18,
       "messaging/chat_idle": 18,
       "replay/cicids2017_benign": 18,
@@ -28,8 +28,8 @@
       "video/dash_1080p": 12,
       "video/dash_720p": 12,
       "video/hls_adaptive": 12,
-      "voip/g711_20ms": 18,
-      "voip/g729_20ms": 18,
+      "voip/g711_20ms": 24,
+      "voip/g729_20ms": 24,
       "web/reading": 18,
       "web/skimming": 18
     },
@@ -39,17 +39,23 @@
       "0e5cd82ab47a": 7,
       "0edbda4f6ce9": 7,
       "1878b97f3575": 7,
+      "1bd18e1b5f0d": 2,
       "2372de381b1f": 7,
       "27ba7e4c50f9": 7,
       "2d62a5b4540d": 7,
+      "31259f5ad9ce": 2,
       "31b57bc9185d": 7,
       "34a353d0abc3": 7,
+      "35e7d59573e6": 2,
       "394c3da26898": 7,
+      "39b9604c134e": 2,
       "3a05f8bcbf28": 7,
+      "3fbcd8ca304b": 2,
       "41d0660ee50d": 7,
       "42489de0b47d": 7,
       "4ace203a98ca": 7,
       "4f4ebb1d8c51": 7,
+      "559f25dba032": 2,
       "5a9704bb2082": 7,
       "5fb007ad0320": 7,
       "62091caa71bf": 7,
@@ -60,47 +66,54 @@
       "8d082e245277": 7,
       "8d3498533133": 7,
       "9d97f5146523": 7,
+      "a162d7acf52c": 2,
       "a9ad5f1904a0": 7,
       "b1334af2b986": 7,
       "b351701eed4c": 7,
       "bdd996a40ee9": 7,
       "be0a0c941998": 7,
+      "c0fe4d470547": 2,
+      "c6fe411c6bcf": 2,
+      "d4cef7f69dfc": 2,
       "d4e0f527af40": 7,
       "d8840fc0c42d": 7,
+      "db032c07f847": 2,
       "dee3951778d7": 7,
       "e00de6df2341": 7,
+      "e3e0f0146135": 2,
       "e3f0eb924f58": 7
     },
     "per_impairment": {
-      "clean": 84,
-      "wan_good": 84,
+      "clean": 96,
+      "wan_good": 96,
       "wan_poor": 84
     },
     "per_encryption": {
-      "3DES_CBC": 63,
-      "AES_CBC": 119,
-      "AES_GCM_16": 70
+      "3DES_CBC": 65,
+      "AES_CBC": 131,
+      "AES_GCM_16": 80
     },
     "per_dh_group": {
-      "CURVE_25519": 63,
-      "ECP_256": 21,
-      "ECP_384": 35,
-      "MODP_1024": 49,
-      "MODP_1536": 56,
-      "MODP_2048": 28
+      "CURVE_25519": 67,
+      "ECP_256": 23,
+      "ECP_384": 39,
+      "MODP_1024": 57,
+      "MODP_1536": 58,
+      "MODP_2048": 32
     },
     "per_mode": {
+      "transport": 24,
       "tunnel": 252
     },
     "per_ike_version": {
-      "IKEv1": 91,
-      "IKEv2": 161
+      "IKEv1": 97,
+      "IKEv2": 179
     }
   },
   "totals": {
-    "outer_packets": 1075251,
-    "inner_packets": 1070771,
-    "bytes": 1881977698
+    "outer_packets": 1123836,
+    "inner_packets": 1071008,
+    "bytes": 1891074088
   },
   "cells_detail": [
     {
@@ -1189,6 +1202,68 @@
       }
     },
     {
+      "cell_id": "1bd18e1b5f0d_icmp_steady_1s_clean_r0",
+      "config_id": "1bd18e1b5f0d",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "ECP_384",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 12018,
+          "packets": 69,
+          "sha256": "ba82f9eaafc24721cd87c9d2863ddf925163c81c8131aa34b6a52da3d254195b"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "ae38613f1d5af77376fbdb403efad23e14e8d40da58954230b583edc019a11b4"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2290,
+          "sha256": "c655b75907ee87c5439655ec0df8a9b507b7ce7d0bd8255c79dcb1671fe1f39b"
+        }
+      }
+    },
+    {
+      "cell_id": "1bd18e1b5f0d_voip_g729_20ms_wan_good_r0",
+      "config_id": "1bd18e1b5f0d",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "ECP_384",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 403822,
+          "packets": 3007,
+          "sha256": "e88d619a0dbf53485ca2f984882f1ac7d7e1df280bf5992e1759e25d6a401035"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "46329612fd8bbb0d5e7a34c195269fc3a3d752a86c1e20d88b14732b6374f17e"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2305,
+          "sha256": "fb94b31fa320424633f742e772f69f2add5464bc00319abae74f9a9cb976ff52"
+        }
+      }
+    },
+    {
       "cell_id": "2372de381b1f_email_imap_sync_clean_r0",
       "config_id": "2372de381b1f",
       "generator": "email",
@@ -1840,6 +1915,68 @@
       }
     },
     {
+      "cell_id": "31259f5ad9ce_icmp_flood_small_clean_r0",
+      "config_id": "31259f5ad9ce",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "CURVE_25519",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 307224,
+          "packets": 3004,
+          "sha256": "4e21c5b18d678a1a9756aaa7349689b043f5401ec939dce6eee6527b655fa77a"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "5c23bf7c7506f235b428e7fe4c75cb14172c8e26e6c67c3fadde11af6df83dbc"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2321,
+          "sha256": "2ab220d3d20c716d0c46b14fec62bba5ec4e93e6a4beb2f36434adb006ff7f2d"
+        }
+      }
+    },
+    {
+      "cell_id": "31259f5ad9ce_voip_g711_20ms_wan_good_r0",
+      "config_id": "31259f5ad9ce",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "CURVE_25519",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 799546,
+          "packets": 3005,
+          "sha256": "d0da654ac086c112664d263b2b84dc86304dc34207ba7208a31673558088ff31"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "c062652b599c23d290716c8b95f297fc46c43902d568a0502001f7df813f7f0e"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2325,
+          "sha256": "d4ed95c8e0fcff7cffae0ffc281c586336a7fc3d3221b3558b72e13efba93411"
+        }
+      }
+    },
+    {
       "cell_id": "31b57bc9185d_email_imap_sync_clean_r0",
       "config_id": "31b57bc9185d",
       "generator": "email",
@@ -2274,6 +2411,68 @@
       }
     },
     {
+      "cell_id": "35e7d59573e6_icmp_large_payload_clean_r0",
+      "config_id": "35e7d59573e6",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 91056,
+          "packets": 64,
+          "sha256": "d3dd4bc142bf445deb2dbc1ec93529ffc7933cb2c676577d909a08ae8895c276"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 994,
+          "packets": 9,
+          "sha256": "fb1e6b4ab06fcafa4aa4b23d515987433446f846548b6f92ecee5f96f9eac1ed"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2315,
+          "sha256": "aa1216c09cc62d9ae0ab52a838717bd3f69a822ef9f7f95761f338900bb05e95"
+        }
+      }
+    },
+    {
+      "cell_id": "35e7d59573e6_voip_g729_20ms_wan_good_r0",
+      "config_id": "35e7d59573e6",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 379290,
+          "packets": 3003,
+          "sha256": "7dacf5628f7f10c57c04bae3941c8ed48c79864f1388322709762ba9326da2d2"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "aebda7a192eefbb47a05de688221b12f51f0297ddd7678b6d0cd8a788f3ceee2"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2318,
+          "sha256": "843dc0d88c3483ae61dbebb6e94b0cff97e9772717b5d285a3100828a02db4b4"
+        }
+      }
+    },
+    {
       "cell_id": "394c3da26898_email_imap_sync_clean_r0",
       "config_id": "394c3da26898",
       "generator": "email",
@@ -2491,6 +2690,68 @@
       }
     },
     {
+      "cell_id": "39b9604c134e_icmp_large_payload_clean_r0",
+      "config_id": "39b9604c134e",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 92786,
+          "packets": 69,
+          "sha256": "78cd750b83be37e6fde55d481ad3e77b638fbb096e44b1abb50b6083a6fd2103"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "dd786978b292492407064b935ddfe0072f5afefcc78ef1735cb087fcda394676"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2311,
+          "sha256": "1cc5baa7ccf44dda591ee4e03ee46e539c1100c894046a62a462a61bcd94196f"
+        }
+      }
+    },
+    {
+      "cell_id": "39b9604c134e_voip_g729_20ms_wan_good_r0",
+      "config_id": "39b9604c134e",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 403816,
+          "packets": 3006,
+          "sha256": "0253fd66cf49ab60b3edf98b4920180edcd0c679bc91dd939eb9d4be55311fbc"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 994,
+          "packets": 9,
+          "sha256": "a94226e38fc726dbb249bd817e9a3f9117c30d294854045287d683ac3cfbd022"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2312,
+          "sha256": "8fa9bb1fb0c368066e1bc504bbbcb38a9a4f3a971a7d23715cbc595b43b766dc"
+        }
+      }
+    },
+    {
       "cell_id": "3a05f8bcbf28_email_imap_sync_clean_r0",
       "config_id": "3a05f8bcbf28",
       "generator": "email",
@@ -2704,6 +2965,68 @@
           "file": "manifest.json",
           "bytes": 2291,
           "sha256": "3b2f852675ce0bf8db6b7f09081466e86f891e82419d2c11e5ceefa6c231b40a"
+        }
+      }
+    },
+    {
+      "cell_id": "3fbcd8ca304b_icmp_steady_1s_clean_r0",
+      "config_id": "3fbcd8ca304b",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "3DES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 10605,
+          "packets": 66,
+          "sha256": "cf357c5cba164a07e8754d1f40b7979b012fe4f6b07450e50b5010bad724e89c"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "9cc103aa47752febb081fde22ab09bd77d423a8dec0a52df05118bdd5bae39fb"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2289,
+          "sha256": "6f627ef99a1ecda7047a5f16f6e413d84995cd3252b343c7e42b845983dbb2ee"
+        }
+      }
+    },
+    {
+      "cell_id": "3fbcd8ca304b_voip_g711_20ms_wan_good_r0",
+      "config_id": "3fbcd8ca304b",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "3DES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv1",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 787335,
+          "packets": 3005,
+          "sha256": "693135391a1930ffc1eb167d4d82d2b6f2cfe19066f65bfcd011550bec6f1468"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 994,
+          "packets": 9,
+          "sha256": "0883d172d9af0254094f20672a36014b332d52570011ccd84a5c2b3ccb1e6703"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2303,
+          "sha256": "4a3b2b3721a6680450b7a7d9e6c98900ec3c2b9c3c2f44663fa642ae9bacdba1"
         }
       }
     },
@@ -3572,6 +3895,68 @@
           "file": "manifest.json",
           "bytes": 2303,
           "sha256": "0a254372ccdbdb2653f65b517d3d8e62a50ac6df0d3133b63a07b2ed760ede12"
+        }
+      }
+    },
+    {
+      "cell_id": "559f25dba032_icmp_flood_small_clean_r0",
+      "config_id": "559f25dba032",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_2048",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 307704,
+          "packets": 3004,
+          "sha256": "551c02d05e827734e8da284fbfe00bedb9daa6114fa515eced03a0fd47141812"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "0a532f29ae857db30535c9adfb0991dbad9fba5a230e676cfd0b4536cdaebd99"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2315,
+          "sha256": "81ee2aad84e82dbf3cd5edba86897763b44dd86a9cdc61c9e57807afd9863bf9"
+        }
+      }
+    },
+    {
+      "cell_id": "559f25dba032_voip_g729_20ms_wan_good_r0",
+      "config_id": "559f25dba032",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_2048",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 379858,
+          "packets": 3005,
+          "sha256": "828d6d1c4ed0a33531eb3e06139a343b20380d37614db87c6c6fc046dd4ec3f2"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 974,
+          "packets": 9,
+          "sha256": "8316cc0057ee80399b4c00d428c33f872b210c24ec4f788c39c39c5472dbcb7d"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2318,
+          "sha256": "39115405262addf23443291de55fd96b42fb8abee00a4c9ea944a0c364befcae"
         }
       }
     },
@@ -5746,6 +6131,68 @@
       }
     },
     {
+      "cell_id": "a162d7acf52c_icmp_large_payload_clean_r0",
+      "config_id": "a162d7acf52c",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_2048",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 92568,
+          "packets": 64,
+          "sha256": "28414f96a9b3a4d1dc5cdf8ed073bf7cb8b6a82ce7504b0c5bb3025248266527"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 808,
+          "packets": 8,
+          "sha256": "90fd0a489bc16e27614a8386a1b8b8cc2f667140668c32520d16e0a8a14e0846"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2326,
+          "sha256": "1582080a607a899d1244bcea05556868a7ca2e5d5e9bf10addcd41dc355a73e6"
+        }
+      }
+    },
+    {
+      "cell_id": "a162d7acf52c_voip_g711_20ms_wan_good_r0",
+      "config_id": "a162d7acf52c",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_2048",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 847792,
+          "packets": 3004,
+          "sha256": "dddd22511c2f169ee04c99f60ba7503115c781fd5a5120ddbc1806c4960d658d"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 994,
+          "packets": 9,
+          "sha256": "f74e8a42589bff3c067f84bbaff8536b2a3d5b67c79f19a92bc17a9c8893909b"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2328,
+          "sha256": "495b3267fd42bac75d572e0749d028025da9622db5ed6b9d4c1abb296a8cd954"
+        }
+      }
+    },
+    {
       "cell_id": "a9ad5f1904a0_email_imap_sync_clean_r0",
       "config_id": "a9ad5f1904a0",
       "generator": "email",
@@ -6831,6 +7278,192 @@
       }
     },
     {
+      "cell_id": "c0fe4d470547_icmp_flood_small_clean_r0",
+      "config_id": "c0fe4d470547",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "CURVE_25519",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 355256,
+          "packets": 3004,
+          "sha256": "1d34c4f85e47108294a654e67950e02aec47362777fe31c602c0bc73148fd54d"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1080,
+          "packets": 10,
+          "sha256": "f6722d2e134f506afee8f095d3036983302626f4ef28d615396bf4756c3d89eb"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2304,
+          "sha256": "e49d25dc820b62b09dfcdc34a414ef06ea51701f97f86c96e01aec7bede81d33"
+        }
+      }
+    },
+    {
+      "cell_id": "c0fe4d470547_voip_g711_20ms_wan_good_r0",
+      "config_id": "c0fe4d470547",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "CURVE_25519",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 834764,
+          "packets": 3002,
+          "sha256": "ece34a42c9e3ee7f714902318ddec6da2f77d860c2f355d210f145882fa845b0"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "f29457a3b8809014a4cb44d32eff13c804cda08af174a55ace47a31003297329"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2308,
+          "sha256": "204ca968be880f766b7eccca5b23966ee54d61c4f38db740ab0754b6b2ea7c6e"
+        }
+      }
+    },
+    {
+      "cell_id": "c6fe411c6bcf_icmp_large_payload_clean_r0",
+      "config_id": "c6fe411c6bcf",
+      "generator": "icmp",
+      "variant": "large_payload",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "ECP_256",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 90928,
+          "packets": 64,
+          "sha256": "29c7040be38eeeaa8346dfe7a493034ca828426dfd33b38ea0090dde77e80d48"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "75ad1e83f89fd962d8082ecbe19d54023b7372a53b2cd06a9d920c4b1730c80b"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2307,
+          "sha256": "8baee561a6f52e9d334217ecddd2bf3d227c80e304d7d610238e3fb47c15e848"
+        }
+      }
+    },
+    {
+      "cell_id": "c6fe411c6bcf_voip_g711_20ms_wan_good_r0",
+      "config_id": "c6fe411c6bcf",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "ECP_256",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 798812,
+          "packets": 3002,
+          "sha256": "a4234c443a198de64577fc4002d93693817a3a42c64b01ac9cc383575d94676a"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "b8c89f848eaa46cb7fde6d50b969be9bf587cdc6ba765a1326f3eb8cb07cc2ab"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2309,
+          "sha256": "53bca9d6e9964b853d37758b8bf61ada022db8f8ef9e5043582568fbb15e851e"
+        }
+      }
+    },
+    {
+      "cell_id": "d4cef7f69dfc_icmp_steady_1s_clean_r0",
+      "config_id": "d4cef7f69dfc",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_1536",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 10544,
+          "packets": 64,
+          "sha256": "5275a547e1cb8bff89a4d03414a525df5c082586489b042001cb860033fe33dd"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 556,
+          "packets": 6,
+          "sha256": "cabf2648bdef4e08da4cf88aaaa9743e61203858092a89ef24f96cf48f2c7eb8"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2297,
+          "sha256": "7ed1232831cb2ee20829bd3a51ef9d062aa078f0d9ab1f5d48979da1ad81dcbe"
+        }
+      }
+    },
+    {
+      "cell_id": "d4cef7f69dfc_voip_g711_20ms_wan_good_r0",
+      "config_id": "d4cef7f69dfc",
+      "generator": "voip",
+      "variant": "g711_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_GCM_16",
+      "dh_group": "MODP_1536",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 798774,
+          "packets": 3001,
+          "sha256": "791785acd55284befc445a1122116c9f758fee575ded9bb222d2956cd3ee7108"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "7f66583c03ac51cb914dc0bddfeac4510560eeeec9d1cadf767907f802d2bddb"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2313,
+          "sha256": "ee6e53fdc6c5c57f42315012b0ef72401dfef1b8d2c46543b1433642a57afac9"
+        }
+      }
+    },
+    {
       "cell_id": "d4e0f527af40_email_smtp_attachment_wan_poor_r0",
       "config_id": "d4e0f527af40",
       "generator": "email",
@@ -7265,6 +7898,68 @@
       }
     },
     {
+      "cell_id": "db032c07f847_icmp_flood_small_clean_r0",
+      "config_id": "db032c07f847",
+      "generator": "icmp",
+      "variant": "flood_small",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 355448,
+          "packets": 3004,
+          "sha256": "f1b70c4274ca8cda649c21e98b2085c7728647452b68073a26358fc678bfcf99"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 808,
+          "packets": 8,
+          "sha256": "f620d2bb58d679e1805163f269457c1f44ed4b5bb144c1b67d82f3dbc3890888"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2300,
+          "sha256": "190215c8257a01041470d181b44dffdb047e9f01baed6cec5ca1529f1e7d747d"
+        }
+      }
+    },
+    {
+      "cell_id": "db032c07f847_voip_g729_20ms_wan_good_r0",
+      "config_id": "db032c07f847",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "MODP_1024",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 403110,
+          "packets": 3001,
+          "sha256": "b609a74e8bb365855fd1eb785f285fcce04cdc7168f8b8a53cc3d178b4a6135c"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 994,
+          "packets": 9,
+          "sha256": "9c5ec730ed100fb559e37af35cd381e0d5fa44c0b09d78f20a6378da8ebe88c5"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2304,
+          "sha256": "7712a374498998c5fd910f0cfa2676694d106c7a3e9fdbc3da946ed185201003"
+        }
+      }
+    },
+    {
       "cell_id": "dee3951778d7_email_imap_sync_clean_r0",
       "config_id": "dee3951778d7",
       "generator": "email",
@@ -7695,6 +8390,68 @@
           "file": "manifest.json",
           "bytes": 2295,
           "sha256": "30cbf83b47f1bf1dc8a8e7c6ef0481ff828bc1fbb1a7d5ff69504d742dea0004"
+        }
+      }
+    },
+    {
+      "cell_id": "e3e0f0146135_icmp_steady_1s_clean_r0",
+      "config_id": "e3e0f0146135",
+      "generator": "icmp",
+      "variant": "steady_1s",
+      "impairment": "clean",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "ECP_384",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 12136,
+          "packets": 64,
+          "sha256": "5bf3b21f744aaccec6d3509be85bc79cb34c316ee0f409e8c3eb7fec3df09b58"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 868,
+          "packets": 8,
+          "sha256": "0d91a9f81ccc4838f0deaada8be82d7f942d691815c4fc45a0e63ca3cc17eb46"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2307,
+          "sha256": "a3f7e13d7de323a847ca2f0444d47486ff3b700ef584aaa981ca059b7064c8b4"
+        }
+      }
+    },
+    {
+      "cell_id": "e3e0f0146135_voip_g729_20ms_wan_good_r0",
+      "config_id": "e3e0f0146135",
+      "generator": "voip",
+      "variant": "g729_20ms",
+      "impairment": "wan_good",
+      "negotiation_matched_intent": true,
+      "encryption": "AES_CBC",
+      "dh_group": "ECP_384",
+      "mode": "transport",
+      "ike_version": "IKEv2",
+      "files": {
+        "outer_pcap": {
+          "file": "capture_outer.pcap",
+          "bytes": 439488,
+          "packets": 3004,
+          "sha256": "339969cf716be6192f4903a0fed73f5179faa234f2bd6d1131c4d449c9db4466"
+        },
+        "inner_pcap": {
+          "file": "capture_inner.pcap",
+          "bytes": 1246,
+          "packets": 11,
+          "sha256": "c71df1504d314d883e29a69cfaf0a73d6ae4ca7af4f82dd211c805759bfa2c5e"
+        },
+        "manifest": {
+          "file": "manifest.json",
+          "bytes": 2323,
+          "sha256": "3f8d983765950c5acb0e3c15a08456714560ec0db5bf8203e80f8f3e0ef6f6e2"
         }
       }
     },

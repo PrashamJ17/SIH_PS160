@@ -1,19 +1,19 @@
 {
   "held-out DH groups": {
-    "accuracy": 0.9672131147540983,
+    "accuracy": 0.9673590504451038,
     "confusion_matrix": [
       [
-        39,
+        38,
         0,
         0,
         0,
-        3,
+        4,
         0,
         2
       ],
       [
         0,
-        52,
+        70,
         0,
         0,
         0,
@@ -53,7 +53,7 @@
         0,
         0,
         0,
-        38,
+        52,
         0
       ],
       [
@@ -67,7 +67,7 @@
       ]
     ],
     "folds": 1,
-    "groups": 133,
+    "groups": 147,
     "labels": [
       "email",
       "icmp",
@@ -77,22 +77,22 @@
       "voip",
       "web"
     ],
-    "macro_f1": 0.9689605559480484,
+    "macro_f1": 0.9661573275529632,
     "model_name": "random_forest",
     "per_class": [
       {
-        "f1": 0.9397590361445783,
+        "f1": 0.926829268292683,
         "label": "email",
         "precision": 1.0,
-        "recall": 0.8863636363636364,
+        "recall": 0.8636363636363636,
         "support": 44
       },
       {
-        "f1": 0.9904761904761905,
+        "f1": 0.9929078014184397,
         "label": "icmp",
-        "precision": 0.9811320754716981,
+        "precision": 0.9859154929577465,
         "recall": 1.0,
-        "support": 52
+        "support": 70
       },
       {
         "f1": 1.0,
@@ -109,9 +109,9 @@
         "support": 38
       },
       {
-        "f1": 0.9306930693069307,
+        "f1": 0.9215686274509803,
         "label": "video",
-        "precision": 0.9215686274509803,
+        "precision": 0.9038461538461539,
         "recall": 0.94,
         "support": 50
       },
@@ -120,7 +120,7 @@
         "label": "voip",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 38
+        "support": 52
       },
       {
         "f1": 0.9347826086956522,
@@ -130,150 +130,15 @@
         "support": 45
       }
     ],
-    "rows": 305,
+    "rows": 337,
     "split_strategy": "held-out DH groups (train ['CURVE_25519', 'ECP_256', 'ECP_384'], test ['MODP_1024', 'MODP_1536', 'MODP_2048'])",
     "target": "inner_traffic"
   },
   "held-out captures": {
-    "accuracy": 0.963963963963964,
+    "accuracy": 0.992,
     "confusion_matrix": [
       [
-        14,
-        0,
-        0,
-        0,
-        0,
-        0,
-        2
-      ],
-      [
-        0,
-        16,
-        0,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        12,
-        0,
-        0,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        12,
-        0,
-        0,
-        0
-      ],
-      [
-        2,
-        0,
-        0,
-        0,
-        18,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
-        26,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        9
-      ]
-    ],
-    "folds": 1,
-    "groups": 50,
-    "labels": [
-      "email",
-      "icmp",
-      "messaging",
-      "replay",
-      "video",
-      "voip",
-      "web"
-    ],
-    "macro_f1": 0.9603383458646617,
-    "model_name": "random_forest",
-    "per_class": [
-      {
-        "f1": 0.875,
-        "label": "email",
-        "precision": 0.875,
-        "recall": 0.875,
-        "support": 16
-      },
-      {
-        "f1": 1.0,
-        "label": "icmp",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 16
-      },
-      {
-        "f1": 1.0,
-        "label": "messaging",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 12
-      },
-      {
-        "f1": 1.0,
-        "label": "replay",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 12
-      },
-      {
-        "f1": 0.9473684210526315,
-        "label": "video",
-        "precision": 1.0,
-        "recall": 0.9,
-        "support": 20
-      },
-      {
-        "f1": 1.0,
-        "label": "voip",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 26
-      },
-      {
-        "f1": 0.9,
-        "label": "web",
-        "precision": 0.8181818181818182,
-        "recall": 1.0,
-        "support": 9
-      }
-    ],
-    "rows": 111,
-    "split_strategy": "held-out captures",
-    "target": "inner_traffic"
-  },
-  "held-out configurations": {
-    "accuracy": 0.9473684210526315,
-    "confusion_matrix": [
-      [
-        15,
+        19,
         0,
         0,
         0,
@@ -283,7 +148,7 @@
       ],
       [
         0,
-        18,
+        22,
         0,
         0,
         0,
@@ -293,7 +158,7 @@
       [
         0,
         0,
-        14,
+        16,
         0,
         0,
         0,
@@ -303,7 +168,142 @@
         0,
         0,
         0,
-        14,
+        22,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        22,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        16,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        7
+      ]
+    ],
+    "folds": 1,
+    "groups": 55,
+    "labels": [
+      "email",
+      "icmp",
+      "messaging",
+      "replay",
+      "video",
+      "voip",
+      "web"
+    ],
+    "macro_f1": 0.9931623931623932,
+    "model_name": "random_forest",
+    "per_class": [
+      {
+        "f1": 0.9743589743589743,
+        "label": "email",
+        "precision": 1.0,
+        "recall": 0.95,
+        "support": 20
+      },
+      {
+        "f1": 1.0,
+        "label": "icmp",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 22
+      },
+      {
+        "f1": 1.0,
+        "label": "messaging",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 16
+      },
+      {
+        "f1": 1.0,
+        "label": "replay",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 22
+      },
+      {
+        "f1": 0.9777777777777777,
+        "label": "video",
+        "precision": 0.9565217391304348,
+        "recall": 1.0,
+        "support": 22
+      },
+      {
+        "f1": 1.0,
+        "label": "voip",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 16
+      },
+      {
+        "f1": 1.0,
+        "label": "web",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 7
+      }
+    ],
+    "rows": 125,
+    "split_strategy": "held-out captures",
+    "target": "inner_traffic"
+  },
+  "held-out configurations": {
+    "accuracy": 0.9545454545454546,
+    "confusion_matrix": [
+      [
+        17,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        22,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        16,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        16,
         0,
         0,
         0
@@ -313,7 +313,7 @@
         0,
         0,
         0,
-        16,
+        18,
         0,
         1
       ],
@@ -323,7 +323,7 @@
         0,
         0,
         0,
-        14,
+        18,
         0
       ],
       [
@@ -333,11 +333,11 @@
         1,
         0,
         0,
-        17
+        19
       ]
     ],
     "folds": 1,
-    "groups": 49,
+    "groups": 58,
     "labels": [
       "email",
       "icmp",
@@ -347,78 +347,78 @@
       "voip",
       "web"
     ],
-    "macro_f1": 0.9510256416950129,
+    "macro_f1": 0.9560689417557198,
     "model_name": "random_forest",
     "per_class": [
       {
-        "f1": 0.8823529411764706,
+        "f1": 0.8947368421052632,
         "label": "email",
-        "precision": 0.8333333333333334,
-        "recall": 0.9375,
+        "precision": 0.85,
+        "recall": 0.9444444444444444,
+        "support": 18
+      },
+      {
+        "f1": 1.0,
+        "label": "icmp",
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 22
+      },
+      {
+        "f1": 1.0,
+        "label": "messaging",
+        "precision": 1.0,
+        "recall": 1.0,
         "support": 16
       },
       {
-        "f1": 1.0,
-        "label": "icmp",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 18
-      },
-      {
-        "f1": 1.0,
-        "label": "messaging",
-        "precision": 1.0,
-        "recall": 1.0,
-        "support": 14
-      },
-      {
-        "f1": 0.9655172413793104,
+        "f1": 0.9696969696969697,
         "label": "replay",
-        "precision": 0.9333333333333333,
+        "precision": 0.9411764705882353,
         "recall": 1.0,
-        "support": 14
+        "support": 16
       },
       {
-        "f1": 0.8648648648648649,
+        "f1": 0.8780487804878049,
         "label": "video",
-        "precision": 0.9411764705882353,
-        "recall": 0.8,
-        "support": 20
+        "precision": 0.9473684210526315,
+        "recall": 0.8181818181818182,
+        "support": 22
       },
       {
         "f1": 1.0,
         "label": "voip",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 14
+        "support": 18
       },
       {
-        "f1": 0.9444444444444444,
+        "f1": 0.95,
         "label": "web",
-        "precision": 0.9444444444444444,
-        "recall": 0.9444444444444444,
-        "support": 18
+        "precision": 0.95,
+        "recall": 0.95,
+        "support": 20
       }
     ],
-    "rows": 114,
-    "split_strategy": "held-out configurations (7 of 36)",
+    "rows": 132,
+    "split_strategy": "held-out configurations (9 of 48)",
     "target": "inner_traffic"
   },
   "random rows (leaky)": {
-    "accuracy": 0.9655172413793104,
+    "accuracy": 0.9606299212598425,
     "confusion_matrix": [
       [
-        16,
+        23,
         0,
         0,
         0,
-        2,
+        1,
         0,
-        1
+        2
       ],
       [
         0,
-        20,
+        32,
         0,
         0,
         0,
@@ -428,7 +428,7 @@
       [
         0,
         0,
-        13,
+        7,
         0,
         0,
         0,
@@ -438,7 +438,7 @@
         0,
         0,
         0,
-        10,
+        9,
         0,
         0,
         0
@@ -448,17 +448,8 @@
         0,
         0,
         0,
-        16,
-        0,
-        0
-      ],
-      [
-        0,
-        0,
-        0,
-        0,
-        0,
         13,
+        0,
         0
       ],
       [
@@ -467,12 +458,21 @@
         0,
         0,
         0,
+        17,
+        0
+      ],
+      [
+        1,
         0,
-        24
+        0,
+        0,
+        0,
+        0,
+        21
       ]
     ],
     "folds": 1,
-    "groups": 104,
+    "groups": 107,
     "labels": [
       "email",
       "icmp",
@@ -482,60 +482,60 @@
       "voip",
       "web"
     ],
-    "macro_f1": 0.9689666342727568,
+    "macro_f1": 0.966266506602641,
     "model_name": "random_forest",
     "per_class": [
       {
-        "f1": 0.8888888888888888,
+        "f1": 0.9019607843137255,
         "label": "email",
-        "precision": 0.9411764705882353,
-        "recall": 0.8421052631578947,
-        "support": 19
+        "precision": 0.92,
+        "recall": 0.8846153846153846,
+        "support": 26
       },
       {
         "f1": 1.0,
         "label": "icmp",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 20
+        "support": 32
       },
       {
         "f1": 1.0,
         "label": "messaging",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 13
+        "support": 7
       },
       {
         "f1": 1.0,
         "label": "replay",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 10
+        "support": 9
       },
       {
-        "f1": 0.9142857142857143,
+        "f1": 0.9285714285714286,
         "label": "video",
-        "precision": 0.8888888888888888,
-        "recall": 0.9411764705882353,
-        "support": 17
+        "precision": 0.9285714285714286,
+        "recall": 0.9285714285714286,
+        "support": 14
       },
       {
         "f1": 1.0,
         "label": "voip",
         "precision": 1.0,
         "recall": 1.0,
-        "support": 13
+        "support": 17
       },
       {
-        "f1": 0.9795918367346939,
+        "f1": 0.9333333333333333,
         "label": "web",
-        "precision": 0.96,
-        "recall": 1.0,
-        "support": 24
+        "precision": 0.9130434782608695,
+        "recall": 0.9545454545454546,
+        "support": 22
       }
     ],
-    "rows": 116,
+    "rows": 127,
     "split_strategy": "random rows (leaky)",
     "target": "inner_traffic"
   }

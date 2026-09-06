@@ -33,47 +33,63 @@ Expected floors, for a bare ACK plus ESP framing:
 
 ### Measured result
 
-Against the full corpus (581 windows, 252 captures):
+The corpus now contains **both modes**: 581 tunnel windows and 56 transport, after
+transport-mode cells were added specifically to make this comparison possible.
 
-| Metric | Value |
+**Measured on the traffic classes present under both modes only** — `icmp` and `voip`,
+224 windows across 96 captures. That restriction is not a convenience. Transport cells
+exist only for those two generators, because the sidecar-backed ones cannot produce
+protected traffic under transport mode, so across the full corpus **33.6% of the mode
+label is predictable from the traffic class alone**. A model evaluated there would score
+well by learning "video implies tunnel" and would have learned nothing about mode.
+Restricted to the shared classes, that leakage measures **0.0%**.
+
+| Baseline | Accuracy | Coverage |
+|---|---|---|
+| Majority class (always `tunnel`) | **75.0%** | 100% |
+| Size-floor heuristic | **66.7%** | 48.2% |
+
+### The heuristic is worse than guessing, and that is the finding
+
+**66.7% is below the 75.0% majority-class baseline.** The heuristic is not merely weak;
+on this data it is worse than always answering `tunnel`.
+
+The cause is measurable. It compares the smallest packet against absolute floors of 82
+and 102 bytes, derived from a bare TCP ACK plus assumed ESP framing. Real minimum ESP
+packets in this corpus run **136 to 164 bytes**, and vary by *cipher* more than by mode:
+
+| Configuration | Minimum ESP packet |
 |---|---|
-| Coverage (windows it will answer for) | **70.7%** |
-| Accuracy on answered windows | **95.1%** |
-| False-`transport` rate | **4.9%** |
+| 3DES / MD5, tunnel | 136 |
+| AES-128 / SHA-256, **transport** | **140** |
+| AES-256-GCM, tunnel | 140 |
+| AES-256 / MD5, tunnel | 152 |
+| AES-128 / SHA-256, **tunnel** | **156** |
+| AES-256 / SHA-384, tunnel | 164 |
 
-Coverage is reported separately from accuracy on purpose. A baseline that abstains on
-most rows and is right on the rest is not a highly accurate baseline, and collapsing the
-two into one number would flatter it into looking like a bar worth clearing.
+The mode signal is real — the same cipher and generator gives 156 bytes in tunnel mode
+against 140 in transport, a 16-byte gap that is the inner IP header rounded by AES-CBC's
+block padding. But it is **only visible relative to the cipher**, and a heuristic using
+absolute thresholds cannot see it. Two configurations differing only in mode are 16
+bytes apart; two differing only in cipher are up to 28 bytes apart.
 
-### **The number above is not evidence of skill, and must not be quoted as though it were**
+**The floors were not adjusted to improve this number.** Tuning them against the corpus
+would produce a baseline fitted to the test set, which is precisely what a baseline must
+not be.
 
-**The corpus contains exactly one mode: `tunnel`.** Transport mode was dropped from the
-sweep matrix during Phase 2 because those cells produced zero ESP — the tunnel
-established and the generated traffic was not protected by it, which the runner's ESP
-guard correctly rejected. That deviation is recorded in `PROGRESS.md` and in
-`docs/DATASET.md`.
+### Result
 
-On a single-class corpus, a classifier that always answers `tunnel` scores 100%. The
-95.1% figure therefore measures only one thing: **the heuristic's false-positive rate is
-4.9%** — one window in twenty is wrongly called `transport`. Accuracy, precision and
-recall are all undefined for the absent class.
+| Model | Accuracy | Macro-F1 |
+|---|---|---|
+| Random forest | **93.3%** | 0.908 |
+| Gradient boosting | 88.4% | 0.839 |
 
-Concretely, this means:
+Grouped 5-fold by capture. Transport recall 0.82 at precision 0.90, so the model is
+identifying the minority class rather than defaulting to `tunnel`.
 
-* **No model may claim to beat this baseline on mode inference using this corpus.** The
-  comparison cannot be made. A model trained here would learn to answer `tunnel`
-  unconditionally and score 100%, which is not a result.
-* Closing the gap needs a corpus containing transport-mode cells with real ESP traffic —
-  a testbed change, not a modelling one.
-* The heuristic is still shipped, because on a *deployed* estate containing both modes it
-  answers 70% of windows from arithmetic alone, and its abstentions are explicit.
-
-### What the abstentions mean
-
-The heuristic returns `unknown` with confidence 0 for 29.3% of windows: their smallest
-packet is far from both floors, which happens whenever a flow never carried a bare
-acknowledgement. Guessing there would inflate the baseline's apparent coverage and make
-every later comparison against it meaningless.
+**The model beats the heuristic by 26.6 points and the majority class by 18.3.** The ML
+lane is justified for mode inference: the classifier sees the cipher-relative offset
+that a fixed threshold cannot.
 
 ---
 

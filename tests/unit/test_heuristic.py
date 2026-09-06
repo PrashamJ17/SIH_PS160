@@ -92,26 +92,54 @@ class TestAccuracyReporting:
 
 
 class TestDocumentedBaseline:
-    """The measured numbers must stay in step with what docs/BASELINES.md claims."""
+    """The measured numbers must stay in step with what docs/BASELINES.md claims.
+
+    These assertions previously pinned a single-mode corpus. Transport-mode cells were
+    added in order to make mode inference evaluable at all, so they were rewritten
+    deliberately rather than relaxed — which is the point of having them.
+    """
 
     DOC = Path("docs/BASELINES.md")
+    DATASET = Path("data/processed/ml_dataset.parquet")
 
     def test_the_baseline_document_exists(self) -> None:
         assert self.DOC.exists()
 
     def test_it_records_coverage_and_accuracy(self) -> None:
         text = self.DOC.read_text()
-        assert "70.7%" in text
-        assert "95.1%" in text
+        assert "66.7%" in text
+        assert "48.2%" in text
 
-    def test_it_states_that_the_corpus_has_only_one_mode(self) -> None:
-        """Without this, the 95.1% reads as skill. It is not."""
+    def test_it_states_that_the_heuristic_loses_to_the_majority_class(self) -> None:
+        """The finding: on real two-class data it is worse than always guessing."""
         text = self.DOC.read_text()
-        assert "exactly one mode" in text
-        assert "not evidence of skill" in text.lower()
+        assert "worse than guessing" in text
+        assert "75.0%" in text
 
-    def test_it_forbids_claiming_a_win_on_this_corpus(self) -> None:
-        assert "No model may claim to beat this baseline" in self.DOC.read_text()
+    def test_it_explains_why_the_floors_are_wrong(self) -> None:
+        text = self.DOC.read_text()
+        assert "136 to 164 bytes" in text
+        assert "only visible relative to the cipher" in text
+
+    def test_it_states_the_floors_were_not_tuned_to_the_corpus(self) -> None:
+        """Tuning a baseline against the test set is exactly what a baseline must not be."""
+        assert "not adjusted to improve this number" in self.DOC.read_text()
+
+    def test_it_justifies_restricting_to_shared_traffic_classes(self) -> None:
+        """Without the restriction the comparison measures traffic-class leakage."""
+        text = self.DOC.read_text()
+        assert "33.6%" in text
+        assert "0.0%" in text
+
+    @pytest.mark.skipif(
+        not Path("data/processed/ml_dataset.parquet").exists(),
+        reason="the ML dataset has not been built",
+    )
+    def test_the_corpus_now_contains_both_modes(self) -> None:
+        import pandas as pd
+
+        frame = pd.read_parquet(self.DATASET)
+        assert set(frame["mode"].unique()) == {"tunnel", "transport"}
 
     @pytest.mark.skipif(
         not Path("data/processed/ml_dataset.parquet").exists(),
@@ -123,18 +151,32 @@ class TestDocumentedBaseline:
 
         from ipsec_sentinel.features.flow import FEATURE_NAMES
 
-        frame = pd.read_parquet("data/processed/ml_dataset.parquet")
-        rows = [(row[list(FEATURE_NAMES)].to_dict(), row["mode"]) for _, row in frame.iterrows()]
+        frame = pd.read_parquet(self.DATASET)
+        transport = set(frame[frame["mode"] == "transport"]["inner_traffic"])
+        tunnel = set(frame[frame["mode"] == "tunnel"]["inner_traffic"])
+        shared = sorted(transport & tunnel)
+        subset = frame[frame["inner_traffic"].isin(shared)]
+        rows = [
+            (row[list(FEATURE_NAMES)].to_dict(), str(row["mode"])) for _, row in subset.iterrows()
+        ]
         result = heuristic_accuracy(rows)
-        assert result["coverage"] == pytest.approx(0.707, abs=0.02)
-        assert result["accuracy"] == pytest.approx(0.951, abs=0.02)
+        assert result["coverage"] == pytest.approx(0.482, abs=0.02)
+        assert result["accuracy"] == pytest.approx(0.667, abs=0.02)
 
     @pytest.mark.skipif(
         not Path("data/processed/ml_dataset.parquet").exists(),
         reason="the ML dataset has not been built",
     )
-    def test_the_corpus_really_does_contain_only_tunnel_mode(self) -> None:
+    def test_the_shared_classes_carry_no_mode_leakage(self) -> None:
+        """The restriction must actually remove the confound, not merely narrow it."""
         import pandas as pd
+        from scipy.stats import entropy
+        from sklearn.metrics import mutual_info_score
 
-        frame = pd.read_parquet("data/processed/ml_dataset.parquet")
-        assert set(frame["mode"].unique()) == {"tunnel"}
+        frame = pd.read_parquet(self.DATASET)
+        transport = set(frame[frame["mode"] == "transport"]["inner_traffic"])
+        tunnel = set(frame[frame["mode"] == "tunnel"]["inner_traffic"])
+        subset = frame[frame["inner_traffic"].isin(sorted(transport & tunnel))]
+        leakage = mutual_info_score(subset["mode"], subset["inner_traffic"])
+        spread = entropy(subset["mode"].value_counts(normalize=True))
+        assert leakage / spread < 0.02, "traffic class still predicts mode"

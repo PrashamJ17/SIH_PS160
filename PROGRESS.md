@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** M7 10/10 — transport sweep, then mode inference
+**Current step:** M7 tag, then Phase 8 — remediation
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -120,7 +120,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.8 — Prediction abstention — commit `57876e7`
 - [x] 7.9 — SHAP explanations — commit `26bb49a`
 - [x] 7.10 — Confound audit — commit `ea79e59`
-- [ ] **▶ MILESTONE M7** — tag `v0.8.0-ml`
+- [x] **▶ MILESTONE M7 PASSED** — tag `v0.8.0-ml` (10/10)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
@@ -506,6 +506,57 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## MILESTONE M7 — 10/10 after closing the mode-inference gap
+
+| M7 acceptance | Result |
+|---|---|
+| Classifier trained with capture-level splitting | **PASS** — 96.4%, macro-F1 0.963, 637 rows in 276 groups |
+| Zero `capture_id` overlap | **PASS** — 25 seeds |
+| Generalisation report, four splits | **PASS** |
+| **Model beats the mode-inference heuristic** | **PASS** — 93.3% vs 66.7%, majority 75.0% |
+| ECE below 0.15 | **PASS** — 0.0622, AUROC 0.964 |
+| Abstention under 25% | **PASS** — 3.2%, accuracy 97.4% → 99.3% |
+| SHAP readable sentences | **PASS** |
+| Confound audit published | **PASS** |
+| Every ML finding carries a confidence | **PASS** |
+| ML test suites | **PASS** — 258 tests |
+
+### The mode-inference result, and the restriction it required
+
+| | Accuracy | Macro-F1 |
+|---|---|---|
+| Size-floor heuristic | 66.7% (48.2% coverage) | — |
+| Majority class (always `tunnel`) | 75.0% | — |
+| **Random forest** | **93.3%** | **0.908** |
+
+**The heuristic loses to the majority class**, and that is the finding rather than an
+embarrassment. It compares the smallest packet against absolute floors of 82 and 102
+bytes; real minimum ESP packets here run **136–164 bytes** and vary by *cipher* more
+than by mode. The mode signal is real — 156 bytes tunnel against 140 transport for the
+same cipher — but visible only *relative to* the cipher, which a fixed threshold cannot
+see and the model can. **The floors were not retuned**, because a baseline fitted to the
+corpus is not a baseline.
+
+**Measured on `icmp` and `voip` only**, the classes present under both modes. Transport
+cells exist only for those two, so across the full corpus **33.6% of the mode label is
+predictable from the traffic class alone** — a model evaluated there would score well by
+learning "video implies tunnel". Restricted to the shared classes that leakage is
+**0.0%**, and a test asserts it stays there.
+
+### A second artefact the corpus expansion exposed
+
+Six tunnel `replay` captures still reported **48–49 ESP flows** where a tunnel has two.
+The Phase 7 structural floor removed the 32-byte protocol-50 frames; 44-byte ones
+survived it. The dataset's minimum-packet threshold masked this, so the ML data was
+clean while `flows_from_capture` — which ESP-01 and the inventory rely on — was not.
+
+Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a new SA,
+so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
+number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
+for the cells the ESP guard rejected**.
 
 ---
 
