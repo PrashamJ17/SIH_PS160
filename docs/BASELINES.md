@@ -77,7 +77,40 @@ every later comparison against it meaningless.
 
 ---
 
-## Traffic classification — baseline to be recorded
+## Traffic classification — baselines
 
-Recorded at Step 7.5, before the classifier is trained, following the same rule: the
-bar is fixed first.
+Measured **before** either classifier was trained, on the corrected 581-row corpus
+(7 classes, 252 captures), under the same grouped 5-fold cross-validation the models
+use.
+
+| Baseline | Accuracy | Macro-F1 | What it does |
+|---|---|---|---|
+| Majority class | **16.5%** | 0.041 | always predicts `icmp` |
+| Depth-1 decision tree | **24.6%** | 0.129 | one feature, one threshold |
+
+The majority-class figure is the floor beneath every classifier. Quoting an accuracy
+without it lets a model that learned nothing look competent on an unbalanced corpus —
+this one is balanced, so the floor sits near 1/7.
+
+The depth-1 tree is the bar that matters. If a 300-tree ensemble cannot clearly beat
+one number and one threshold, the ensemble is not earning its complexity.
+
+### Result
+
+| Model | Accuracy | Macro-F1 |
+|---|---|---|
+| Random forest | **96.0%** | 0.963 |
+| Gradient boosting (XGBoost) | 95.2% | 0.954 |
+
+Both clear the bar by a wide margin, so the ML lane is justified for traffic
+classification. Per-class F1 ranges from 0.89 (`email`) to 1.00 (`messaging`, `voip`).
+
+**Read these as in-distribution numbers.** Folds are grouped by `capture_id`, so no
+capture spans train and test and no window is scored against its own siblings — but the
+same *configurations* appear on both sides. A deployed analyser meets configurations
+nobody trained on, and that is a different and harder question. It is answered in
+`docs/GENERALISATION.md` at Step 7.6, where the numbers are expected to fall.
+
+The two models are reported rather than ranked. Choosing the winner on the folds used
+to measure them would be selection on the test set; the choice belongs to a held-out
+split.

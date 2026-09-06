@@ -23,6 +23,7 @@ and :func:`infer_mode_heuristic` names it ``crude`` for that reason.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Final
 
@@ -150,3 +151,91 @@ def heuristic_accuracy(
         "coverage": answered / total,
         "accuracy": (correct / answered) if answered else 0.0,
     }
+
+
+# ---------------------------------------------------------------------------
+# Traffic classification baselines
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BaselineScore:
+    """What a trivial classifier achieves, so a trained one has something to beat."""
+
+    name: str
+    accuracy: float
+    macro_f1: float
+    description: str
+
+
+def majority_class_baseline(labels: list[str]) -> BaselineScore:
+    """Always answer the most common class.
+
+    The floor beneath every classifier. On a balanced corpus it is close to 1/k, and
+    quoting an accuracy without it lets a model that learned nothing look competent on
+    an unbalanced one.
+    """
+    if not labels:
+        return BaselineScore("majority class", 0.0, 0.0, "no labels")
+    counts = Counter(labels)
+    winner, hits = counts.most_common(1)[0]
+    accuracy = hits / len(labels)
+    # Macro-F1 of a constant predictor: one class gets 2p/(p+1), the rest get zero.
+    precision = accuracy
+    recall = 1.0
+    f1_for_winner = 2 * precision * recall / (precision + recall) if precision else 0.0
+    macro_f1 = f1_for_winner / len(counts)
+    return BaselineScore(
+        name="majority class",
+        accuracy=accuracy,
+        macro_f1=macro_f1,
+        description=f"always predicts {winner!r}",
+    )
+
+
+def stump_baseline(
+    rows: list[dict[str, float]],
+    labels: list[str],
+    feature_names: list[str],
+    groups: list[str] | None = None,
+    seed: int = 42,
+) -> BaselineScore:
+    """One feature, one threshold — the simplest thing that could possibly work.
+
+    A depth-1 decision tree, scored under the same grouped cross-validation the real
+    models use. If a trained ensemble cannot clearly beat one number and one threshold,
+    the ensemble is not earning its complexity.
+    """
+    from sklearn.metrics import accuracy_score, f1_score
+    from sklearn.model_selection import GroupKFold
+    from sklearn.tree import DecisionTreeClassifier
+
+    if not rows:
+        return BaselineScore("depth-1 tree", 0.0, 0.0, "no rows")
+
+    import numpy as np
+
+    matrix = np.array([[row[name] for name in feature_names] for row in rows])
+    target = np.array(labels)
+    group_array = np.array(groups if groups is not None else list(range(len(rows))))
+
+    splitter = GroupKFold(n_splits=min(5, len(set(group_array))))
+    accuracies: list[float] = []
+    f1s: list[float] = []
+    for train_index, test_index in splitter.split(matrix, target, group_array):
+        if len(set(target[train_index])) < 2:
+            continue
+        tree = DecisionTreeClassifier(max_depth=1, random_state=seed)
+        tree.fit(matrix[train_index], target[train_index])
+        predicted = tree.predict(matrix[test_index])
+        accuracies.append(float(accuracy_score(target[test_index], predicted)))
+        f1s.append(float(f1_score(target[test_index], predicted, average="macro", zero_division=0)))
+
+    if not accuracies:
+        return BaselineScore("depth-1 tree", 0.0, 0.0, "no usable folds")
+    return BaselineScore(
+        name="depth-1 tree",
+        accuracy=sum(accuracies) / len(accuracies),
+        macro_f1=sum(f1s) / len(f1s),
+        description="one feature, one threshold, grouped 5-fold by capture",
+    )

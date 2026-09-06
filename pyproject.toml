@@ -48,9 +48,9 @@ markers = [
 addopts = "-q --strict-markers"
 
 [[tool.mypy.overrides]]
-# scikit-learn ships no type information. Ignoring it here is narrower than a global
-# relaxation: everything this project writes stays strictly typed.
-module = ["sklearn.*"]
+# These scientific packages ship no type information. Ignoring them here is narrower
+# than a global relaxation: everything this project writes stays strictly typed.
+module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*"]
 ignore_missing_imports = true
 
 [tool.mypy]
