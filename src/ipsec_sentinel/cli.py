@@ -192,14 +192,16 @@ def inventory(pcap: Path, known: Path | None) -> None:
     default="strongswan",
     show_default=True,
 )
+@click.option("--baseline", default="nist_800_77r1", show_default=True, help="Compliance baseline.")
 @click.option("--out", type=click.Path(path_type=Path), help="Write the configurations here.")
-def remediate(pcap: Path, tunnel: str | None, vendor: str, out: Path | None) -> None:
+def remediate(pcap: Path, tunnel: str | None, vendor: str, baseline: str, out: Path | None) -> None:
     """Generate a change package from an observed capture.
 
     The configuration is reconstructed from the negotiation, so the package corrects
     what the peer actually offered rather than what a document says it offers.
     """
-    from ipsec_sentinel.analyse import read_tunnels
+    from ipsec_sentinel.analyse import assess_tunnel, read_tunnels
+    from ipsec_sentinel.assess.framework import UnknownBaselineError
     from ipsec_sentinel.remediate.generators.strongswan import (
         GenerationError,
         generate_change_package,
@@ -229,8 +231,25 @@ def remediate(pcap: Path, tunnel: str | None, vendor: str, out: Path | None) -> 
         if not recovered.ok or recovered.config is None:
             click.echo(f"{found.tunnel_id}: {recovered.reason}")
             continue
+
+        # The findings the assessment actually raised, not a fixed rule id. A package
+        # claiming to address CRY-05 on a tunnel whose problem is a weak PRF is a
+        # document an operator cannot check against the report beside it.
         try:
-            package = generate_change_package(found.tunnel_id, recovered.config, ["CRY-05"])
+            assessed = assess_tunnel(found, baseline)
+        except UnknownBaselineError as exc:
+            fail(str(exc), EXIT_USAGE)
+        findings = [finding.rule_id for finding in assessed.findings]
+        if not findings:
+            click.echo(
+                f"{found.tunnel_id}: nothing found against baseline {baseline}; "
+                f"no change package to generate"
+            )
+            continue
+        try:
+            package = generate_change_package(
+                found.tunnel_id, recovered.config, findings, observed=assessed
+            )
         except GenerationError as exc:
             click.echo(f"{found.tunnel_id}: {exc}")
             continue

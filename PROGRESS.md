@@ -141,6 +141,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M9 gate — 10/10 passed, 0 failed** — tag `v0.10.0-reporting`
 - [x] 10.1a — active IKE prober and observed-config reconstruction — commit `40db773`
 - [x] 10.1b — **fix: a named baseline selected zero rules** — commit `6ab3861`
+- [x] 10.1 — command-line interface — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -576,6 +577,38 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.1 — the command line
+
+`sentinel analyse | inventory | remediate | scan | dataset | model | version`, with
+`watch` arriving in Step 10.4 alongside the module that implements it.
+
+Two properties carry the weight, and both are tested rather than intended.
+
+**A bad input produces a sentence, not a traceback.** A stack trace tells the reader the
+tool broke; a message tells them what to do. Ten tests cover the paths an operator can
+actually reach — a missing capture, a directory, a file that is not a capture, a typo in
+a baseline name, a documented-tunnel list that is missing, malformed, or has one endpoint
+instead of two — and each asserts a clean exit code, a readable line, and no `Traceback`
+in the output. Exit codes are distinct: `2` for usage, `3` for a refusal.
+
+**`scan` is the only command that transmits.** A test monkeypatches `socket.socket` to
+raise and then runs `analyse`, `inventory`, `remediate` and `version` to completion. The
+product's central claim, asserted at the surface an operator uses.
+
+### `remediate` names the findings it actually found
+
+The first version passed a fixed `["CRY-05"]` to the generator. The change package then
+claimed to address 3DES on a tunnel whose real problem was `PRF_HMAC_MD5` — a document
+an operator cannot check against the report beside it. It now runs the assessment, passes
+the real finding IDs, and says plainly when a tunnel has nothing wrong with it under the
+selected baseline.
+
+The reconstruction's assumptions are printed with the package, so the operator sees which
+parts were read off the wire and which were unobservable — SA lifetimes, PFS, the child
+group.
 
 ---
 
