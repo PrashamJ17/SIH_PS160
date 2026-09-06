@@ -19,19 +19,40 @@ a calibrator on the model's training data teaches it to correct overconfidence t
 does not exhibit there, which produces a calibrator that is itself miscalibrated. The
 split is grouped for the same reason every other split in this project is.
 
-**The method is chosen on a validation split, never on the evaluation set.** The prior
-going in was that Platt scaling (sigmoid) would win, because it fits two parameters per
-class and this corpus is small, where isotonic regression is usually said to overfit.
-The data disagreed: on this corpus sigmoid makes calibration *worse* (ECE 0.061 → 0.077)
-while isotonic improves it substantially (→ 0.017).
+**Low ECE is necessary and not sufficient, and getting that wrong cost this module a
+rewrite.** A model that is right 98% of the time and says "99%" on every single row has
+an excellent ECE and a useless confidence: it never signals which rows it got wrong.
+Calibration measures *reliability* — do the stated probabilities match observed
+frequencies in aggregate. What a system that abstains actually needs is
+**discrimination** — does the confidence rank correct predictions above incorrect ones.
+The two come apart, and here they did, sharply:
 
-Switching the default because isotonic scored better on the evaluation set would have
-been selection on the test set — the same error this project refuses everywhere else. So
-the training data is split three ways instead: a fit set for the base model, a
-calibration set for the calibrator, and a **validation set on which the method is
-chosen**. The evaluation set is touched only to report the final number. The prior is
-recorded here rather than quietly deleted, because a prior the data overturns is worth
-more in the record than one that was never stated.
+===========  ========  ===========================
+method       ECE       AUROC (confidence ~ correct)
+===========  ========  ===========================
+isotonic     **0.017**  0.639
+sigmoid      0.077      **0.973**
+===========  ========  ===========================
+
+Isotonic saturated: 95% of its predictions scored above 0.99, and two of the three rows
+it got *wrong* were given a confidence of exactly 1.0. Abstention against that
+distribution is inert at any usable threshold. Sigmoid is three times worse on ECE and
+still comfortably inside the trustworthiness gate, while its confidence almost perfectly
+separates right from wrong.
+
+So the selection criterion is: **among methods whose ECE clears the gate, take the one
+with the best discrimination.** Calibration is a constraint — the number must be honest
+enough to show a user — and discrimination is the objective, because that is what the
+number is *for*. Only if no method clears the gate does the lowest ECE win, since an
+untrustworthy confidence should at least be as close to honest as possible.
+
+**Selection happens on a validation split, never on the evaluation set.** The training
+data is split three ways: a fit set for the base model, a calibration set for the
+calibrator, and a validation set on which the method is chosen.
+
+The original prior was that Platt scaling would win because isotonic overfits on small
+corpora. Sigmoid does win — but not for that reason, and not on the metric the prior
+assumed. That is worth recording rather than quietly claiming the prior was right.
 """
 
 from __future__ import annotations
@@ -51,6 +72,12 @@ SUPPORTED_METHODS: Final[tuple[str, ...]] = (*CALIBRATION_METHODS, "auto")
 # in front of a user, and the correct response is to withhold the number rather than
 # show it with a disclaimer nobody reads.
 MAX_ACCEPTABLE_ECE: Final = 0.15
+
+# Below this AUROC, the confidence does not usefully separate correct predictions from
+# incorrect ones, and abstention against it is theatre: the model declines at random
+# rather than where it is unsure. 0.5 is chance; 0.7 is the point at which a threshold
+# starts removing meaningfully more wrong answers than right ones.
+MIN_DISCRIMINATION: Final = 0.7
 
 
 class CalibrationError(ValueError):
@@ -80,6 +107,14 @@ class CalibrationReport:
     method: str
     ece_before: float
     ece_after: float
+    discrimination_before: float = 0.5
+    discrimination_after: float = 0.5
+    """AUROC of confidence against correctness: does the number say when it is wrong?
+
+    0.5 is chance — a confidence that carries no information about whether the
+    prediction is right. 1.0 would rank every correct prediction above every incorrect
+    one. This is the property abstention depends on, and it is not what ECE measures.
+    """
     selection: str = ""
     """How the method was chosen, so a reader can see it was not chosen by result."""
     bins_before: list[ReliabilityBin] = field(default_factory=list)
@@ -96,11 +131,17 @@ class CalibrationReport:
         """Whether the calibrated confidence may be shown to a user at all."""
         return self.ece_after <= MAX_ACCEPTABLE_ECE
 
+    @property
+    def is_discriminative(self) -> bool:
+        """Whether the confidence is informative enough for abstention to do anything."""
+        return self.discrimination_after >= MIN_DISCRIMINATION
+
     def summary(self) -> str:
         verdict = "trustworthy" if self.is_trustworthy else "NOT trustworthy"
         return (
             f"{self.method}: ECE {self.ece_before:.4f} -> {self.ece_after:.4f} "
             f"({verdict}, threshold {MAX_ACCEPTABLE_ECE}), "
+            f"AUROC {self.discrimination_before:.3f} -> {self.discrimination_after:.3f}, "
             f"{self.n_calibration} calibration / {self.n_evaluation} evaluation rows"
             + (f"\n  {self.selection}" if self.selection else "")
         )
@@ -152,6 +193,28 @@ def expected_calibration_error(
     return float(total_error), diagram
 
 
+def discrimination(probabilities: Any, truth: Any, labels: list[str]) -> float:
+    """AUROC of top-class confidence against whether the prediction was correct.
+
+    The question ECE cannot answer: when this model is wrong, does it say so? Returns
+    0.5 — chance — when every prediction is correct or every one is wrong, because a
+    ranking metric is undefined without both outcomes present, and 0.5 is the honest
+    "this tells us nothing" value rather than a flattering 1.0.
+    """
+    import numpy as np
+    from sklearn.metrics import roc_auc_score
+
+    probabilities = np.asarray(probabilities, dtype=float)
+    if len(probabilities) == 0:
+        return 0.5
+    confidence = probabilities.max(axis=1)
+    predicted = np.array([labels[i] for i in probabilities.argmax(axis=1)])
+    correct = predicted == np.asarray(truth)
+    if len(set(correct.tolist())) < 2:
+        return 0.5
+    return float(roc_auc_score(correct, confidence))
+
+
 def _grouped_holdout(
     frame: pd.DataFrame, fraction: float, seed: int, column: str = "capture_id"
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -198,7 +261,7 @@ def calibrate_classifier(
         # evaluation set. The chosen method is then refitted below on the full
         # fit/calibration split so the returned model uses all the training data.
         remaining, validation = _grouped_holdout(train, 0.2, seed)
-        scores: dict[str, float] = {}
+        trials: dict[str, CalibrationReport] = {}
         for candidate in CALIBRATION_METHODS:
             try:
                 _model, trial = calibrate_classifier(
@@ -213,14 +276,27 @@ def calibrate_classifier(
                 )
             except CalibrationError:
                 continue
-            scores[candidate] = trial.ece_after
-        if not scores:
+            trials[candidate] = trial
+        if not trials:
             raise CalibrationError(
                 "no calibration method could be evaluated on the validation split"
             )
-        chosen = min(scores, key=lambda name: scores[name])
-        selection = "chosen on a held-out validation split: " + ", ".join(
-            f"{k} ECE {v:.4f}" for k, v in sorted(scores.items())
+
+        # Calibration is the constraint, discrimination the objective. A confidence must
+        # be honest enough to show a user (the ECE gate) and informative enough to
+        # abstain on (AUROC). Optimising ECE alone selected a calibrator that scored
+        # exactly 1.0 on rows it got wrong.
+        trustworthy = {k: v for k, v in trials.items() if v.ece_after <= MAX_ACCEPTABLE_ECE}
+        if trustworthy:
+            chosen = max(trustworthy, key=lambda name: trustworthy[name].discrimination_after)
+            basis = "best discrimination among methods inside the ECE gate"
+        else:
+            chosen = min(trials, key=lambda name: trials[name].ece_after)
+            basis = "lowest ECE (no method cleared the gate)"
+
+        selection = f"chosen on a held-out validation split, {basis}: " + ", ".join(
+            f"{k} ECE {v.ece_after:.4f} / AUROC {v.discrimination_after:.3f}"
+            for k, v in sorted(trials.items())
         )
         model, report = calibrate_classifier(
             train,
@@ -277,6 +353,8 @@ def calibrate_classifier(
 
     return calibrated, CalibrationReport(
         method=method,
+        discrimination_before=discrimination(aligned(base), evaluation_truth, labels),
+        discrimination_after=discrimination(aligned(calibrated), evaluation_truth, labels),
         selection="method supplied by the caller",
         ece_before=ece_before,
         ece_after=ece_after,

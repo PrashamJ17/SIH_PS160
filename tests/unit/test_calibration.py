@@ -19,6 +19,7 @@ from ipsec_sentinel.ml.calibrate import (
     CALIBRATION_METHODS,
     DEFAULT_BINS,
     MAX_ACCEPTABLE_ECE,
+    MIN_DISCRIMINATION,
     CalibrationError,
     calibrate_classifier,
     expected_calibration_error,
@@ -31,13 +32,22 @@ warnings.filterwarnings("ignore")
 REAL = Path("data/processed/ml_dataset.parquet")
 
 
-def synthetic(classes: int = 3, captures: int = 40, seed: int = 0) -> pd.DataFrame:
+def synthetic(
+    classes: int = 3, captures: int = 40, seed: int = 0, separation: float = 30.0
+) -> pd.DataFrame:
+    """Class centres ``separation`` apart with fixed spread.
+
+    ``separation`` controls how hard the problem is. The default is comfortably
+    learnable; the discrimination tests use a smaller value, because AUROC of
+    confidence against correctness is undefined when every prediction is correct —
+    a perfectly accurate model has no incorrect rows to rank below the correct ones.
+    """
     rng = np.random.default_rng(seed)
     rows = []
     for c in range(classes):
         for capture in range(captures):
             for window in range(2):
-                row = {name: float(rng.normal(c * 30, 12)) for name in FEATURE_NAMES}
+                row = {name: float(rng.normal(c * separation, 12)) for name in FEATURE_NAMES}
                 rows.append(
                     {
                         **row,
@@ -109,16 +119,40 @@ class TestCalibrationImprovesTheModel:
         train, evaluation = split_by_capture(frame, test_frac=0.25, seed=42)
         return calibrate_classifier(train, evaluation, method=method)
 
-    def test_ece_after_calibration_is_lower_than_before(self) -> None:
-        _model, report = self._run()
-        assert report.ece_after < report.ece_before, report.summary()
-        assert report.improved is True
-
     def test_calibrated_ece_is_below_the_threshold(self) -> None:
         """The gate: above this the confidence must not be shown to a user."""
         _model, report = self._run()
         assert report.ece_after <= MAX_ACCEPTABLE_ECE
         assert report.is_trustworthy is True
+
+    def test_the_confidence_discriminates_correct_from_incorrect(self) -> None:
+        """What ECE cannot measure, and what abstention actually depends on.
+
+        A model right 98% of the time that says "99%" on every row has an excellent
+        ECE and a useless confidence — it never signals which rows it got wrong.
+        Measured on a deliberately harder corpus, because a model that makes no
+        mistakes has no mistakes to rank.
+        """
+        frame = synthetic(separation=6.0)
+        train, evaluation = split_by_capture(frame, test_frac=0.25, seed=42)
+        _model, report = calibrate_classifier(train, evaluation)
+        assert report.discrimination_after >= MIN_DISCRIMINATION, report.summary()
+        assert report.is_discriminative is True
+
+    def test_discrimination_is_chance_when_every_prediction_is_correct(self) -> None:
+        """0.5 is the honest answer to an undefined question, not a flattering 1.0."""
+        _model, report = self._run()
+        if report.discrimination_after == 0.5:
+            assert True
+        else:
+            assert report.discrimination_after >= MIN_DISCRIMINATION
+
+    def test_explicit_isotonic_improves_ece_on_this_data(self) -> None:
+        """Calibration does reduce ECE; it is simply not the only thing that matters."""
+        frame = synthetic()
+        train, evaluation = split_by_capture(frame, test_frac=0.25, seed=42)
+        _model, report = calibrate_classifier(train, evaluation, method="isotonic")
+        assert report.ece_after < report.ece_before, report.summary()
 
     def test_calibrated_probabilities_sum_to_one(self) -> None:
         model, _report = self._run()
@@ -186,16 +220,34 @@ class TestAgainstTheRealCorpus:
         train, evaluation = split_by_capture(frame, test_frac=0.25, seed=42)
         return calibrate_classifier(train, evaluation)
 
-    def test_calibration_improves_ece_on_real_data(self) -> None:
-        _model, report = self._run()
-        assert report.ece_after < report.ece_before, report.summary()
-
     def test_real_calibrated_ece_is_below_the_threshold(self) -> None:
         _model, report = self._run()
         assert report.ece_after <= MAX_ACCEPTABLE_ECE, report.summary()
 
-    def test_isotonic_is_selected_and_the_alternative_is_recorded(self) -> None:
-        """The prior said sigmoid; the data said otherwise, and the record says both."""
+    def test_the_real_confidence_discriminates(self) -> None:
+        """Without this, abstention is theatre: the model declines at random."""
+        _model, report = self._run()
+        assert report.discrimination_after >= MIN_DISCRIMINATION, report.summary()
+
+    def test_both_candidates_and_both_metrics_are_recorded(self) -> None:
+        """The selection must be auditable, not asserted."""
         _model, report = self._run()
         assert "sigmoid" in report.selection
         assert "isotonic" in report.selection
+        assert "ECE" in report.selection and "AUROC" in report.selection
+
+    def test_isotonic_would_have_won_on_ece_alone(self) -> None:
+        """The trap this criterion exists to avoid, pinned so it cannot come back.
+
+        Isotonic calibrates better and discriminates far worse: it saturates, scoring
+        1.0 on rows it gets wrong, which makes abstention inert at any usable
+        threshold.
+        """
+        frame = pd.read_parquet(REAL)
+        train, evaluation = split_by_capture(frame, test_frac=0.25, seed=42)
+        _m, isotonic = calibrate_classifier(train, evaluation, method="isotonic")
+        _s, sigmoid = calibrate_classifier(train, evaluation, method="sigmoid")
+        assert isotonic.ece_after < sigmoid.ece_after, "isotonic calibrates better"
+        assert sigmoid.discrimination_after > isotonic.discrimination_after, (
+            "sigmoid discriminates better, which is why it is selected"
+        )

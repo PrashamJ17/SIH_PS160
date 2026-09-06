@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.8 — prediction abstention
+**Current step:** 7.9 — SHAP explanations
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -117,6 +117,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.5 — Traffic classifier training — commit `41e3fbe`
 - [x] 7.6 — Generalisation report **(UNCUTTABLE)** — commit `9e4f73c`
 - [x] 7.7 — Confidence calibration — commit `8d20cd8`
+- [x] 7.8 — Prediction abstention — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
@@ -505,7 +506,60 @@ reassuring once you have checked the fuzzer went anywhere.
 
 ---
 
-## Step 7.7 — a prior the data overturned
+## Steps 7.7–7.8 — optimising the wrong metric produced a useless confidence
+
+Calibration looked finished. Abstention exercised it and found it inert.
+
+### What went wrong
+
+The calibration method was selected by **Expected Calibration Error** alone, which chose
+isotonic regression (ECE 0.0165 against sigmoid's 0.0767). Then abstention was added and
+**declined nothing at any threshold up to 0.7.** Inspecting the distribution showed why:
+
+* 95% of isotonic's predictions scored **≥ 0.99**
+* the minimum confidence over 143 evaluation rows was **0.875**
+* **two of the three rows it got wrong were given a confidence of exactly 1.0**
+
+Low ECE, and a confidence that never signals a mistake. The two properties are
+different: **calibration** is whether stated probabilities match observed frequencies in
+aggregate; **discrimination** is whether the confidence ranks correct predictions above
+incorrect ones. A model right 98% of the time that says "99%" on every row is perfectly
+calibrated and completely uninformative.
+
+| Method | ECE | AUROC (confidence ~ correct) | Abstains below 0.7 |
+|---|---|---|---|
+| isotonic | **0.0165** | 0.639 | 0.0% |
+| sigmoid | 0.0767 | **0.973** | 2.8% |
+
+### The fix
+
+Calibration became a **constraint** and discrimination the **objective**: among methods
+whose ECE clears the 0.15 trustworthiness gate, take the one with the best AUROC. Only
+if none clears the gate does lowest ECE win, since an untrustworthy confidence should at
+least be as close to honest as possible. Selection still happens on a validation split,
+never on the evaluation set.
+
+Sigmoid is now selected — validation AUROC 0.958 against isotonic's 0.805, both inside
+the gate — and confirms on evaluation at ECE 0.0767, AUROC 0.973.
+
+### Abstention now earns its keep
+
+| Threshold | Abstained | Accuracy if forced | Accuracy when it answered |
+|---|---|---|---|
+| 0.6 | 2.1% | 97.2% | **98.6%** (+1.4) |
+| 0.7 | 2.8% | 97.2% | **98.6%** (+1.4) |
+
+Well inside the 25% ceiling, and the gain is measured rather than assumed. `precision_gained`
+is reported and can go **negative** — declining on rows the model would have got right —
+so a harmful threshold is visible rather than hidden.
+
+**The original prior was that sigmoid would win because isotonic overfits small corpora.
+Sigmoid does win, but not for that reason and not on the metric the prior assumed.** That
+is recorded rather than quietly claimed as a correct call.
+
+---
+
+### Earlier note (superseded by the section above)
 
 Calibration was expected to be a formality. It was not, and the way it failed is worth
 recording.
