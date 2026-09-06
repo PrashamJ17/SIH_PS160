@@ -136,7 +136,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.4 — threat matrix — commit `7d66d6d`
 - [x] 9.5 — self-contained HTML renderer — commit `8c5d873`
 - [x] 9.6 — PDF and JSON export — commit `9a4584e`
-- [x] 9.7 — SIEM output formats — commit `PENDING`
+- [x] 9.7 — SIEM output formats — commit `43cecb8`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
