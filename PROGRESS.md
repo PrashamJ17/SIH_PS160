@@ -140,6 +140,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] pipeline — `analyse.py`, capture to report — commit `7b60ca9`
 - [x] **M9 gate — 10/10 passed, 0 failed** — tag `v0.10.0-reporting`
 - [x] 10.1a — active IKE prober and observed-config reconstruction — commit `40db773`
+- [x] 10.1b — **fix: a named baseline selected zero rules** — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -575,6 +576,56 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.1b — the clean bill of health that meant nothing had run
+
+Building the CLI surfaced the worst bug in the project so far.
+
+```
+$ sentinel analyse capture.pcap --baseline nist_800_77r1
+The tunnel examined is fully compliant with the selected baseline,
+scoring 100 out of 100 (grade A).
+```
+
+That capture negotiates **PRF_HMAC_MD5** and offers no post-quantum protection. The
+correct answer is a finding and a score of 92.
+
+`RuleRegistry.select()` accepted `str | Baseline`. Given a `Baseline` object it selected
+rules by ID, correctly. Given a **string** it matched against `rule.baselines` — a list of
+*tags* written on the rules, containing only `default` and `strict`. So every published
+baseline id — `nist_800_77r1`, `cnsa`, `itsar`, `certin`, `bsi_tr02102_3`,
+`rfc_8221_8247` — matched no tag, selected **zero rules**, and produced a clean report.
+
+Two namespaces had been quietly conflated: rule tags and baseline ids. Nothing about the
+output looked wrong, which is what makes it the most dangerous thing a security tool can
+emit.
+
+### It had a test asserting it
+
+```python
+def test_an_unknown_baseline_runs_nothing(self) -> None:
+    assert registry.evaluate_all(tunnel(), "does-not-exist") == []
+```
+
+The behaviour was not merely unnoticed; it was **specified**. That test is now
+`test_an_unknown_baseline_is_refused_rather_than_running_nothing`, and it keeps the
+original name in its docstring so the reversal is visible rather than tidied away.
+
+### The fix
+
+`resolve()` treats a name as a tag if any registered rule carries it, otherwise loads it
+as a published baseline, and otherwise **raises** — listing what would have worked. The
+tag mechanism still works for custom registries; only a name matching nothing is now an
+error.
+
+`run()` resolves **once** and uses the resolved object for both selection and severity
+overrides. Resolving separately was the second half of the same bug: a named baseline
+would have selected the right rules and then silently skipped its own severity overrides.
+
+New tests assert that **every shipped baseline selects a non-empty rule set** — the
+property whose absence caused this, checked directly rather than implied.
 
 ---
 

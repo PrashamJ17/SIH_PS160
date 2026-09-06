@@ -26,7 +26,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from ipsec_sentinel.assess.baselines.schema import Baseline
+from ipsec_sentinel.assess.baselines.schema import (
+    Baseline,
+    BaselineError,
+    get_baseline,
+    load_baselines,
+)
 from ipsec_sentinel.logging import get_logger
 from ipsec_sentinel.models import Finding, Severity, sort_findings
 from ipsec_sentinel.parser.correlate import Tunnel
@@ -37,6 +42,15 @@ logger = get_logger(__name__)
 # baseline would silently never run, which is the most expensive kind of dead code in
 # a security tool: it looks like coverage and is not.
 DEFAULT_BASELINE = "default"
+
+# Tags written on the rules themselves, as opposed to the id of a published
+# compliance baseline loaded from YAML. Conflating the two namespaces is what made
+# `select("nist_800_77r1")` return no rules at all.
+BUILTIN_TAGS: frozenset[str] = frozenset({"default", "strict"})
+
+
+class UnknownBaselineError(ValueError):
+    """A baseline was named that is neither a rule tag nor a published baseline."""
 
 
 @runtime_checkable
@@ -151,7 +165,38 @@ class RuleRegistry:
         return {baseline for rule in self.rules for baseline in rule.baselines}
 
     def for_baseline(self, baseline: str) -> list[Rule]:
+        """Rules carrying this **tag**. See :meth:`resolve` for the name/tag distinction."""
         return [rule for rule in self.rules if baseline in rule.baselines]
+
+    def resolve(self, baseline: str) -> str | Baseline:
+        """Turn a name into the thing that actually selects rules.
+
+        Two different namespaces meet here and used to be conflated. ``default`` and
+        ``strict`` are **tags** written on the rules themselves. Everything else is the
+        **id of a published compliance baseline**, which selects rules by listing their
+        IDs and is loaded from a YAML file.
+
+        Before this existed, a string went straight to tag matching — so
+        ``select("nist_800_77r1")`` matched no rule's tag list, returned an **empty rule
+        set**, and every capture came back with no findings and a grade of A. A security
+        tool that reports a clean bill of health because it ran nothing is the worst
+        output it can produce, and nothing about it looks wrong.
+
+        An unrecognised name now raises instead of quietly selecting nothing.
+        """
+        # A tag any registered rule actually carries is a tag. Only a name that matches
+        # nothing at all is an error — which is precisely the case that used to return
+        # an empty rule set and a clean bill of health.
+        if baseline in BUILTIN_TAGS or baseline in self.baselines():
+            return baseline
+        try:
+            return get_baseline(baseline)
+        except BaselineError as exc:
+            known = ", ".join(sorted([*BUILTIN_TAGS, *self.baselines(), *load_baselines()]))
+            raise UnknownBaselineError(
+                f"no baseline {baseline!r}. Known baselines: {known}. "
+                f"Refusing to run rather than assess against an empty rule set."
+            ) from exc
 
     def select(self, baseline: str | Baseline) -> list[Rule]:
         """The rules a baseline runs, bound to its thresholds.
@@ -161,7 +206,10 @@ class RuleRegistry:
         whether or not the rule expected to belong to that policy.
         """
         if isinstance(baseline, str):
-            return self.for_baseline(baseline)
+            resolved = self.resolve(baseline)
+            if isinstance(resolved, str):
+                return self.for_baseline(resolved)
+            baseline = resolved
         selected = [rule for rule in self.rules if baseline.includes(rule.id)]
         return [
             rule.bind(baseline) if isinstance(rule, BaselineAware) else rule for rule in selected
@@ -174,11 +222,18 @@ class RuleRegistry:
         rule that returns a finding carrying a confidence is rejected the same way,
         because it has crossed the parse/infer boundary this framework exists to keep.
 
-        When ``baseline`` is a :class:`Baseline` rather than a name, its severity
-        overrides are applied to the findings. The override changes how urgent *this
-        authority* considers a finding; it never changes whether the finding is true,
-        which is why it is applied after evaluation rather than handed to the rule.
+        A compliance baseline's severity overrides are applied to the findings. The
+        override changes how urgent *this authority* considers a finding; it never
+        changes whether the finding is true, which is why it is applied after evaluation
+        rather than handed to the rule.
+
+        The name is resolved **once**, here, and the resolved object is used for both
+        rule selection and the overrides. Resolving separately is how a named baseline
+        came to select the right rules and then silently skip its own severity
+        overrides.
         """
+        if isinstance(baseline, str):
+            baseline = self.resolve(baseline)
         outcome = RuleOutcome()
         for rule in self.select(baseline):
             try:

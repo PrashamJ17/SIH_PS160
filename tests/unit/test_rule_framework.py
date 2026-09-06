@@ -8,6 +8,7 @@ from ipsec_sentinel.assess.framework import (
     DEFAULT_BASELINE,
     DuplicateRuleError,
     RuleRegistry,
+    UnknownBaselineError,
 )
 from ipsec_sentinel.models import Confidence, Finding, Severity
 from ipsec_sentinel.parser.correlate import Tunnel
@@ -90,10 +91,60 @@ class TestBaselineFiltering:
         pci = {finding.rule_id for finding in registry.evaluate_all(tunnel(), "pci")}
         assert pci == {"CRY-01", "CRY-03"}
 
-    def test_an_unknown_baseline_runs_nothing(self) -> None:
+    def test_an_unknown_baseline_is_refused_rather_than_running_nothing(self) -> None:
+        """This test used to assert the opposite, and that is how the bug survived.
+
+        Selecting no rules for an unrecognised name means every capture comes back with
+        no findings and a grade of A. Nothing about that output looks wrong, which makes
+        it the most dangerous thing this tool can produce — and it was reachable from the
+        command line, where ``--baseline nist_800_77r1`` named a real published baseline
+        that matched no rule *tag*.
+        """
         registry = RuleRegistry()
         registry.register(StubRule("CRY-01", baselines=["pci"]))
-        assert registry.evaluate_all(tunnel(), "does-not-exist") == []
+        with pytest.raises(UnknownBaselineError, match="does-not-exist"):
+            registry.evaluate_all(tunnel(), "does-not-exist")
+
+    def test_the_refusal_lists_what_would_have_worked(self) -> None:
+        registry = RuleRegistry()
+        registry.register(StubRule("CRY-01", baselines=["pci"]))
+        with pytest.raises(UnknownBaselineError) as raised:
+            registry.select("typo")
+        message = str(raised.value)
+        assert "pci" in message
+        assert "nist_800_77r1" in message
+        assert "empty rule set" in message
+
+    def test_a_published_baseline_name_selects_its_rules(self) -> None:
+        """The case that was silently broken: a real baseline id is not a rule tag."""
+        from ipsec_sentinel.assess.rules import default_registry
+
+        for name in ("nist_800_77r1", "cnsa", "itsar", "certin", "rfc_8221_8247"):
+            selected = default_registry().select(name)
+            assert selected, f"{name} selected no rules"
+
+    def test_every_shipped_baseline_selects_rules(self) -> None:
+        from ipsec_sentinel.assess.baselines.schema import load_baselines
+        from ipsec_sentinel.assess.rules import default_registry
+
+        registry = default_registry()
+        empty = [name for name in load_baselines() if not registry.select(name)]
+        assert not empty, f"these baselines select no rules at all: {empty}"
+
+    def test_a_named_baseline_applies_its_severity_overrides(self) -> None:
+        """Resolving separately for selection and overrides skipped the overrides."""
+        from ipsec_sentinel.assess.baselines.schema import get_baseline
+        from ipsec_sentinel.assess.rules import default_registry
+
+        registry = default_registry()
+        for name in ("cnsa", "itsar"):
+            baseline = get_baseline(name)
+            if not baseline.severity_overrides:
+                continue
+            by_name = {r.id for r in registry.select(name)}
+            by_object = {r.id for r in registry.select(baseline)}
+            assert by_name == by_object
+            return
 
     def test_the_registry_lists_its_baselines(self) -> None:
         registry = RuleRegistry()
