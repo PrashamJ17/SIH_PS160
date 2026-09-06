@@ -29,7 +29,9 @@ from datetime import UTC, datetime
 from typing import Final
 
 from ipsec_sentinel.models import TunnelAssessment
+from ipsec_sentinel.parser.constants import dh_security_bits
 from ipsec_sentinel.remediate.blast import assess_blast_radius
+from ipsec_sentinel.remediate.generators.base import DeploymentStatus, status_banner
 from ipsec_sentinel.remediate.models import (
     ChangePackage,
     ChangeStep,
@@ -37,9 +39,31 @@ from ipsec_sentinel.remediate.models import (
     DeviceConfig,
 )
 from ipsec_sentinel.remediate.sequence import build_sequence
-from testbed.orchestrate.config_gen import TunnelConfig, render_swanctl_conf
+from testbed.orchestrate.config_gen import Role, TunnelConfig, render_swanctl_conf
 
 VENDOR: Final = "strongswan"
+COMMENT: Final = "#"
+
+# The one vendor whose generated form has actually been loaded onto a live instance.
+# Declared here rather than left implicit so it goes through the same mechanism as the
+# five that have not: a status nobody declares is a status nobody can check, and the M8
+# gate is what noticed this one was missing.
+STATUS: Final = DeploymentStatus.LIVE_TESTED
+
+# strongSwan names the groups; the security-strength table is keyed by IANA group
+# number. Mapped here rather than duplicating the strengths, so the generator and the
+# assessment cannot drift apart about which group is stronger.
+DH_GROUP_NUMBERS: Final[dict[str, int]] = {
+    "modp1024": 2,
+    "modp1536": 5,
+    "modp2048": 14,
+    "modp3072": 15,
+    "modp4096": 16,
+    "ecp256": 19,
+    "ecp384": 20,
+    "ecp521": 21,
+    "curve25519": 31,
+}
 
 # What a broken or deprecated algorithm becomes. Conservative by design: the
 # replacement must be strong enough that this remediation is not repeated.
@@ -90,7 +114,11 @@ ADDRESSABLE: Final[frozenset[str]] = frozenset(
         "IKE-01",
         "IKE-02",
         "IKE-03",
+        # The generated configuration offers exactly one proposal, so every weaker
+        # alternative is gone by construction — which is what IKE-04 asks for.
+        "IKE-04",
         "PFS-01",
+        "PFS-02",
         "SA-01",
         "SA-02",
     }
@@ -99,6 +127,16 @@ ADDRESSABLE: Final[frozenset[str]] = frozenset(
 
 class GenerationError(ValueError):
     """A corrected configuration could not be produced."""
+
+
+def _dh_strength(name: str | None) -> int | None:
+    """Security strength of a strongSwan DH group name, or ``None`` if unrecognised.
+
+    ``None`` rather than a default, for the same reason the parser refuses to guess:
+    an unknown group defaulted low invents a finding, and defaulted high hides one.
+    """
+    number = DH_GROUP_NUMBERS.get(name or "")
+    return dh_security_bits(number) if number is not None else None
 
 
 def harden(config: TunnelConfig) -> tuple[TunnelConfig, list[str]]:
@@ -146,6 +184,22 @@ def harden(config: TunnelConfig) -> tuple[TunnelConfig, list[str]]:
         changes.append(f"child DH group {updated.child_dh_group} -> {updated.dh_group}")
         updated = replace(updated, child_dh_group=updated.dh_group)
 
+    # PFS-02: a child group that is merely *weaker than the IKE group* need not be weak
+    # in absolute terms — modp2048 under ecp384, say — so the branch above does not
+    # reach it. The weaker of the two sets the effective strength, which makes the
+    # stronger one wasted. Compared on security bits rather than parameter size,
+    # because 256-bit ECP is stronger than 2048-bit MODP and comparing the numbers
+    # printed in the names gets that backwards.
+    child_group = updated.effective_child_dh_group
+    ike_bits = _dh_strength(updated.dh_group)
+    child_bits = _dh_strength(child_group)
+    if ike_bits is not None and child_bits is not None and child_bits < ike_bits:
+        changes.append(
+            f"child DH group {child_group} -> {updated.dh_group} "
+            f"({child_bits}-bit strength was below the IKE group's {ike_bits})"
+        )
+        updated = replace(updated, child_dh_group=updated.dh_group)
+
     if updated.ike_lifetime_s > MAX_IKE_LIFETIME_S:
         changes.append(f"IKE SA lifetime {updated.ike_lifetime_s}s -> {MAX_IKE_LIFETIME_S}s")
         updated = replace(updated, ike_lifetime_s=MAX_IKE_LIFETIME_S)
@@ -186,6 +240,21 @@ def _steps(current: TunnelConfig, target: TunnelConfig, aggressive_psk: bool) ->
         expected_disruption_s=0,
     )
     return [rotation, *(step.model_copy(update={"order": step.order + 1}) for step in steps)]
+
+
+def render(config: TunnelConfig, role: str = "left") -> str:
+    """Render one end's ``swanctl.conf``, with the provenance banner on top.
+
+    The same shape as every other vendor's ``render``, so a caller does not have to
+    know which one it is holding. The banner matters most on the vendor that *is*
+    live-tested: without it the strongest claim in the set would be the only one the
+    document does not make.
+    """
+    if role not in ("left", "right"):
+        raise ValueError(f"role must be 'left' or 'right', got {role!r}")
+    end: Role = "left" if role == "left" else "right"
+    banner = status_banner(VENDOR, STATUS, COMMENT)
+    return f"{banner}\n\n{render_swanctl_conf(config, end)}"
 
 
 def _unobserved(tunnel_id: str, local_hint: str, peer_hint: str) -> TunnelAssessment:
@@ -269,7 +338,7 @@ def generate_change_package(
             vendor=VENDOR,
             device_hint=local_hint,
             filename="swanctl.conf",
-            content=render_swanctl_conf(corrected, "left"),
+            content=render(corrected, "left"),
             notes=list(notes),
         ),
         peer_config=DeviceConfig(
@@ -277,7 +346,7 @@ def generate_change_package(
             vendor=VENDOR,
             device_hint=peer_hint,
             filename="swanctl.conf",
-            content=render_swanctl_conf(corrected, "right"),
+            content=render(corrected, "right"),
             notes=list(notes),
         ),
         sequence=steps,

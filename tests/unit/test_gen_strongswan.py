@@ -225,3 +225,162 @@ class TestChangePackage:
         package = generate_change_package("t1", anchor("worst"), ["CRY-05"])
         assert package.blast_radius.peers_requiring_coordination
         assert any("one end only" in note for note in package.blast_radius.notes)
+
+
+class TestDeploymentStatus:
+    """strongSwan is the only live-tested vendor, and its documents must say so.
+
+    The status mechanism existed from Step 8.3 but strongSwan never declared one, so
+    ``DeploymentStatus.LIVE_TESTED`` was defined and used by nobody. The M8 gate found
+    it. A claim no document makes is a claim no reader can check.
+    """
+
+    def test_strongswan_declares_itself_live_tested(self) -> None:
+        from ipsec_sentinel.remediate.generators.base import DeploymentStatus
+        from ipsec_sentinel.remediate.generators.strongswan import STATUS
+
+        assert STATUS is DeploymentStatus.LIVE_TESTED
+
+    def test_it_is_the_only_live_tested_vendor(self) -> None:
+        from ipsec_sentinel.remediate.generators import (
+            cisco,
+            fortigate,
+            juniper,
+            libreswan,
+            paloalto,
+        )
+        from ipsec_sentinel.remediate.generators.base import DeploymentStatus
+
+        for module in (cisco, fortigate, juniper, libreswan, paloalto):
+            assert module.STATUS is DeploymentStatus.SYNTAX_VALIDATED, module.VENDOR
+
+    def test_both_generated_documents_carry_the_banner(self) -> None:
+        package = generate_change_package("t1", anchor("worst"), ["CRY-05"])
+        for document in (package.local_config, package.peer_config):
+            assert "Status: live-tested" in document.content
+            assert "This tool never writes to a device" in document.content
+
+    def test_the_banner_does_not_disturb_the_configuration(self) -> None:
+        """Banner lines are comments; the connection block must be intact beneath."""
+        from ipsec_sentinel.remediate.generators.strongswan import render
+
+        corrected, _ = harden(anchor("worst"))
+        rendered = render(corrected, "left")
+        banner, _, body = rendered.partition("\n\n")
+        assert all(line.startswith("#") for line in banner.splitlines())
+        assert body.strip().startswith("#") or "connections {" in body
+        assert f"proposals = {corrected.proposal_string()}" in body
+        assert "include conf.d/*.conf" in body
+
+    def test_the_two_ends_still_differ(self) -> None:
+        """A shared banner must not make the documents identical."""
+        from ipsec_sentinel.remediate.generators.strongswan import render
+
+        corrected, _ = harden(anchor("worst"))
+        assert render(corrected, "left") != render(corrected, "right")
+
+    def test_an_unknown_role_is_refused(self) -> None:
+        from ipsec_sentinel.remediate.generators.strongswan import render
+
+        with pytest.raises(ValueError, match="role must be"):
+            render(anchor("worst"), "middle")
+
+
+class TestChildGroupWeakerThanTheIKEGroup:
+    """PFS-02, which the M8 gate found the generator was not addressing.
+
+    The existing branch only raised a child group that was weak *in absolute terms*. A
+    group can be perfectly respectable and still be weaker than the IKE group it sits
+    under, and the weaker of the two is what sets the effective strength.
+    """
+
+    @staticmethod
+    def _config(dh: str, child: str | None) -> TunnelConfig:
+        return TunnelConfig(
+            ike_version="ikev2",
+            encryption="aes256",
+            integrity="sha384",
+            prf="prfsha384",
+            dh_group=dh,
+            pfs=True,
+            child_dh_group=child,
+            mode="tunnel",
+            ip_version=4,
+            ike_lifetime_s=3600,
+            child_lifetime_s=3600,
+        )
+
+    def test_a_weaker_child_group_is_raised_to_the_ike_group(self) -> None:
+        corrected, changes = harden(self._config("ecp384", "modp2048"))
+        assert corrected.effective_child_dh_group == "ecp384"
+        assert any("child DH group modp2048 -> ecp384" in c for c in changes)
+
+    def test_the_comparison_is_on_security_bits_not_parameter_size(self) -> None:
+        """2048-bit MODP is 112-bit strength; 256-bit ECP is 128-bit.
+
+        Comparing the numbers in the names says modp2048 is the stronger of the two,
+        which is backwards. This is the same mistake CRY-11 was fixed for.
+        """
+        corrected, changes = harden(self._config("ecp256", "modp2048"))
+        assert corrected.effective_child_dh_group == "ecp256"
+        assert changes
+
+    def test_a_numerically_smaller_but_stronger_child_group_is_left_alone(self) -> None:
+        corrected, changes = harden(self._config("modp2048", "ecp256"))
+        assert corrected.effective_child_dh_group == "ecp256"
+        assert not any("child DH group" in c for c in changes)
+
+    def test_equal_strength_groups_are_left_alone(self) -> None:
+        """Curve25519 and 256-bit ECP are both 128-bit. Neither wastes the other."""
+        corrected, changes = harden(self._config("curve25519", "ecp256"))
+        assert corrected.effective_child_dh_group == "ecp256"
+        assert not any("child DH group" in c for c in changes)
+
+    def test_an_inherited_child_group_needs_no_correction(self) -> None:
+        """``None`` means "same as the IKE group", which cannot be weaker than itself."""
+        corrected, changes = harden(self._config("ecp384", None))
+        assert corrected.effective_child_dh_group == "ecp384"
+        assert not any("child DH group" in c for c in changes)
+
+    def test_an_unrecognised_group_is_not_guessed_at(self) -> None:
+        from ipsec_sentinel.remediate.generators.strongswan import _dh_strength
+
+        assert _dh_strength("modp8192") is None
+        assert _dh_strength(None) is None
+
+    def test_the_strength_table_agrees_with_the_parser(self) -> None:
+        """One source of truth. A private copy would drift and nobody would notice."""
+        from ipsec_sentinel.parser.constants import dh_security_bits
+        from ipsec_sentinel.remediate.generators.strongswan import (
+            DH_GROUP_NUMBERS,
+            _dh_strength,
+        )
+
+        for name, number in DH_GROUP_NUMBERS.items():
+            assert _dh_strength(name) == dh_security_bits(number), name
+
+    def test_every_canonical_matrix_group_has_a_number(self) -> None:
+        from ipsec_sentinel.remediate.generators.base import CANONICAL_DH_GROUPS
+        from ipsec_sentinel.remediate.generators.strongswan import DH_GROUP_NUMBERS
+
+        assert set(DH_GROUP_NUMBERS) >= CANONICAL_DH_GROUPS
+
+
+class TestNewlyAddressableFindings:
+    def test_pfs_02_and_ike_04_are_declared_addressable(self) -> None:
+        from ipsec_sentinel.remediate.generators.strongswan import ADDRESSABLE
+
+        assert {"PFS-02", "IKE-04"} <= ADDRESSABLE
+
+    def test_a_package_for_ike_04_offers_exactly_one_proposal(self) -> None:
+        """IKE-04 is "a weaker proposal was offered". The fix is to stop offering it."""
+        package = generate_change_package("t1", anchor("worst"), ["IKE-04"])
+        for document in (package.local_config, package.peer_config):
+            proposals = [line for line in document.content.splitlines() if "proposals =" in line]
+            assert proposals, document.content
+            for line in proposals:
+                assert "," not in line, f"more than one proposal offered: {line}"
+
+    def test_neither_is_reported_as_unaddressed(self) -> None:
+        package = generate_change_package("t1", anchor("worst"), ["PFS-02", "IKE-04"])
+        assert "NOT addressed" not in " ".join(package.local_config.notes)

@@ -129,6 +129,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.4 — zero-downtime change sequencing (live-verified, 0.00s outage) — commit `126ca33`
 - [x] 8.5 — blast radius assessment — commit `5c22acf`
 - [x] 8.6 — automatic fix verification from traffic — commit `3ad23d3`
+- [x] **M8 gate — 7/8 passed, 0 failed, 1 blocked** — tag `v0.9.0-remediation`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -564,6 +565,62 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## ▶ MILESTONE M8 — Remediation complete
+
+`make verify-all`: **1632 unit + 170 integration passed, 0 failed**, coverage 94.97%.
+`scripts/check_m8.py` executes every acceptance item rather than asserting it.
+
+| # | Acceptance item | Result |
+|---|---|---|
+| 1 | Both-ends configs generated for every finding type | **PASS** — 18 addressable types, two distinct documents each |
+| 2 | strongSwan configs deploy successfully live | **PASS** — `test_gen_strongswan_live.py`, 4 passed in 68s |
+| 3 | Libreswan configs deploy successfully live | **BLOCKED** — no Libreswan peer exists in this testbed |
+| 4 | Zero-downtime sequence verified with zero packet loss | **PASS** — `test_sequence_live.py`, 5 passed; 0 lost, 0.00s outage |
+| 5 | Non-testbed vendors clearly marked as syntax-only | **PASS** — 5 vendors carry the caveat in every emitted document |
+| 6 | Auto-verification closes a finding after a live rekey | **PASS** — `test_verify_live.py`, all four verdicts observed in order |
+| 7 | The tool never executes a change | **PASS** — 13 modules AST-parsed; no forbidden transport, no device write, no exec/eval |
+| 8 | *(added)* Package, sequence and verifier describe the same change | **PASS** |
+
+### The one blocked item
+
+The testbed runs strongSwan only, so there is no Libreswan peer to deploy onto. This
+was recorded at Step 8.3 and has not changed. It is reported BLOCKED rather than passed
+or failed: the generator is syntax-validated, every document it emits says so in its own
+header, and a test pins that status so it cannot quietly be upgraded to a claim nobody
+checked. Unblocking needs a Libreswan container image in `testbed/compose`.
+
+### Two gaps the gate found
+
+Working the checklist item by item — rather than asserting it — turned up two things
+that would otherwise have shipped.
+
+**`DeploymentStatus.LIVE_TESTED` was defined and used by nobody.** The status mechanism
+was built at Step 8.3 for the five vendors that are *not* live-tested; strongSwan, the
+one vendor that is, never declared a status at all. So the strongest claim in the set was
+the only one its documents did not make. strongSwan now declares `LIVE_TESTED` and its
+`swanctl.conf` carries the same provenance banner as the rest.
+
+**Two findings were addressable and not being addressed.** The generator declared 10 of
+26 rules out of scope. Three of those were really proposal changes it could make:
+
+- **PFS-02** — child DH group weaker than the IKE group. The existing branch only raised
+  a child group weak *in absolute terms*, so `modp2048` under `ecp384` slipped through:
+  respectable on its own, and wasting the stronger group above it. Now compared on
+  **security bits, not parameter size** — the same distinction that CRY-11 was fixed for,
+  since 256-bit ECP is stronger than 2048-bit MODP and the printed numbers say otherwise.
+  The strength table is shared with the parser so the two cannot drift.
+- **IKE-04** — a weaker proposal was offered but not selected. The generated config emits
+  exactly one proposal, so this was already fixed by construction and simply not claimed.
+- **CRY-10** — key shorter than 256 bits *where the baseline requires 256*. Left out
+  deliberately: `harden` is baseline-agnostic, and raising every AES-128 to AES-256 would
+  over-remediate for the baselines that accept 128. "You could use a bigger number" is
+  not a finding.
+
+Eight rules remain genuinely outside a config generator's reach — CRY-08, CRY-10, ESP-01,
+ESP-02, OPS-01, PQC-01, SA-03, SA-04 — and every package names the ones it does not fix.
 
 ---
 
