@@ -150,6 +150,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `5aa3e14`
 - [x] 11.1 — end-to-end integration test — commit `e846f8e`
 - [x] 11.2 — performance benchmarks — commit `f084504`
+- [x] 11.3 — security review of the tool itself — commit `a6bd314`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -585,6 +586,89 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.3 — the security review, written as tests rather than as prose
+
+A security tool's own posture is the first thing a buyer should interrogate, and a
+SECURITY.md full of assurances is worth nothing if nothing checks it. So the review is
+**25 tests** in `tests/unit/test_security.py`, and `docs/SECURITY.md` names the test
+behind every claim. A claim that stopped being true would break `make verify`.
+
+### Why the checks parse the AST rather than grep
+
+A grep for `password` finds this document. It finds comments, it finds test fixtures, and
+it finds the word in a docstring explaining that there are no passwords. Then somebody
+adds a `# noqa`-style exclusion to quiet it and the check is decorative.
+
+Every structural assertion here walks `ast.parse` over the modules in `src/` instead:
+
+- **assignment of a credential-shaped name to a string literal** — an `ast.Assign` whose
+  target matches `password|passwd|secret|token|api_key|psk|private_key|credential` and
+  whose value is a `Constant` string. Prose is invisible to it; an actual hard-coded
+  secret is not.
+- **credential read from the environment** — `os.getenv` / `os.environ[...]` with a
+  credential-shaped key.
+- **remote-access clients** — no `import` of paramiko, netmiko, napalm, scrapli,
+  asyncssh, fabric, pexpect or telnetlib anywhere in the product.
+- **device-write calls** — no `send_config_set`, `load_merge_candidate`, `commit_config`
+  or `sendline`.
+- **`yaml.load` without a safe loader**, **`eval`**, **`exec`** — none.
+- **socket construction** — and this one is the useful shape.
+
+### The socket sweep names the two modules that transmit
+
+`test_only_two_modules_transmit_at_all` does not assert "the tool opens no sockets" — that
+would be false, and a false claim is worse than a caveat. It collects every module that
+constructs a socket and asserts the set is **exactly** `{probe.py, siem.py}`: the active
+scanner, which is gated behind `--i-have-authorisation`, and the SIEM forwarder, which
+delivers to a collector the operator configured.
+
+If a third module ever opens one, the test names it. That is the check that keeps
+"passive mode is passive" true as the codebase grows, rather than only on the day it was
+written.
+
+Alongside it, `test_analysis_opens_nothing` and `test_reporting_opens_nothing` monkeypatch
+`socket.socket`, `socket.create_connection` **and** `socket.getaddrinfo` to raise, then run
+a real capture to a rendered report. Patching the constructor alone would miss a DNS
+lookup, which is itself a leak of what you are analysing.
+
+### Three real defects the review found
+
+**1. `safe_label` left `..` intact.** The upload endpoint reduces a client-supplied
+filename to a printable label. It stripped separators, so `../../etc/passwd` could not
+traverse — the bytes go to a `mkstemp` path regardless — but the *label* rendered as
+`....etc.passwd`. Not exploitable, and exactly the kind of residue that becomes exploitable
+when somebody later reuses the "sanitised" name for something else. Collapsed with
+`_DOT_RUN = re.compile(r"\.{2,}")`.
+
+**2. `load_model`'s docstring did not say what loading costs.** joblib is pickle-based:
+loading a model **executes code from that file**. That cannot be tested away — it is a
+property of the format. So the test asserts the *docstring says so*, which is the only
+enforceable version of the claim. It now states that a model is a local artefact the
+operator trained, and, plainly: **do not load a model somebody sent you.**
+
+**3. No session key survives state parsing — checked against a real kernel.** `ip xfrm
+state` prints session keys inline. The unit test proves the parser drops them; the
+integration test runs it against a **live kernel's output with four real keys** and
+asserts zero reach a returned object. A fixture only proves a regex drops the field it was
+aimed at.
+
+### pip-audit
+
+**107 packages, 0 advisories.** The test runs the audit against the environment the tool
+actually uses, not against a lockfile, because a lockfile and a venv drift.
+
+### What the document refuses to claim
+
+`docs/SECURITY.md` ends with four caveats rather than a summary: there has been **no
+third-party penetration test** — these are the developer's own assertions, made checkable;
+**active scanning is genuinely active** and the authorisation flag is a speed bump, not a
+safety guarantee; **the API has no authentication**; and **reports contain sensitive
+material by their nature**.
+
+A security document that claims only good things is a marketing document.
 
 ---
 

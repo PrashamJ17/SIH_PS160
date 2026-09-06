@@ -383,7 +383,23 @@ def train_and_persist(
 
 
 def load_model(path: Path) -> tuple[Any, ModelMetadata]:
-    """Load a persisted model and its metadata."""
+    """Load a persisted model and its metadata.
+
+    **joblib is pickle-based, so loading a model executes code from that file.** That is
+    a property of the format, not of this function, and it cannot be checked away: a
+    hostile ``.joblib`` is arbitrary code execution the moment it is read.
+
+    The policy this project takes is that a model is a **local artefact the operator
+    produced**, with ``sentinel model train``, from a dataset they built. It is not
+    untrusted input in the way a capture is — a capture arrives from the network and is
+    parsed defensively; a model arrives from the operator's own disk. Anyone who can
+    write the model file already has whatever access writing files on that host implies.
+
+    What follows from that, and is stated here because it is easy to get wrong: **do not
+    load a model somebody sent you.** A pre-trained model from a third party is a
+    program, and running it is a decision, not a convenience. Retrain instead; the
+    dataset checksum in the metadata is what makes a retrained model comparable.
+    """
     import joblib
 
     payload = joblib.load(Path(path))

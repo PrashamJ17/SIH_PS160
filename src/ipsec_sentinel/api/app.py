@@ -59,6 +59,7 @@ PCAP_MAGIC: Final[tuple[bytes, ...]] = (
 )
 
 _SAFE_LABEL = re.compile(r"[^A-Za-z0-9._-]")
+_DOT_RUN = re.compile(r"\.{2,}")
 MAX_LABEL_LENGTH: Final = 96
 
 store = ReportStore()
@@ -75,6 +76,10 @@ def safe_label(filename: str | None) -> str:
         return "upload.pcap"
     stripped = Path(filename).name  # discards any directory component, "../" included
     cleaned = _SAFE_LABEL.sub("_", stripped).lstrip(".")
+    # Runs of dots are collapsed as well. They are harmless in a label — it is never
+    # used as a path — but "this string contains no .." is a guarantee a reader can
+    # check at a glance, and "it contains .. but that is fine because" is not.
+    cleaned = _DOT_RUN.sub(".", cleaned)
     return (cleaned or "upload.pcap")[:MAX_LABEL_LENGTH]
 
 
