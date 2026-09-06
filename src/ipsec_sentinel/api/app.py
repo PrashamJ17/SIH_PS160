@@ -31,11 +31,13 @@ from pathlib import Path
 from typing import Any, Final
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from ipsec_sentinel.analyse import analyse_capture, assess_tunnel, read_tunnels
 from ipsec_sentinel.api.store import ReportStore, StoredReport
 from ipsec_sentinel.assess.framework import DEFAULT_BASELINE, UnknownBaselineError
+from ipsec_sentinel.ml.classify import DEFAULT_MODEL_PATH, ClassifierUnavailableError
 from ipsec_sentinel.models import Severity
 from ipsec_sentinel.remediate.generators.strongswan import GenerationError, generate_change_package
 from ipsec_sentinel.remediate.observed import config_from_exchange
@@ -43,6 +45,9 @@ from ipsec_sentinel.report.render_html import render_html
 from ipsec_sentinel.version import describe, git_sha, tool_version
 
 API_PREFIX: Final = "/api/v1"
+# Served from the installed tree, so `uvicorn ipsec_sentinel.api.app:app` finds the
+# dashboard whether the service runs from a checkout or from a wheel.
+DASHBOARD_DIR: Final = Path(__file__).resolve().parents[3] / "dashboard"
 MAX_UPLOAD_BYTES: Final = 512 * 1024 * 1024
 CHUNK_BYTES: Final = 1024 * 1024
 PCAP_MAGIC: Final[tuple[bytes, ...]] = (
@@ -101,10 +106,26 @@ def create_app() -> FastAPI:
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
-        # The report renderer emits inline styles and nothing else; this says so.
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'"
-        )
+        # Two policies, because the two things served have genuinely different needs.
+        #
+        # The dashboard is markup plus a stylesheet and a script from this same origin,
+        # so it gets 'self' and no 'unsafe-inline' at all. That is stricter than the
+        # single-file version it replaced: the assets were split precisely so this
+        # header could forbid inline execution rather than permit it.
+        #
+        # Everything else is JSON, or a rendered report whose styles are inline by
+        # design because it must also work as a file on disk with no server at all.
+        # Those get 'none' plus the one exception the report needs.
+        if request.url.path == "/" or request.url.path.startswith("/dashboard"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; img-src 'self' data:; "
+                "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; style-src 'unsafe-inline'; img-src data:; "
+                "frame-ancestors 'none'; base-uri 'none'"
+            )
         return response
 
     @app.get("/health")
@@ -154,7 +175,13 @@ def create_app() -> FastAPI:
                         f"file; the first bytes match neither."
                     ),
                 )
+            # A trained model is used when one is present and skipped when it is not.
+            # The report says which happened, so "no inferences" is never ambiguous
+            # between "nothing to infer" and "no model installed".
+            model = DEFAULT_MODEL_PATH if DEFAULT_MODEL_PATH.exists() else None
             try:
+                report = analyse_capture(path, baseline=baseline, source=label, model_path=model)
+            except ClassifierUnavailableError:
                 report = analyse_capture(path, baseline=baseline, source=label)
             except UnknownBaselineError as exc:
                 raise HTTPException(
@@ -176,6 +203,7 @@ def create_app() -> FastAPI:
             "grade": report.executive.estate_grade,
             "score": report.executive.estate_score,
             "headline": report.executive.headline,
+            "classifier": "used" if model is not None else "not installed",
         }
 
     def _stored(report_id: str, reports: ReportStore) -> StoredReport:
@@ -350,6 +378,15 @@ def create_app() -> FastAPI:
             "package": package.model_dump(mode="json"),
             "assumptions": list(recovered.assumptions),
         }
+
+    if DASHBOARD_DIR.is_dir():
+
+        @app.get("/", include_in_schema=False)
+        def dashboard() -> FileResponse:
+            return FileResponse(DASHBOARD_DIR / "index.html")
+
+        # Mounted last so it cannot shadow an API route added above it.
+        app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
 
     @app.exception_handler(UnknownBaselineError)
     async def unknown_baseline(_request: Request, exc: UnknownBaselineError) -> JSONResponse:

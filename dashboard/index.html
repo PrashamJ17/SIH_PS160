@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPsec Sentinel</title>
+<!--
+  Everything is in this one file: no CDN, no external font, no framework.
+  The dashboard is run on assessment networks that have no route to the internet, and a
+  page whose layout or behaviour depends on a script loading is a page that fails exactly
+  where it is needed. A test asserts there is no external reference of any kind.
+-->
+<link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+
+<header>
+  <h1>IPsec Sentinel</h1>
+  <span class="build" id="build">checking service…</span>
+  <span class="build" id="source"></span>
+</header>
+
+<main>
+  <div id="upload">
+    <div id="drop">
+      <p><strong>Drop a capture here</strong>, or choose one.</p>
+      <input type="file" id="file" accept=".pcap,.pcapng,.cap">
+      <span class="status" id="status"></span>
+    </div>
+    <div class="note">
+      This tool reads the capture and produces documents. It never writes to a network
+      device and stores no credential. Reports are held in memory only.
+    </div>
+  </div>
+
+  <nav id="tabs" hidden>
+    <button data-view="overview" aria-selected="true">Overview</button>
+    <button data-view="inventory" aria-selected="false">Inventory</button>
+    <button data-view="findings" aria-selected="false">Findings</button>
+    <button data-view="exposure" aria-selected="false">Exposure</button>
+    <button data-view="threats" aria-selected="false">Threat matrix</button>
+    <button data-view="pqc" aria-selected="false">Post-quantum</button>
+    <button data-view="remediation" aria-selected="false">Remediation</button>
+  </nav>
+
+  <section id="overview" hidden></section>
+  <section id="inventory" hidden></section>
+  <section id="findings" hidden></section>
+  <section id="exposure" hidden></section>
+  <section id="threats" hidden></section>
+  <section id="pqc" hidden></section>
+  <section id="remediation" hidden></section>
+  <section id="detail" hidden></section>
+</main>
+
+<script src="/dashboard/app.js" defer></script>
+</body>
+</html>

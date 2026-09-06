@@ -143,6 +143,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.1b — **fix: a named baseline selected zero rules** — commit `6ab3861`
 - [x] 10.1 — command-line interface — commit `b766978`
 - [x] 10.2 — REST API — commit `fe9d6dd`
+- [x] 10.3 — dashboard, and the classifier wired in — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -578,6 +579,53 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.3 — three bugs a browser found and nothing else could
+
+The dashboard is plain HTML, CSS and JavaScript served by the API. No framework, no CDN,
+no external font. Thirteen Playwright tests drive Chromium against a live uvicorn.
+
+Every one of the following loaded, looked plausible, and was broken. None would have
+failed a unit test.
+
+**The Content Security Policy blocked the dashboard's own script.** The middleware header
+was written for JSON responses, where `default-src 'none'` is right, and it applied to the
+HTML too. The page rendered — the CSS was inline and CSS was permitted — and simply did
+nothing. The fix was not to loosen the policy: the stylesheet and script were **split out
+of the single file** so the dashboard could be served under `default-src 'self'` with no
+`unsafe-inline` at all, which is stricter than what it replaced. API responses keep the
+`'none'` policy.
+
+**`nav{display:flex}` out-specified the browser's own `[hidden]{display:none}`.** The tab
+bar was visible before any capture had been analysed, with every panel empty behind it.
+One line of CSS.
+
+**The SHAP contribution bars used a `style` attribute**, which the new strict policy
+blocks. Every bar would have rendered at zero width, silently. Widths now come from
+twenty fixed classes.
+
+The offline test is the one worth reading: it aborts every request whose URL is not the
+server's own origin and then asserts the dashboard still works — rather than grepping the
+markup for `http://`.
+
+### The classifier, wired in without making it a dependency
+
+`ml/classify.py` computes flow features from a live capture, predicts with abstention, and
+attaches the SHAP explanation. It is deliberately **not** imported by `analyse.py`'s
+default path: `analyse_capture(model_path=...)` is opt-in, so a run with no model produces
+a report that says *nothing* about traffic class rather than one that quietly says
+"unknown". A missing model file and a tunnel with nothing to infer must not look alike.
+
+The report gained `InferenceExplanation` — the sentence, the signed contributions, and
+**how many traffic windows the judgement rests on**, because one window and thirty are
+different claims and the confidence alone does not say which. A validator refuses an
+explanation without an inference: reasoning for a conclusion the report does not draw.
+
+The schema went to **1.1**. Report models forbid unknown fields, so the published schema
+carries `additionalProperties: false` and a consumer validating new output against 1.0
+would reject it. Both files are kept; every report declares which it conforms to.
 
 ---
 

@@ -33,6 +33,10 @@ dev = [
     "types-jsonschema",
     # Starlette's TestClient is an httpx client; the API tests need it.
     "httpx>=0.27",
+    # The dashboard's failures are invisible to every other kind of test: a CSP that
+    # blocks the page's own script, a CSS rule that out-specifies [hidden]. Both
+    # happened, and only a real browser found them.
+    "playwright>=1.44",
 ]
 
 [project.scripts]

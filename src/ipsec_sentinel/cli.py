@@ -89,6 +89,12 @@ def main() -> None:
 @click.option("--out", type=click.Path(path_type=Path), help="Write an HTML report here.")
 @click.option("--json", "json_out", type=click.Path(path_type=Path), help="Write JSON here.")
 @click.option("--pdf", type=click.Path(path_type=Path), help="Write a PDF here.")
+@click.option(
+    "--model",
+    "model_path",
+    type=click.Path(path_type=Path),
+    help="Classify traffic with this model. Without it the report makes no inferences.",
+)
 @click.option("--quiet", is_flag=True, help="Print nothing but errors.")
 def analyse(
     pcap: Path,
@@ -97,6 +103,7 @@ def analyse(
     out: Path | None,
     json_out: Path | None,
     pdf: Path | None,
+    model_path: Path | None,
     quiet: bool,
 ) -> None:
     """Analyse a capture and produce a report."""
@@ -107,8 +114,14 @@ def analyse(
     if pcap.is_dir():
         fail(f"{pcap} is a directory; give the path to a capture file", EXIT_USAGE)
 
+    from ipsec_sentinel.ml.classify import ClassifierUnavailableError
+
     try:
-        report = analyse_capture(pcap, baseline=baseline, known=_load_known(known))
+        report = analyse_capture(
+            pcap, baseline=baseline, known=_load_known(known), model_path=model_path
+        )
+    except ClassifierUnavailableError as exc:
+        fail(str(exc), EXIT_USAGE)
     except FileNotFoundError as exc:
         fail(str(exc), EXIT_USAGE)
     except ValueError as exc:

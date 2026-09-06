@@ -1,0 +1,91 @@
+/* Split out of index.html so the dashboard needs no 'unsafe-inline' in its CSP.
+   Still local and still offline: no CDN, no external font. */
+:root {
+  --ink:#17202a; --muted:#5b6a7a; --rule:#d6dde5; --panel:#f4f7fa; --bg:#fff;
+  --verified:#1c4f82; --inferred:#7a4a12;
+  --critical:#8c1c13; --high:#b8500f; --medium:#8a6d1a; --low:#4a5a68; --ok:#1d6b3f;
+}
+*{box-sizing:border-box}
+/* `nav{display:flex}` and `section{...}` below out-specify the browser's own
+   [hidden]{display:none}, so the tabs were visible before a report existed.
+   This restores the attribute's meaning for every element. */
+[hidden]{display:none !important}
+body{font:15px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;color:var(--ink);
+  margin:0;background:var(--bg)}
+header{border-bottom:1px solid var(--rule);padding:1rem 1.5rem;display:flex;
+  align-items:baseline;gap:1rem;flex-wrap:wrap}
+header h1{font-size:1.2rem;margin:0}
+header .build{color:var(--muted);font-size:.82rem}
+main{padding:1.5rem;max-width:72rem;margin:0 auto}
+nav{display:flex;gap:.25rem;border-bottom:1px solid var(--rule);margin-bottom:1.5rem;
+  flex-wrap:wrap}
+nav button{background:none;border:none;border-bottom:3px solid transparent;
+  padding:.6rem .9rem;font:inherit;cursor:pointer;color:var(--muted)}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--verified);
+  font-weight:600}
+section[hidden]{display:none}
+h2{font-size:1.1rem;margin:0 0 .6rem}
+table{border-collapse:collapse;width:100%;font-size:.9rem;margin:.5rem 0 1.5rem}
+th,td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--rule);
+  vertical-align:top}
+th{background:var(--panel);font-weight:600}
+tbody tr[data-tunnel]{cursor:pointer}
+tbody tr[data-tunnel]:hover{background:var(--panel)}
+.cards{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.card{border:1px solid var(--rule);border-radius:4px;padding:.9rem 1.1rem;min-width:9rem}
+.card .value{font-size:1.9rem;font-weight:700;line-height:1.1}
+.card .label{color:var(--muted);font-size:.78rem;text-transform:uppercase;
+  letter-spacing:.04em}
+.grade-A,.grade-B{color:var(--ok)} .grade-C,.grade-D{color:var(--medium)}
+.grade-E,.grade-F{color:var(--critical)}
+.tag{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;padding:.1rem .4rem;border:1px solid currentColor;
+  border-radius:2px;white-space:nowrap}
+.tag.verified{color:var(--verified)} .tag.inferred{color:var(--inferred)}
+.tag.undocumented{color:var(--critical)}
+.finding{border:1px solid var(--rule);border-left-width:5px;padding:.7rem .9rem;
+  margin:.6rem 0}
+.finding.verified{border-left-color:var(--verified)}
+.finding.inferred{border-left-color:var(--inferred)}
+.sev-critical{color:var(--critical);font-weight:700}
+.sev-high{color:var(--high);font-weight:700}
+.sev-medium{color:var(--medium)} .sev-low,.sev-informational{color:var(--low)}
+.note{background:var(--panel);border-left:4px solid var(--rule);padding:.7rem .9rem;
+  margin:.8rem 0;font-size:.9rem}
+.mono{font-family:"SFMono-Regular",Menlo,Consolas,monospace;font-size:.85em;
+  word-break:break-all}
+pre{background:var(--panel);padding:.8rem;overflow-x:auto;font-size:.8rem;
+  border:1px solid var(--rule)}
+.empty{color:var(--muted);font-style:italic}
+.bar{height:.6rem;background:var(--rule);border-radius:2px;overflow:hidden;min-width:6rem}
+.bar > span{display:block;height:100%}
+.bar.pos > span{background:var(--verified)} .bar.neg > span{background:var(--critical)}
+/* Bar widths as classes, because the dashboard's CSP forbids inline styles. */
+.bar > span.w1{width:5%}
+.bar > span.w2{width:10%}
+.bar > span.w3{width:15%}
+.bar > span.w4{width:20%}
+.bar > span.w5{width:25%}
+.bar > span.w6{width:30%}
+.bar > span.w7{width:35%}
+.bar > span.w8{width:40%}
+.bar > span.w9{width:45%}
+.bar > span.w10{width:50%}
+.bar > span.w11{width:55%}
+.bar > span.w12{width:60%}
+.bar > span.w13{width:65%}
+.bar > span.w14{width:70%}
+.bar > span.w15{width:75%}
+.bar > span.w16{width:80%}
+.bar > span.w17{width:85%}
+.bar > span.w18{width:90%}
+.bar > span.w19{width:95%}
+.bar > span.w20{width:100%}
+button.action{font:inherit;padding:.4rem .8rem;border:1px solid var(--rule);
+  background:var(--bg);border-radius:3px;cursor:pointer}
+button.action:hover{background:var(--panel)}
+#drop{border:2px dashed var(--rule);border-radius:6px;padding:2rem;text-align:center;
+  color:var(--muted)}
+#drop.over{border-color:var(--verified);background:var(--panel)}
+.status{margin-left:.6rem;color:var(--muted);font-size:.85rem}
+.headline{font-size:1.05rem}

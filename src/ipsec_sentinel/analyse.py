@@ -132,8 +132,14 @@ def analyse_capture(
     source: str | None = None,
     generated_at: datetime | None = None,
     registry: RuleRegistry | None = None,
+    model_path: Path | None = None,
 ) -> Report:
     """Analyse one capture end to end and return the report.
+
+    ``model_path`` is optional and, when given, attaches Section B inferences with
+    their SHAP explanations. Omitting it produces a report that says *nothing* about
+    traffic class rather than one that quietly says "unknown" — a run with no model must
+    not be mistakable for a run that inferred nothing.
 
     ``observed_config`` carries the facts a passive observer cannot see — anti-replay
     settings, PFS where the exchange was encrypted. Supplied by the operator, applied to
@@ -151,11 +157,50 @@ def analyse_capture(
     rules = registry or default_registry()
     assessments = [assess_tunnel(tunnel, baseline, rules) for tunnel in tunnels]
 
+    exposure = None
+    if model_path is not None:
+        from ipsec_sentinel.ml.classify import classify_all
+        from ipsec_sentinel.report.exposure import exposure_for
+        from ipsec_sentinel.report.models import InferenceExplanation, MetadataExposure
+
+        classified = classify_all(tunnels, model_path)
+        assessments = [
+            attach_inferences(
+                assessment,
+                traffic=classified[assessment.tunnel_id].predicted,
+                traffic_confidence=classified[assessment.tunnel_id].confidence,
+                method=classified[assessment.tunnel_id].method,
+                abstained=classified[assessment.tunnel_id].abstained,
+            )
+            if assessment.tunnel_id in classified
+            else assessment
+            for assessment in assessments
+        ]
+        entries = []
+        for assessment in assessments:
+            entry = exposure_for(assessment)
+            found = classified.get(assessment.tunnel_id)
+            if found is not None and entry.inferred_traffic is not None and found.sentence:
+                entry = entry.model_copy(
+                    update={
+                        "explanation": InferenceExplanation(
+                            sentence=found.sentence,
+                            contributions=list(found.contributions),
+                            windows=found.windows,
+                        )
+                    }
+                )
+            entries.append(entry)
+        # When no model is supplied this stays None and build_report falls back to
+        # build_exposure, which produces the same entries without any inference.
+        exposure = MetadataExposure(entries=entries)
+
     return build_report(
         assessments,
         build_inventory(tunnels, known),
         baseline,
         source=source or pcap.name,
         generated_at=generated_at or datetime.now(UTC),
+        metadata_exposure=exposure,
         pqc=pqc_summary(tunnels),
     )

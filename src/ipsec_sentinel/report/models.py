@@ -31,7 +31,12 @@ from ipsec_sentinel.assess.rules.pqc import PQCGrade
 from ipsec_sentinel.models import Confidence, Finding, Grade, Severity
 from ipsec_sentinel.remediate.models import ChangePackage
 
-SCHEMA_VERSION: Final = "1.0"
+# 1.1 adds InferenceExplanation and ExposureEntry.explanation. Bumped rather than
+# regenerated in place because these models forbid unknown fields, so the published
+# schema carries `additionalProperties: false` — a consumer validating new output
+# against 1.0 would reject it. The version travels in every report, so a consumer
+# validates against the one the payload declares.
+SCHEMA_VERSION: Final = "1.1"
 
 
 class ReportModel(BaseModel):
@@ -97,6 +102,26 @@ class ExecutiveSummary(ReportModel):
         return self.findings_by_severity.get(Severity.CRITICAL, 0)
 
 
+class InferenceExplanation(ReportModel):
+    """Why the model said what it said, in a sentence and in numbers.
+
+    Carried beside the inference rather than in a separate section, because an estimate
+    a reader cannot interrogate is one they must either take on trust or ignore, and
+    both are worse than a short explanation.
+    """
+
+    sentence: str = Field(min_length=1)
+    contributions: list[tuple[str, float]] = Field(default_factory=list)
+    """Signed SHAP contributions, most influential first."""
+
+    windows: int = Field(default=0, ge=0)
+    """How many traffic windows the classification rests on.
+
+    A judgement from one window and one from thirty are different things, and the
+    confidence alone does not say which this is.
+    """
+
+
 class ExposureEntry(ReportModel):
     """What an observer learns about one tunnel without breaking any encryption.
 
@@ -115,6 +140,7 @@ class ExposureEntry(ReportModel):
     last_seen: datetime | None = None
     inferred_traffic: str | None = None
     inferred_traffic_confidence: Confidence | None = None
+    explanation: InferenceExplanation | None = None
 
     @model_validator(mode="after")
     def _inference_carries_its_confidence(self) -> ExposureEntry:
@@ -128,6 +154,11 @@ class ExposureEntry(ReportModel):
             raise ValueError(
                 "inferred_traffic and inferred_traffic_confidence must both be present "
                 "or both absent; an inference without a confidence reads as a fact"
+            )
+        if self.explanation is not None and self.inferred_traffic is None:
+            raise ValueError(
+                "an explanation without an inference explains nothing; it would read as "
+                "reasoning for a conclusion the report does not draw"
             )
         for hour in self.active_hours:
             if not 0 <= hour <= 23:
