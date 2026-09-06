@@ -139,7 +139,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.7 — SIEM output formats — commit `43cecb8`
 - [x] pipeline — `analyse.py`, capture to report — commit `7b60ca9`
 - [x] **M9 gate — 10/10 passed, 0 failed** — tag `v0.10.0-reporting`
-- [x] 10.1a — active IKE prober and observed-config reconstruction — commit `PENDING`
+- [x] 10.1a — active IKE prober and observed-config reconstruction — commit `40db773`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
