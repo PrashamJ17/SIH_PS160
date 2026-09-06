@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.7 — confidence calibration
+**Current step:** 7.8 — prediction abstention
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -116,6 +116,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.4 — Heuristic baseline for mode inference — commit `4197c81`
 - [x] 7.5 — Traffic classifier training — commit `41e3fbe`
 - [x] 7.6 — Generalisation report **(UNCUTTABLE)** — commit `9e4f73c`
+- [x] 7.7 — Confidence calibration — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
@@ -501,6 +502,41 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Step 7.7 — a prior the data overturned
+
+Calibration was expected to be a formality. It was not, and the way it failed is worth
+recording.
+
+The documented prior was **Platt scaling (sigmoid)**: it fits two parameters per class,
+and isotonic regression is conventionally said to overfit below a few thousand samples.
+This corpus has 581 rows, so sigmoid should have been the safe choice.
+
+Measured on a held-out evaluation set:
+
+| Method | ECE before | ECE after |
+|---|---|---|
+| Sigmoid (the prior) | 0.0610 | **0.0767** — *worse* |
+| Isotonic | 0.0610 | **0.0165** |
+
+Sigmoid actively degraded the calibration it was supposed to fix.
+
+**The fix was not to switch the default.** Changing it because isotonic scored better on
+the evaluation set would have been selection on the test set — the exact error this
+project refuses everywhere else, and it would have been invisible in the result. The
+training data is now split three ways: a fit set for the base model, a calibration set
+for the calibrator, and a **validation set on which the method is chosen**. The
+evaluation set is touched only to report the final number.
+
+On validation, isotonic scores 0.0389 against sigmoid's 0.0978, so isotonic is selected —
+and then independently confirms on the evaluation set at **0.0165**, well inside the
+0.15 threshold below which a confidence may be shown to a user at all.
+
+The overturned prior is left in the module docstring rather than quietly deleted. A
+prior the data contradicts is worth more in the record than one that was never written
+down.
 
 ---
 
