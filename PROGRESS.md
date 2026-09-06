@@ -148,6 +148,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.4b — device state collector, closing the rekey blind spot — commit `f572822`
 - [x] **M10 gate — 8/8 passed, 0 failed** — tag `v0.11.0-interfaces`
 - [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `5aa3e14`
+- [x] 11.1 — end-to-end integration test — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -583,6 +584,48 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.1 — the test that proves the product, and two corrections to the script
+
+A weak tunnel carrying real VoIP is captured, analysed, remediated with the generated
+change package, and analysed again. Nine tests; every lane in one run.
+
+It found the IKEv1 3DES bug on its first execution, which is the argument for the test.
+
+### Two places the plan's script could not be followed as written
+
+**Zero packet loss while correcting the weak tunnel.** That tunnel is IKEv1 in aggressive
+mode, and correcting it means moving to IKEv2 — which no proposal-alongside sequence can
+do, because the two versions cannot be offered on one connection. The tool already says
+so: the change package for this configuration sets `requires_maintenance_window=True`.
+So the test asserts that the package *declares the change disruptive*, and the zero-loss
+property is proved where it holds — on a proposal-only change, which is what Step 8.4
+built the sequence for and measured at 0 lost probes against a 3.84s naive control.
+Asserting zero on a change the tool itself calls disruptive would be a test passing by
+testing something else.
+
+**`inferred mode == tunnel` on a VoIP capture.** Mode is estimated from the floor a *bare
+acknowledgement* sets — tunnel mode adds twenty bytes of inner IP header. A 15-second
+G.711 call is 1500 packets all of 256 bytes and contains no bare acknowledgement at all;
+the smallest is 154 bytes from either floor. The heuristic abstains and says why, which
+is it working. The test asserts the abstention and its stated reason, and proves the
+capability separately on web and email captures whose true mode is in their own manifests.
+
+### What the classifier needed
+
+25 seconds of VoIP gives two ten-second windows, and the model **abstains at 0.51**. 45
+seconds gives four windows and calls voip at **1.00**. A model that answered confidently
+on two windows would answer confidently on noise, so the abstention is the model working
+— but it is also an operational fact worth knowing, and the reason the demo captures are
+45 seconds rather than 25. Both directions are now tested.
+
+Fixing that surfaced a real bug: `Classification.predicted` preferred `label`, which on
+an abstention is the sentinel `insufficient_signal`. So a near-miss on voip reported its
+predicted class as "insufficient_signal", and the sentinel appeared in the SHAP sentence
+beside a sentence reading "Classified as voip". The class and the abstention are separate
+facts and are now carried separately.
 
 ---
 

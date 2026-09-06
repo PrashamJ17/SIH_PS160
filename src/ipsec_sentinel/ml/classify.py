@@ -140,10 +140,16 @@ def classify_tunnel(
         contributions = tuple((c.feature, c.contribution) for c in explanation.contributions)
         sentence = explanation.sentence()
 
-    # ``label`` is what the model committed to; ``best_label`` is what it would have
-    # chosen had it answered. Reporting the near-miss on an abstention is useful to an
-    # analyst, and keeping the two names apart is what stops it being read as an answer.
-    predicted = best.label or best.best_label or "unknown"
+    # ``best_label`` is the class, always. ``label`` is the class *or* an abstention
+    # sentinel, and preferring it meant an abstention reported its predicted class as
+    # "insufficient_signal" — turning a near-miss on voip into a nonsense answer, and
+    # putting the sentinel into the SHAP sentence beside it.
+    #
+    # The class and the abstention are separate facts and are carried separately:
+    # ``predicted`` says what the model leaned towards, ``abstained`` says whether it
+    # was willing to commit, and :attr:`Classification.stated` returns ``None`` unless
+    # it was. Nothing downstream can read a declined answer as a given one.
+    predicted = best.best_label or best.label or "unknown"
     return Classification(
         tunnel_id=tunnel.tunnel_id,
         predicted=predicted,
