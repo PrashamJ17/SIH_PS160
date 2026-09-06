@@ -21,6 +21,9 @@ dev = [
     "pytest>=7.4", "pytest-cov>=4.1", "pytest-xdist>=3.5",
     "hypothesis>=6.92", "mypy>=1.8", "ruff>=0.1.14",
     "types-PyYAML", "pandas-stubs",
+    # Validates the exported report against the published JSON schema. A schema
+    # nothing checks against is documentation, not a contract.
+    "jsonschema>=4.21",
 ]
 
 [project.scripts]
@@ -56,7 +59,7 @@ addopts = "-q --strict-markers"
 [[tool.mypy.overrides]]
 # These scientific packages ship no type information. Ignoring them here is narrower
 # than a global relaxation: everything this project writes stays strictly typed.
-module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*", "shap.*"]
+module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*", "shap.*", "weasyprint.*"]
 ignore_missing_imports = true
 
 [tool.mypy]

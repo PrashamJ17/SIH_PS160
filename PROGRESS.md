@@ -135,6 +135,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.3 — metadata exposure analysis — commit `1a3448d`
 - [x] 9.4 — threat matrix — commit `7d66d6d`
 - [x] 9.5 — self-contained HTML renderer — commit `8c5d873`
+- [x] 9.6 — PDF and JSON export — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -570,6 +571,45 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.6 — the blocked dependency was never missing
+
+`PROGRESS.md` had carried WeasyPrint as a blocked dependency since Phase 1, on the
+strength of its error message:
+
+```
+OSError: cannot load library 'libgobject-2.0-0'
+```
+
+**The library was installed.** So were pango, cairo and glib. WeasyPrint reaches them
+through cffi, which asks dyld for `libgobject-2.0-0` — a name Homebrew does not create,
+in `/opt/homebrew/lib`, which is not on dyld's default search path. The error names a
+library the user has, which is why it read as a missing dependency for eight phases.
+
+Setting `DYLD_FALLBACK_LIBRARY_PATH` before the import fixes it, and doing that inside
+`render_pdf.py` means nobody has to know. Preloading the dylibs with `ctypes` was tried
+first and does not work — cffi looks the name up itself. The variable is only ever
+extended, never replaced, and only with directories that exist. Four tests pin that
+behaviour, including that it is a no-op off macOS.
+
+**PDF export now works: 3 pages for a one-tunnel report, valid `%PDF-` header, six tests
+running rather than skipping.** The import stays deferred inside the functions, so a
+machine genuinely without pango loses only PDF, and the error says exactly which package
+to install on which platform rather than naming a library that is already there.
+
+### The schema is a contract, not documentation
+
+`schemas/report-1.0.schema.json` is generated from the model and checked in. A test
+regenerates it and compares, so it cannot go stale — a published schema that no longer
+matches the model is worse than none, because consumers trust it.
+
+Round-tripping and schema validation are tested separately and neither implies the other:
+the first catches losing data, the second catches quietly changing the shape every
+downstream consumer reads while staying internally consistent. Keys are deliberately not
+sorted, because alphabetising would place `section_b_inferred` before
+`section_a_verified` in every export.
 
 ---
 
@@ -1686,7 +1726,7 @@ source corpus is substituted, and `docs/DATASET.md` says so.
 | Missing | Needed by | Fix |
 |---|---|---|
 | `tshark` | **Step 4.10** (tshark parity) and claim C-02 | `brew install wireshark` |
-| libgobject / pango / cairo | **Step 9.6** (WeasyPrint PDF export). `weasyprint` installs but fails to import: `OSError: cannot load library 'libgobject-2.0-0'` | `brew install pango` |
+| ~~libgobject / pango / cairo~~ | ~~Step 9.6 (WeasyPrint PDF export)~~ | **RESOLVED at Step 9.6** — the libraries were installed all along; dyld could not find them. See below. |
 
 Every other dependency imports cleanly: scapy, pydantic 2.13.5, pyyaml, click, rich,
 pandas 3.0.5, pyarrow, numpy 2.4.6, scikit-learn 1.9.0, xgboost 3.2.0, shap 0.51.0,
