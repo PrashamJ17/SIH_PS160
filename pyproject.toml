@@ -24,6 +24,7 @@ dev = [
     # Validates the exported report against the published JSON schema. A schema
     # nothing checks against is documentation, not a contract.
     "jsonschema>=4.21",
+    "types-jsonschema",
 ]
 
 [project.scripts]

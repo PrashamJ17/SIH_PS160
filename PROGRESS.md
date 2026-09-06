@@ -137,6 +137,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.5 — self-contained HTML renderer — commit `8c5d873`
 - [x] 9.6 — PDF and JSON export — commit `9a4584e`
 - [x] 9.7 — SIEM output formats — commit `43cecb8`
+- [x] pipeline — `analyse.py`, capture to report — commit `7b60ca9`
+- [x] **M9 gate — 10/10 passed, 0 failed** — tag `v0.10.0-reporting`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -572,6 +574,79 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## ▶ MILESTONE M9 — Reporting complete
+
+`make verify-all`: **1951 unit + 170 integration passed, 0 failed**, coverage 95.18%.
+`scripts/check_m9.py` runs every item against a **real capture from the 288-capture sweep
+corpus**, not a constructed report.
+
+| # | Acceptance item | Result |
+|---|---|---|
+| 1 | Full report generated from a real dataset capture | **PASS** — 1 tunnel, grade F (52/100), every section populated |
+| 2 | Section A contains only deterministic findings | **PASS** — and the validator is shown refusing the violation |
+| 3 | Section B contains only inferred findings with confidence | **PASS** — same, from the other side |
+| 4 | HTML opens with no network access | **PASS** — rendered with every socket call disabled |
+| 5 | PDF renders | **PASS** — 54 kB, 4 pages, also with networking disabled |
+| 6 | JSON validates against schema | **PASS** — validates and round-trips into the model unchanged |
+| 7 | Metadata exposure present for a grade-A tunnel | **PASS** — see below |
+| 8 | Executive summary understandable by a non-technical reader | **PASS** — rewritten first; see below |
+| 9 | *(added)* An empty capture produces a report, not a crash | **PASS** |
+| 10 | *(added)* A supplied inference reaches Section B with its confidence | **PASS** |
+
+### Reading the summary changed it
+
+Item 8 is the one criterion the plan phrases as a judgement rather than a test, and doing
+it honestly meant finding this in the first sentence of a real report:
+
+> The 1 tunnel examined **are** soundly configured.
+
+Broken agreement in the opening line costs more credibility than the finding beneath it
+earns. Subject and verb are now derived together rather than assembled from separate
+places, and the multi-tunnel branch leads with a word instead of a digit — `1 of the 4
+tunnels examined` opened the document on a numeral, which reads as a statistic rather
+than a sentence. Every branch is tested at one tunnel and at several, because the singular
+case is the one that reads wrong. What the gate can check automatically it does: no
+algorithm names, a complete sentence, no broken agreement.
+
+### Two checks that nearly passed for the wrong reason
+
+**Section A / Section B.** Asserting that the findings in Section A are deterministic is
+satisfied by any corpus that happens to contain no inferences — which this one is, since
+the pipeline attaches none. The check now also constructs the violation and asserts the
+validator refuses it. A guard that is only ever shown valid input proves nothing.
+
+**The grade-A exposure entry.** The first version looked for a capture whose *estate*
+grade was A and which contained a finding-free tunnel. No tunnel in the corpus is
+finding-free — PQC-01 fires on every classical key exchange — so the check fell through to
+a weaker fallback and reported PASS on it. It now searches by each tunnel's *own* grade
+and finds a genuine one: **92/100, grade A, and still disclosing its endpoints, 34 kB
+across two sessions, and the hour it was active.** That is the demo moment, and it needed
+to be shown on a tunnel with nothing wrong with it.
+
+### The offline check disables the network
+
+Item 4 could be satisfied by grepping the HTML for `http://`. It instead replaces
+`socket.socket`, `create_connection`, `getaddrinfo` and `gethostbyname` with functions
+that raise, for the duration of the render — and the PDF check does the same. The
+criterion asks whether the report works with no network, not whether it looks as though
+it would.
+
+### The pipeline that M9 required
+
+`src/ipsec_sentinel/analyse.py` is the seam between the parse/assess lanes and the report
+lane, and Phase 10's CLI will use it. It is deliberately thin and does two things
+deliberately *not*: it loads no model — so an analysis run cannot silently degrade to "no
+inferences" while looking complete — and it opens no socket, asserted by monkeypatching
+`socket.socket` to raise and then analysing a real capture end to end.
+
+### Known gap, not blocking
+
+`ruff` lints `src tests testbed` but **not** `scripts`, while `mypy` checks all four. The
+milestone check scripts have therefore accumulated lint that `make verify` never sees.
+Recorded here and fixed next rather than folded into the milestone.
 
 ---
 
