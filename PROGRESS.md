@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.10 — confound audit
+**Current step:** M7 gate — ML lane complete
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -119,6 +119,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.7 — Confidence calibration — commit `8d20cd8`
 - [x] 7.8 — Prediction abstention — commit `57876e7`
 - [x] 7.9 — SHAP explanations — commit `26bb49a`
+- [x] 7.10 — Confound audit — commit `PENDING`
+- [ ] **▶ MILESTONE M7** — tag `v0.8.0-ml`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
@@ -504,6 +506,42 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Step 7.10 — the confound audit, and a side channel it found
+
+The audit the master document calls the most fatal trap available here. A confounded
+classifier and a sound one produce identical output; only a test built to separate them
+can tell which you have.
+
+| Measurement | Result |
+|---|---|
+| Accuracy conditioned on cipher | 3DES 97.2%, AES-CBC 95.3%, AES-GCM 96.2% — **spread 1.9%** (tolerance 15%) |
+| Cipher learnable from packet sizes alone | **80.6%** against a 47.7% baseline — **+32.9%** |
+| Mutual information, predictions vs cipher | **0.0015 nats** (0.1% of traffic-class entropy) |
+
+**The classifier is clean.** Accuracy barely moves across ciphers, and its predictions
+carry no more cipher information than the ground truth does. The corpus balance verified
+at M3 survived into the model.
+
+### The interesting finding is the second row
+
+**The negotiated cipher is 80.6% identifiable from ESP packet sizes alone**, with no
+handshake in the capture at all. That is a real property of ESP rather than a defect:
+AES-CBC pads to a 16-byte block boundary, 3DES to 8 bytes, and AES-GCM not at all, so
+packet sizes carry the cipher's block structure whether anyone wants them to or not.
+
+The features that carry it are `fwd_size_min`, `size_min`, `size_p25` — **the smallest
+packets**, which is exactly what padding theory predicts, since a block-boundary
+rounding is proportionally most visible on a short packet. That the measurement lands
+where theory says it should is the strongest evidence it is real and not an artefact.
+
+**Product implication, recorded but not implemented.** ESP-01 reports tunnels seen with
+no negotiation, whose cryptography is currently unassessable and which the rule calls
+"not assessed... unexamined". This side channel is a route to saying something about
+them — an *inferred* cipher with a calibrated confidence, in Section B, never in the
+deterministic lane. The measurement that would justify building it now exists.
 
 ---
 

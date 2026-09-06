@@ -1,0 +1,38 @@
+{
+  "accuracy_overall": 0.9604130808950087,
+  "by_cipher": [
+    {
+      "accuracy": 0.9722222222222222,
+      "cipher": "3DES_CBC",
+      "rows": 144
+    },
+    {
+      "accuracy": 0.9530685920577617,
+      "cipher": "AES_CBC",
+      "rows": 277
+    },
+    {
+      "accuracy": 0.9625,
+      "cipher": "AES_GCM_16",
+      "rows": 160
+    }
+  ],
+  "cipher_baseline": 0.47676419965576594,
+  "cipher_learnability": 0.8055077452667814,
+  "cipher_top_features": [
+    "fwd_size_min",
+    "size_min",
+    "size_p25",
+    "size_entropy",
+    "fwd_size_mean"
+  ],
+  "ciphers": [
+    "3DES_CBC",
+    "AES_CBC",
+    "AES_GCM_16"
+  ],
+  "mutual_information_predicted": 0.00153392921418663,
+  "mutual_information_true": 0.0012798917590781667,
+  "rows": 581,
+  "traffic_entropy": 1.9384446573379144
+}
