@@ -509,6 +509,46 @@ reassuring once you have checked the fuzzer went anywhere.
 
 ---
 
+## MILESTONE M7 — acceptance checklist (executed)
+
+Run with `scripts/check_m7.py`. **9/10 pass, 0 fail, 1 BLOCKED.**
+
+| M7 acceptance | Result |
+|---|---|
+| Classifier trained with capture-level splitting | **PASS** — 96.0% accuracy, 0.963 macro-F1, 581 rows in 252 groups |
+| **Zero `capture_id` overlap between train and test** | **PASS** — 25 seeds, zero overlap in every one |
+| Generalisation report with all four splits | **PASS** — 4 splits, 4 confusion matrices |
+| Model beats the mode-inference heuristic | **BLOCKED** — see below |
+| ECE below 0.15 after calibration | **PASS** — 0.0767, AUROC 0.973 |
+| Abstention working, rate under 25% | **PASS** — 2.1%, accuracy 97.2% → 98.6% |
+| SHAP explanations render as readable sentences | **PASS** — additive, no raw identifiers |
+| Confound audit published | **PASS** — all three measurements with a verdict |
+| **Every ML finding carries a non-None confidence** | **PASS** — 143 predictions and every anomaly finding |
+| ML test suites pass | **PASS** — 255 tests |
+
+### The blocked item, and why it is not a pass
+
+**The corpus contains exactly one mode: `tunnel`.** No classifier can be compared
+against the mode-inference heuristic here, because one answering `tunnel`
+unconditionally scores 100%.
+
+The root cause is topological rather than incidental. Transport mode protects traffic
+between the two gateways *themselves*; this testbed generates traffic from host
+containers *behind* the gateways, which necessarily requires tunnel mode. Those cells
+produced ESP=0 in Phase 2 and were dropped when the runner's ESP guard caught them —
+correctly, because a cell with no encrypted traffic is not an observation of a tunnel.
+
+Closing it needs transport-mode cells whose traffic originates on the gateways: a
+**testbed change plus a partial sweep**, not a modelling change. Recorded in
+`docs/BASELINES.md`, which states in terms that **no model may claim to beat this
+baseline on this corpus**.
+
+`check_m7.py` reports it as BLOCKED rather than SKIP or PASS, and prints that blocked
+items are neither. A gate that quietly converts an impossible check into a green tick is
+worse than no gate.
+
+---
+
 ## Step 7.10 — the confound audit, and a side channel it found
 
 The audit the master document calls the most fatal trap available here. A confounded
