@@ -136,6 +136,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.4 — threat matrix — commit `7d66d6d`
 - [x] 9.5 — self-contained HTML renderer — commit `8c5d873`
 - [x] 9.6 — PDF and JSON export — commit `9a4584e`
+- [x] 9.7 — SIEM output formats — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -571,6 +572,44 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.7 — an unescaped pipe is a wrong-severity alert
+
+CEF, LEEF and RFC 5424 syslog, all built from the same findings, so a site that switches
+collectors does not switch what it is told.
+
+**Escaping is the whole risk.** A finding's evidence carries algorithm names, peer
+identities and free text read off the wire, and every delimiter these formats use — `|`,
+`=`, tab, newline — can appear in it. An unescaped pipe in a CEF header does not corrupt
+one field; it shifts every field after it, so the collector reads the **severity out of
+the message body** and the alert arrives with the wrong urgency. A payload containing all
+of them at once is pushed through all three formats.
+
+One subtlety the tests got wrong before the implementation did: CEF escapes `=` and `\`
+in extension values but deliberately **not** `|`, because extension parsing is key/value
+rather than positional. The first test split the whole line on pipes and failed on a
+spec-correct output. It now splits seven header fields and takes the rest, which is what
+a CEF parser does.
+
+**Formatting and sending are separate.** The three formatters are pure functions — no
+socket, no clock, no environment — and only `SyslogEmitter` opens a connection. Nothing
+in the analysis path constructs one: a passive tool that dials out on its own is no longer
+straightforwardly passive, whatever the payload. Tests monkeypatch `socket.socket` to
+raise and then build and format a whole report, which is the same property Step 11.3 will
+assert from the other direction.
+
+**An unreachable collector never takes the run down.** A SIEM that is down is a normal
+operational condition, and losing a completed assessment because the last step could not
+deliver it would be the wrong trade every time. Tested against a real closed port rather
+than a mock, since what is being asserted is behaviour against a real socket.
+
+Other details worth keeping: severity truncation happens **in the message body only**,
+because a collector that cannot parse the header discards the event entirely; truncation
+cuts on a UTF-8 boundary so it cannot emit bytes a collector rejects; and the Section A /
+Section B distinction travels into every format as an `assurance` field, so an analyst
+triaging an alert can still tell a parsed fact from an estimate.
 
 ---
 
