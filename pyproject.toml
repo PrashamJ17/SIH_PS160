@@ -37,7 +37,13 @@ where = ["src"]
 # The compliance baselines are data, not code, and are loaded from the installed
 # package at runtime. Without this they are absent from a wheel and every baseline
 # lookup fails only once the tool is installed rather than run from a checkout.
-ipsec_sentinel = ["assess/baselines/*.yaml", "assess/baselines/*.example"]
+ipsec_sentinel = [
+    "assess/baselines/*.yaml",
+    "assess/baselines/*.example",
+    # Same reasoning for the report template: without it a wheel renders no
+    # report at all, and only once installed rather than run from a checkout.
+    "report/templates/*.j2",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

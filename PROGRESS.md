@@ -134,6 +134,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.2 — report builder — commit `aa41a84`
 - [x] 9.3 — metadata exposure analysis — commit `1a3448d`
 - [x] 9.4 — threat matrix — commit `7d66d6d`
+- [x] 9.5 — self-contained HTML renderer — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -569,6 +570,43 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.5 — escaping is a security control here, not a nicety
+
+Most of what this report prints was read off the wire: vendor ID strings, algorithm
+names, endpoint addresses, peer identities. **All of it is attacker-controlled.** With
+autoescaping off, a crafted IKE vendor ID containing markup would execute in the browser
+of whoever opened the report — a security tool turned into a delivery mechanism, which is
+about the worst outcome available. Autoescaping is enabled explicitly rather than left to
+Jinja's extension-based default (which does not cover `.j2`), and tests feed a
+`<script>` payload through the finding evidence, the tunnel identifier and the inventory.
+
+**Nothing loads from anywhere.** No CDN, no external stylesheet, no font, no script. Even
+the CVE references render as plain text rather than links: an anchor nobody can follow is
+worth less than a URL a reader can copy, and on paper an `href` is invisible. The
+self-containment test extracts `src`/`href` through an HTML parser rather than a regex,
+so an attribute split across lines cannot slip past.
+
+**Section A and B are distinguishable without colour** — separate headings, a text label
+on every finding, and an explanatory note. A test strips every `<style>` block and asserts
+the distinction still reads, which is the greyscale-print and colour-blind case.
+
+### The bug the template found
+
+`inventory or Inventory()` silently discarded a real inventory. `Inventory` defines
+`__len__`, so **an inventory with no observed entries is falsy** — and the case where that
+happens is precisely the interesting one: a documented tunnel list where nothing was seen.
+Those tunnels would have vanished from every report, which inverts the finding an operator
+most wants ("you documented a tunnel that is not there").
+
+Six models in the codebase define `__len__` and are therefore falsy when empty. Every
+default is now chosen with `is not None`, and a test pins the falsiness itself so it is
+documented rather than a surprise.
+
+The template is declared in `package-data`. Without that a wheel renders no report at all,
+and only once installed — the same failure the baselines comment already warned about.
 
 ---
 

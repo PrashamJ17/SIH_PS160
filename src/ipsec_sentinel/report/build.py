@@ -227,5 +227,10 @@ def build_report(
             threat_matrix if threat_matrix is not None else build_threat_matrix(assessments)
         ),
         remediation=list(remediation),
-        pqc=pqc or PQCSummary(),
+        # ``is not None`` rather than ``or``: several of these models define
+        # __len__, which makes an empty one falsy. An Inventory carrying only
+        # documented-but-unobserved tunnels has no entries and is therefore
+        # falsy — and ``or`` would silently replace it with a blank one, dropping
+        # the very tunnels the operator most wants to hear about.
+        pqc=pqc if pqc is not None else PQCSummary(),
     )

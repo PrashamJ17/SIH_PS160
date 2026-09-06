@@ -66,7 +66,7 @@ def build(
 ) -> Report:
     return build_report(
         assessments if assessments is not None else [],
-        inventory or Inventory(),
+        inventory if inventory is not None else Inventory(),
         "nist_800_77r1",
         source="capture_outer.pcap",
         generated_at=NOW,
@@ -397,3 +397,44 @@ class TestTheSectionsAreBuiltIn:
     def test_a_full_report_still_round_trips(self) -> None:
         report = build([assessment("t-001", [parsed(), inferred()])])
         assert Report.model_validate_json(report.model_dump_json()) == report
+
+
+class TestAFalsyModelIsNotAMissingOne:
+    """Several report models define ``__len__``, so an empty one is falsy.
+
+    ``inventory or Inventory()`` therefore replaces a real inventory with a blank one
+    whenever it happens to have no observed entries — and the case where that happens is
+    exactly the interesting one: a documented tunnel list where nothing was seen. Every
+    default here is chosen with ``is not None``.
+    """
+
+    def test_an_inventory_with_no_entries_is_falsy(self) -> None:
+        """The property that makes the bug possible, pinned so it is not a surprise."""
+        assert bool(Inventory()) is False
+        only_unobserved = Inventory(
+            documented_list_supplied=True,
+            unobserved=[KnownTunnel(endpoints=("10.0.0.1", "10.0.0.2"), name="branch-7")],
+        )
+        assert bool(only_unobserved) is False
+        assert only_unobserved.unobserved
+
+    def test_documented_tunnels_that_were_never_seen_survive_into_the_report(self) -> None:
+        inventory = Inventory(
+            documented_list_supplied=True,
+            unobserved=[KnownTunnel(endpoints=("10.0.0.1", "10.0.0.2"), name="branch-7")],
+        )
+        report = build([], inventory)
+        assert [k.name for k in report.inventory.unobserved] == ["branch-7"]
+
+    def test_an_explicitly_empty_section_is_not_replaced(self) -> None:
+        from ipsec_sentinel.report.models import PQCSummary
+
+        report = build_report(
+            [],
+            Inventory(),
+            "nist_800_77r1",
+            source="s",
+            generated_at=NOW,
+            pqc=PQCSummary(note="deliberately empty for this run"),
+        )
+        assert report.pqc.note == "deliberately empty for this run"

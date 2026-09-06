@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPsec Sentinel report &mdash; {{ report.metadata.source }}</title>
+<style>
+/* Everything is inline. The report is opened on networks with no route out, and a
+   layout that depends on a stylesheet loading is a layout that fails when it matters. */
+:root {
+  --ink: #17202a;
+  --muted: #5b6a7a;
+  --rule: #d6dde5;
+  --verified: #1c4f82;
+  --inferred: #7a4a12;
+  --critical: #8c1c13;
+  --high: #b8500f;
+  --medium: #8a6d1a;
+  --low: #4a5a68;
+}
+* { box-sizing: border-box; }
+body {
+  font: 15px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  max-width: 60rem;
+  background: #fff;
+}
+h1 { font-size: 1.9rem; margin: 0 0 .3rem; }
+h2 { font-size: 1.3rem; margin: 2.6rem 0 .4rem; border-bottom: 2px solid var(--rule); padding-bottom: .3rem; }
+h3 { font-size: 1.05rem; margin: 1.6rem 0 .4rem; }
+p { margin: .5rem 0; }
+.sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .9rem; }
+.headline { font-size: 1.15rem; line-height: 1.5; margin: 1rem 0 1.2rem; }
+.note {
+  background: #f4f7fa; border-left: 4px solid var(--rule);
+  padding: .8rem 1rem; margin: 1rem 0; font-size: .92rem;
+}
+table { border-collapse: collapse; width: 100%; margin: .8rem 0 1.4rem; font-size: .9rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; background: #f4f7fa; }
+.finding { border: 1px solid var(--rule); border-left-width: 5px; padding: .8rem 1rem; margin: .8rem 0; }
+.finding.verified { border-left-color: var(--verified); }
+.finding.inferred { border-left-color: var(--inferred); }
+.finding h4 { margin: 0 0 .35rem; font-size: 1rem; }
+.finding dl { margin: .4rem 0 0; }
+.finding dt { font-weight: 600; font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+.finding dd { margin: .1rem 0 0; }
+.tag {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; padding: .12rem .45rem; border: 1px solid currentColor;
+  border-radius: 2px; margin-right: .4rem; white-space: nowrap;
+}
+.tag.verified { color: var(--verified); }
+.tag.inferred { color: var(--inferred); }
+.sev-critical { color: var(--critical); font-weight: 700; }
+.sev-high { color: var(--high); font-weight: 700; }
+.sev-medium { color: var(--medium); }
+.sev-low, .sev-informational { color: var(--low); }
+.empty { color: var(--muted); font-style: italic; }
+.mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: .85em; word-break: break-all; }
+footer { margin-top: 3rem; padding-top: .8rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .82rem; }
+ul { margin: .4rem 0 .4rem 1.1rem; padding: 0; }
+li { margin: .25rem 0; }
+@media print {
+  body { padding: 0; max-width: none; font-size: 11pt; }
+  h2 { page-break-after: avoid; }
+  .finding, tr { page-break-inside: avoid; }
+  .note { background: none; }
+}
+</style>
+</head>
+<body>
+
+<h1>IPsec Sentinel assessment</h1>
+<p class="sub">
+  {{ report.metadata.source }} &middot; baseline {{ report.metadata.baseline }} &middot;
+  generated {{ report.metadata.generated_at.strftime('%Y-%m-%d %H:%M %Z') }} &middot;
+  {{ report.metadata.provenance }}
+</p>
+
+<h2>Summary</h2>
+<p class="headline">{{ report.executive.headline }}</p>
+<table>
+  <tr><th>Estate score</th><td>{{ report.executive.estate_score }} / 100 (grade {{ report.executive.estate_grade }})</td></tr>
+  <tr><th>Tunnels assessed</th><td>{{ report.executive.tunnels_assessed }}</td></tr>
+  <tr><th>Undocumented tunnels</th><td>{{ report.executive.tunnels_undocumented }}</td></tr>
+  <tr><th>Verified findings (Section A)</th><td>{{ report.executive.verified_findings }}</td></tr>
+  <tr><th>Inferred findings (Section B)</th><td>{{ report.executive.inferred_findings }}</td></tr>
+{% for severity, count in report.executive.findings_by_severity.items() %}
+{% if count %}
+  <tr><th>{{ severity | severity_label }}</th><td>{{ count }}</td></tr>
+{% endif %}
+{% endfor %}
+</table>
+{% if report.executive.key_points %}
+<ul>
+{% for point in report.executive.key_points %}
+  <li>{{ point }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<div class="note">
+  <strong>How to read this report.</strong>
+  <strong>Section A</strong> contains findings read directly from the negotiation as it
+  happened on the wire. They are facts and carry no confidence value, because none is
+  needed. <strong>Section B</strong> contains findings estimated from traffic patterns by
+  a statistical model. Every one states a confidence, and none of them is evidence in the
+  sense Section A is. The two are never mixed.
+</div>
+
+<h2>Section A &mdash; verified findings</h2>
+<p class="sub">Read from the negotiation. Deterministic; no confidence value applies.</p>
+{% if report.section_a_verified %}
+{% for finding in report.section_a_verified %}
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-{{ finding.severity.value }}">{{ finding.severity | severity_label }}</span>
+    &middot; {{ finding.rule_id }} &mdash; {{ finding.title }}
+  </h4>
+  <dl>
+    {% if finding.tunnel_id %}<dt>Tunnel</dt><dd class="mono">{{ finding.tunnel_id }}</dd>{% endif %}
+    <dt>Evidence</dt><dd>{{ finding.evidence }}</dd>
+    <dt>Standard</dt><dd>{{ finding.standard_ref }}</dd>
+    {% if finding.attack_technique %}<dt>ATT&amp;CK</dt><dd>{{ finding.attack_technique }}</dd>{% endif %}
+    <dt>Remediation</dt><dd>{{ finding.remediation_hint }}</dd>
+  </dl>
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">No verified findings. Nothing in the observed negotiations breaches the selected baseline.</p>
+{% endif %}
+
+<h2>Section B &mdash; inferred findings</h2>
+<p class="sub">Estimated from traffic patterns. Every entry states its confidence and is not compliance evidence.</p>
+{% if report.section_b_inferred %}
+{% for finding in report.section_b_inferred %}
+<div class="finding inferred">
+  <h4>
+    <span class="tag inferred">Section B &mdash; inferred</span>
+    <span class="sev-{{ finding.severity.value }}">{{ finding.severity | severity_label }}</span>
+    &middot; {{ finding.rule_id }} &mdash; {{ finding.title }}
+  </h4>
+  <dl>
+    {% if finding.tunnel_id %}<dt>Tunnel</dt><dd class="mono">{{ finding.tunnel_id }}</dd>{% endif %}
+    <dt>Confidence</dt>
+    <dd>
+      {{ '%.2f' | format(finding.confidence.value) }}
+      (method: {{ finding.confidence.method }}{% if finding.confidence.abstained %}, abstained{% endif %})
+    </dd>
+    <dt>Evidence</dt><dd>{{ finding.evidence }}</dd>
+    <dt>Standard</dt><dd>{{ finding.standard_ref }}</dd>
+    <dt>Remediation</dt><dd>{{ finding.remediation_hint }}</dd>
+  </dl>
+</div>
+{% endfor %}
+{% else %}
+<p class="empty">No inferred findings.</p>
+{% endif %}
+
+<h2>Inventory</h2>
+{% if report.inventory.entries %}
+<table>
+  <tr><th>Tunnel</th><th>Endpoints</th><th>Status</th><th>Suite</th><th>Packets</th></tr>
+{% for entry in report.inventory.entries %}
+  <tr>
+    <td class="mono">{{ entry.tunnel_id }}</td>
+    <td class="mono">{{ entry.endpoints[0] }} &harr; {{ entry.endpoints[1] }}</td>
+    <td>{{ entry.status.value }}{% if entry.orphan %} (no negotiation observed){% endif %}</td>
+    <td>{{ entry.negotiated_suite or '&mdash;' }}</td>
+    <td>{{ entry.packet_count }}</td>
+  </tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="empty">No tunnels were observed.</p>
+{% endif %}
+{% if report.inventory.unobserved %}
+<h3>Documented but not observed</h3>
+<ul>
+{% for known in report.inventory.unobserved %}
+  <li class="mono">{{ known.endpoints[0] }} &harr; {{ known.endpoints[1] }}{% if known.name %} ({{ known.name }}){% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<h2>What encryption does not hide</h2>
+<div class="note">{{ report.metadata_exposure.note }}</div>
+{% if report.metadata_exposure.entries %}
+<table>
+  <tr><th>Tunnel</th><th>Endpoints</th><th>Volume</th><th>Sessions</th><th>Active hours</th><th>Inferred application</th></tr>
+{% for entry in report.metadata_exposure.entries %}
+  <tr>
+    <td class="mono">{{ entry.tunnel_id }}</td>
+    <td class="mono">{{ entry.endpoints[0] }} &harr; {{ entry.endpoints[1] }}</td>
+    <td>{{ entry.total_bytes | human_bytes }} in {{ entry.total_packets }} packets</td>
+    <td>{{ entry.session_count }}</td>
+    <td>{{ entry.active_hours | hours_summary }}</td>
+    <td>
+      {% if entry.inferred_traffic %}
+        {{ entry.inferred_traffic }}
+        <span class="tag inferred">inferred {{ '%.2f' | format(entry.inferred_traffic_confidence.value) }}</span>
+      {% else %}
+        <span class="empty">not stated</span>
+      {% endif %}
+    </td>
+  </tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="empty">No tunnels were observed, so there is no exposure to describe.</p>
+{% endif %}
+
+<h2>Threat matrix</h2>
+{% if report.threat_matrix.rows %}
+<table>
+  <tr><th>Technique</th><th>Severity</th><th>Tunnels</th><th>Findings</th><th>Published vulnerabilities</th></tr>
+{% for row in report.threat_matrix.rows %}
+  <tr>
+    <td>{{ row.technique }} &mdash; {{ row.technique_name }}
+      {% if row.includes_inferred %}<span class="tag inferred">includes inferred</span>{% endif %}
+    </td>
+    <td class="sev-{{ row.severity.value }}">{{ row.severity | severity_label }}</td>
+    <td class="mono">{{ row.tunnel_ids | join(', ') }}</td>
+    <td>{{ row.rule_ids | join(', ') }}</td>
+    <td>
+      {% if row.cves %}
+        {% for cve in row.cves %}
+          <div>
+            <strong>{{ cve.cve_id }}</strong> (CVSS {{ cve.cvss_score }})<br>
+            {{ cve.summary }}<br>
+            <em>Scope:</em> {{ cve.scope_note }}<br>
+            <span class="mono">{{ cve.source }}</span>
+          </div>
+        {% endfor %}
+      {% else %}
+        <span class="empty">none catalogued</span>
+      {% endif %}
+    </td>
+  </tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="empty">No findings map to an adversary technique.</p>
+{% endif %}
+{% if report.threat_matrix.uncategorised_rules %}
+<p class="sub">
+  Findings with no ATT&amp;CK technique mapped, listed so the matrix is not read as
+  complete: {{ report.threat_matrix.uncategorised_rules | join(', ') }}.
+</p>
+{% endif %}
+
+<h2>Post-quantum readiness</h2>
+<div class="note">{{ report.pqc.note }}</div>
+{% if report.pqc.entries %}
+<table>
+  <tr><th>Tunnel</th><th>Grade</th><th>Reasoning</th></tr>
+{% for entry in report.pqc.entries %}
+  <tr>
+    <td class="mono">{{ entry.tunnel_id }}</td>
+    <td>{{ entry.grade.value }}</td>
+    <td>{{ entry.rationale }}</td>
+  </tr>
+{% endfor %}
+</table>
+{% else %}
+<p class="empty">No post-quantum assessment was included in this report.</p>
+{% endif %}
+
+<h2>Remediation</h2>
+{% if report.remediation %}
+{% for package in report.remediation %}
+<h3>{{ package.tunnel_id }}</h3>
+<p>
+  Addresses {{ package.findings_addressed | join(', ') }}.
+  Expected disruption {{ package.total_expected_disruption_s }}s.
+  {% if package.requires_maintenance_window %}A maintenance window is required.{% endif %}
+</p>
+<table>
+  <tr><th>Step</th><th>Applies to</th><th>Action</th></tr>
+{% for step in package.sequence %}
+  <tr>
+    <td>{{ step.order }}</td>
+    <td>{{ step.role.value }}</td>
+    <td>{{ step.description }}<br><span class="mono">{{ step.action }}</span></td>
+  </tr>
+{% endfor %}
+</table>
+{% endfor %}
+{% else %}
+<p class="empty">No change packages were included in this report.</p>
+{% endif %}
+
+<footer>
+  <p>
+    Generated by {{ report.metadata.provenance }} against baseline
+    {{ report.metadata.baseline }}. Report schema {{ report.metadata.schema_version }}.
+  </p>
+  <p>
+    This tool reads captured traffic and produces documents. It never writes to a network
+    device and stores no credential. Every configuration it generates is applied by a
+    person who has reviewed it.
+  </p>
+</footer>
+
+</body>
+</html>
