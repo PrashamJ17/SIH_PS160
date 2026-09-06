@@ -131,7 +131,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.6 — automatic fix verification from traffic — commit `3ad23d3`
 - [x] **M8 gate — 7/8 passed, 0 failed, 1 blocked** — tag `v0.9.0-remediation`
 - [x] 9.1 — report model with verified/inferred separation — commit `4ca8cde`
-- [x] 9.2 — report builder — commit `PENDING`
+- [x] 9.2 — report builder — commit `aa41a84`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
