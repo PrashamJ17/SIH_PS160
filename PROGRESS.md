@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.7 — scoring and grading
+**Current step:** 6.8 — ATT&CK and CVE enrichment
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -105,6 +105,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.5 — PQC readiness grading — commit `6093f85`
 - [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `7da6b23`
 - [x] 6.6b — Four additional rules to reach the M6 count of 26 — commit `7853445`
+- [x] 6.7 — Scoring and grading — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
