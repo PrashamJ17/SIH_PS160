@@ -144,7 +144,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.1 — command-line interface — commit `b766978`
 - [x] 10.2 — REST API — commit `fe9d6dd`
 - [x] 10.3 — dashboard, and the classifier wired in — commit `13ef92f`
-- [x] 10.4 — watch mode with drift detection — commit `PENDING`
+- [x] 10.4 — watch mode with drift detection — commit `9c9b490`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
