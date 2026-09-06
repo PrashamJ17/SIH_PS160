@@ -127,6 +127,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.3a — Libreswan generator (syntax-validated) — commit `8cf629c`
 - [x] 8.3b — Cisco, FortiGate, Juniper, Palo Alto generators (syntax-validated) — commit `aa3d1bd`
 - [x] 8.4 — zero-downtime change sequencing (live-verified, 0.00s outage) — commit `126ca33`
+- [x] 8.5 — blast radius assessment — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -562,6 +563,47 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 8.5 — blast radius, and the hours nobody watched
+
+The plan asks for traffic volume, inferred application type, peak usage hours and a
+suggested maintenance window. Three of those are straightforward. The fourth is a trap,
+and most of this step is about not falling into it.
+
+**A short capture cannot locate the quiet time of day.** Almost every capture in the
+corpus spans tens of seconds. Bucketing those bytes into a 24-hour histogram leaves 23
+hours holding zero — and the quietest window is then, confidently, whichever part of the
+day nobody watched. `TrafficProfile` therefore records `observed_hours` separately from
+`bytes_by_hour`, `suggest_window` considers only observed hours and only contiguous
+stretches of them, and returns `None` with a stated reason when fewer than six hours were
+seen. Every window that *is* offered carries a `Confidence` whose method reads
+`fraction_of_daily_cycle_observed`, so the number cannot be mistaken for a calibrated
+probability from the model lane.
+
+Three related refusals, each with a test:
+
+- **`ChangeRisk.NONE` is never reported.** A tunnel that carried nothing during the
+  capture is not a tunnel that carries nothing.
+- **An abstaining classifier is not a negative.** `realtime_traffic` returns `None` on
+  abstention, and the caller treats that as "unknown", not "not VoIP". Reading an
+  abstention as a green light would make every uncertain tunnel look safe.
+- **No observation is declared, not assumed benign.** A package generated without a
+  traffic observation says so in the operator's own document: *"the timing advice below
+  rests on nothing measured. Treat it as a floor, not a verdict."*
+
+Volume is judged as a **sustained rate**, not a total — a megabyte in ten seconds and a
+megabyte in an hour are not the same tunnel. VoIP and video force a window regardless of
+volume, because one call is not much traffic and is still noticed when it breaks.
+
+### A stale number the wiring exposed
+
+Wiring `blast.py` into the strongSwan generator replaced a hand-written
+`estimated_disruption_s=5`. Step 8.4 had just measured **0.00s** on a live pair, so the
+package was contradicting its own evidence — and its own step list, every entry of which
+declares zero. The figure is now summed from the sequence rather than asserted, and a
+test pins it to what was measured.
 
 ---
 

@@ -23,14 +23,15 @@ not a finding.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Final
 
+from ipsec_sentinel.models import TunnelAssessment
+from ipsec_sentinel.remediate.blast import assess_blast_radius
 from ipsec_sentinel.remediate.models import (
-    BlastRadius,
     ChangePackage,
-    ChangeRisk,
     ChangeStep,
     ConfigRole,
     DeviceConfig,
@@ -187,14 +188,39 @@ def _steps(current: TunnelConfig, target: TunnelConfig, aggressive_psk: bool) ->
     return [rotation, *(step.model_copy(update={"order": step.order + 1}) for step in steps)]
 
 
+def _unobserved(tunnel_id: str, local_hint: str, peer_hint: str) -> TunnelAssessment:
+    """A tunnel about which nothing was observed.
+
+    Carries no ESP flows and no inference, so every estimate derived from it comes back
+    as "not enough evidence" rather than as a favourable answer. The score and grade are
+    required by the model and are not read by the blast assessment.
+    """
+    return TunnelAssessment(
+        tunnel_id=tunnel_id,
+        endpoints=(local_hint, peer_hint),
+        esp_flows=[],
+        score=0,
+        grade="F",
+    )
+
+
 def generate_change_package(
     tunnel_id: str,
     config: TunnelConfig,
     findings_addressed: list[str],
     local_hint: str = "local gateway",
     peer_hint: str = "peer gateway",
+    *,
+    observed: TunnelAssessment | None = None,
+    sibling_tunnels: Sequence[str] = (),
 ) -> ChangePackage:
-    """Produce a both-ends change package correcting ``config``."""
+    """Produce a both-ends change package correcting ``config``.
+
+    ``observed`` supplies what the capture saw of this tunnel, which is what decides
+    the blast radius and whether the change needs scheduling. Without it the package
+    still generates, but it says plainly that the timing advice rests on no observation
+    rather than quietly reporting a tunnel as safe to change now.
+    """
     if not findings_addressed:
         raise GenerationError(
             "a change package must name the findings it addresses; one that changes "
@@ -218,6 +244,23 @@ def generate_change_package(
             + " — these need a change this generator cannot make."
         )
 
+    steps = _steps(config, corrected, aggressive_psk)
+    blast = assess_blast_radius(
+        observed or _unobserved(tunnel_id, local_hint, peer_hint),
+        # A pre-shared key rotation interrupts the tunnel by construction, so it needs
+        # a window however quiet the tunnel looks.
+        disruptive_change=aggressive_psk,
+        sibling_tunnels=sibling_tunnels,
+        estimated_disruption_s=sum(step.expected_disruption_s for step in steps),
+    )
+    if observed is None:
+        blast.radius.notes.insert(
+            0,
+            "No traffic observation was supplied for this tunnel, so the timing advice "
+            "below rests on nothing measured. Treat it as a floor, not a verdict.",
+        )
+    notes.extend(f"Blast radius: {reason}" for reason in blast.reasons)
+
     return ChangePackage(
         tunnel_id=tunnel_id,
         findings_addressed=findings_addressed,
@@ -237,7 +280,7 @@ def generate_change_package(
             content=render_swanctl_conf(corrected, "right"),
             notes=list(notes),
         ),
-        sequence=_steps(config, corrected, aggressive_psk),
+        sequence=steps,
         verification=[
             "`swanctl --list-sas` reports the child SA as INSTALLED on both ends",
             f"the negotiated proposal reads {corrected.proposal_string()}",
@@ -249,17 +292,7 @@ def generate_change_package(
             "Run `swanctl --load-all` on both ends",
             "Re-initiate the tunnel and confirm the old SA installs",
         ],
-        blast_radius=BlastRadius(
-            risk=ChangeRisk.SINGLE_TUNNEL,
-            tunnels_affected=1,
-            peers_requiring_coordination=[peer_hint],
-            estimated_disruption_s=5,
-            notes=[
-                "The peer must be changed in the same window. A proposal changed at one "
-                "end only does not degrade — it stops the tunnel establishing at the "
-                "next rekey.",
-            ],
-        ),
-        requires_maintenance_window=aggressive_psk,
+        blast_radius=blast.radius,
+        requires_maintenance_window=blast.requires_maintenance_window,
         generated_at=datetime.now(UTC),
     )
