@@ -149,6 +149,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M10 gate — 8/8 passed, 0 failed** — tag `v0.11.0-interfaces`
 - [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `5aa3e14`
 - [x] 11.1 — end-to-end integration test — commit `e846f8e`
+- [x] 11.2 — performance benchmarks — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -584,6 +585,47 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.2 — every target met, with the memory one the only interesting number
+
+| Target | Measured | Margin |
+|---|---|---|
+| Parse 100 MB PCAP under 60 s | **0.5 s** | 120x |
+| Analyse 1000 tunnels under 120 s | **0.1 s** | 1200x |
+| ML prediction per flow under 50 ms | **5.5 ms** | 9x |
+| Report generation under 10 s | **0.1 s** (3.8 MB HTML) | 100x |
+| Memory on 1 GB PCAP under 4 GB | **0.40 GB** | 10x |
+
+Nothing needed optimising. The margins are wide enough that the honest reading is "this
+workload is small for the machine", not "this code is fast".
+
+**The memory figure is the one that says something.** A gigabyte parsed at 0.40 GB peak
+resident — ten times the file for less than half the memory — is the parser streaming
+rather than loading. A second assertion pins that directly: memory must stay under 2 GB,
+so a future change that reads the file into a list fails the test rather than merely
+slowing it down.
+
+Measured as a **child process's peak RSS**, because `tracemalloc` counts Python
+allocations and would miss everything scapy does underneath. Peak RSS is the number that
+gets a process killed, so it is the number the target is about.
+
+### Two fixtures that would have measured nothing
+
+The 100 MB capture is built by repeating a **corpus** capture's records, not synthesised,
+so the parser meets the packet shapes it will actually meet — the first attempt used a
+capture with no handshake in it and exercised the ESP path alone.
+
+The thousand-tunnel capture needed a distinct **initiator SPI** per tunnel as well as
+distinct endpoints. Negotiations are grouped by initiator SPI, so the first version —
+1000 frames sharing one SPI — collapsed to a single tunnel and the benchmark reported
+0.1 s for analysing one thing. Both fixtures now assert their own shape before timing
+anything.
+
+A sixth benchmark is not on the plan's list: SHAP explanation latency, at 50 ms. The
+dashboard requests one on every tunnel click, and an explanation nobody waits for is an
+explanation nobody sees.
 
 ---
 
