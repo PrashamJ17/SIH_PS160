@@ -1,8 +1,8 @@
 # Build Progress
 
 **Last updated:** 2026-09-05
-**Current phase:** 7 — Feature extraction and ML
-**Current step:** M7 tag, then Phase 8 — remediation
+**Current phase:** 8 — Remediation
+**Current step:** 8.2 — strongSwan config generator
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -121,7 +121,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.9 — SHAP explanations — commit `26bb49a`
 - [x] 7.10 — Confound audit — commit `ea79e59`
 - [x] **▶ MILESTONE M7 PASSED** — tag `v0.8.0-ml` (10/10)
-- [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
+### Phase 8 — Remediation (6 steps → `v0.9.0-remediation`) ← **CURRENT**
+- [x] 8.1 — Change package model with both-ends enforcement — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
