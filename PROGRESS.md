@@ -110,7 +110,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.9 — Configuration anomaly detection — commit `5f42efd`
 - [ ] **▶ MILESTONE M6** — tag `v0.7.0-assessment`
 ### Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`) ← **CURRENT**
-- [x] 7.1 — Flow feature extractor (42 features) — commit `PENDING`
+- [x] 7.1 — Flow feature extractor (42 features) — commit `36d8609`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
