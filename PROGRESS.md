@@ -119,7 +119,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.7 — Confidence calibration — commit `8d20cd8`
 - [x] 7.8 — Prediction abstention — commit `57876e7`
 - [x] 7.9 — SHAP explanations — commit `26bb49a`
-- [x] 7.10 — Confound audit — commit `PENDING`
+- [x] 7.10 — Confound audit — commit `ea79e59`
 - [ ] **▶ MILESTONE M7** — tag `v0.8.0-ml`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
