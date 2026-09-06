@@ -103,7 +103,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.3 — IKE configuration rules (IKE-01..IKE-04) — commit `2ed66f2`
 - [x] 6.4 — Forward secrecy and SA rules (PFS-01..SA-04) — commit `635355c`
 - [x] 6.5 — PQC readiness grading — commit `6093f85`
-- [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `PENDING`
+- [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `7da6b23`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
