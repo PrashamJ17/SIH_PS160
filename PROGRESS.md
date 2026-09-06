@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.3 — IKE configuration rules (IKE-01..IKE-04)
+**Current step:** 6.4 — forward secrecy and SA rules
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -100,6 +100,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 6 — Assessment engine (9 steps → `v0.7.0-assessment`) ← **CURRENT**
 - [x] 6.1 — Rule framework — commit `d67658f`
 - [x] 6.2 — Cryptographic strength rules (CRY-01..CRY-10) — commit `a547da4`
+- [x] 6.3 — IKE configuration rules (IKE-01..IKE-04) — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)

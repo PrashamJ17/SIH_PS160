@@ -114,6 +114,14 @@ class IKEExchange(BaseModel):
     proposals_offered: list[Proposal] = Field(default_factory=list)
     proposal_accepted: Proposal | None = None
     ke_group_from_length: int | None = None
+    auth_methods: list[str] = Field(default_factory=list)
+    """Authentication methods offered, read from IKEv1 phase 1 SA attributes.
+
+    A list rather than a single value because a peer may offer several, and the
+    weakest one it will accept is what matters. Empty for IKEv2, where the
+    authentication method is carried in the encrypted AUTH payload and is not
+    visible to a passive observer — absent, not none.
+    """
     vendor_ids: list[str] = Field(default_factory=list)
     notifies: list[str] = Field(default_factory=list)
     timestamp: datetime

@@ -106,6 +106,7 @@ def _exchange_from(datagram: IKEDatagram) -> IKEExchange:
         is_aggressive=message.is_aggressive,
         proposals_offered=message.proposals,
         ke_group_from_length=message.ke_group_from_length,
+        auth_methods=message.auth_methods,
         vendor_ids=message.vendor_ids,
         notifies=message.notifies,
         timestamp=datagram.timestamp,

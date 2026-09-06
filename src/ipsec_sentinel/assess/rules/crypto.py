@@ -316,6 +316,21 @@ CRY_10 = ProposalRule(
     baselines=[BASELINE_STRICT],
 )
 
+
+def weaknesses_in(proposal: Proposal) -> list[str]:
+    """Every CRY-level weakness in one proposal, named.
+
+    Shared with the IKE rules so that "a weaker proposal was offered" and the CRY
+    findings can never disagree about what counts as weak. Two independent notions of
+    weakness in one report is a defect an auditor finds immediately.
+    """
+    found: list[str] = []
+    for rule in (CRY_01, CRY_02, CRY_03, CRY_04, CRY_05, CRY_06, CRY_07, CRY_09):
+        found.extend(rule.match(proposal))
+    found.extend(_match_cbc_without_integrity(proposal))
+    return found
+
+
 CRYPTO_RULES: list[ProposalRule] = [
     CRY_01,
     CRY_02,
