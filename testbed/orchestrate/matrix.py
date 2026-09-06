@@ -173,9 +173,11 @@ def expand_matrix(path: Path | None = None) -> list[LabelledConfig]:
     ikev2_only: list[str] = constraints.get("ikev2_only_dh_groups", [])
     ikev2_only_encryptions: list[str] = constraints.get("ikev2_only_encryptions", [])
     if constraints.get("tunnel_mode_only"):
-        # Transport mode protects the gateways, not hosts behind them; this topology
-        # drives traffic host-to-host, which transport mode cannot carry.
+        # Kept as a per-matrix switch rather than a global rule: the transport matrix
+        # turns it off, and this one leaves it on so its configuration IDs are stable.
         modes = [m for m in modes if m == "tunnel"] or ["tunnel"]
+    if constraints.get("transport_mode_only"):
+        modes = [m for m in modes if m == "transport"] or ["transport"]
     target: int = int(sampling["target_count"])
 
     selected: list[LabelledConfig] = []

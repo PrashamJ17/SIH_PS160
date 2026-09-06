@@ -11,7 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstrongswan-standard-plugins libstrongswan-extra-plugins \
     libcharon-extra-plugins \
     iproute2 iputils-ping tcpdump iperf3 curl \
+    python3-minimal tcpreplay \
     && rm -rf /var/lib/apt/lists/*
+
+# Transport mode protects the peers themselves, so its traffic must originate on the
+# gateway rather than on a host behind it. That makes the gateway a traffic source as
+# well as an IPsec endpoint, and it needs the same tools the traffic image carries:
+# python3 for the RTP endpoint, tcpreplay for corpus replay. Without them a transport
+# cell establishes its SA and then fails at generation, which is how the first attempt
+# produced "generator setup failed" on two of every three cells.
+COPY scripts/ /opt/sentinel/
+RUN chmod +x /opt/sentinel/*.py 2>/dev/null || true
 
 # strongSwan refuses IKEv1 Aggressive Mode with a pre-shared key unless this option
 # is set, and named it to make the refusal impossible to misread. It is right: the

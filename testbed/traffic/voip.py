@@ -111,7 +111,7 @@ class VoipGenerator:
         # them sequentially would make the first half of the capture one-directional.
         right = subprocess.Popen(
             self._endpoint_argv(
-                ctx.right_host, ctx.left_host_ip, RIGHT_PORT, LEFT_PORT, duration_s
+                ctx.target_container, ctx.source_ip, RIGHT_PORT, LEFT_PORT, duration_s
             ),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -119,7 +119,7 @@ class VoipGenerator:
         )
         left = subprocess.Popen(
             self._endpoint_argv(
-                ctx.left_host, ctx.right_host_ip, LEFT_PORT, RIGHT_PORT, duration_s
+                ctx.source_container, ctx.target_ip, LEFT_PORT, RIGHT_PORT, duration_s
             ),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

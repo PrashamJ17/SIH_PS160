@@ -26,9 +26,22 @@ from pydantic import BaseModel, Field, model_validator
 class RunContext:
     """Everything a generator needs to know about the pair it runs against.
 
-    Generators drive the **hosts**, not the gateways: traffic a gateway originates
-    never crosses its own protected interface and so is invisible to the inner tap,
-    which would leave every flow labelled from half a conversation.
+    **In tunnel mode, generators drive the hosts, not the gateways.** Traffic a gateway
+    originates never crosses its own protected interface, so it would be invisible to
+    the inner tap and every flow would be labelled from half a conversation.
+
+    **In transport mode the opposite is required**, and that is why the two modes need
+    different endpoints rather than a single topology. Transport mode protects traffic
+    between the IPsec peers *themselves*; host-to-host traffic is merely routed by them
+    and travels unprotected, which is exactly how the first attempt produced cells with
+    a healthy SA and zero ESP. :attr:`source_container` and :attr:`target_ip` resolve to
+    the right endpoints for the mode, so a generator does not have to know which mode it
+    is running under.
+
+    The inner capture is near-empty for transport mode, and that is correct rather than
+    a defect: there is no cleartext interface to tap, because the kernel encrypts on
+    egress from the same interface. Labels come from the manifest's recorded generator,
+    never from the inner capture, so nothing depends on it.
     """
 
     project: str
@@ -39,6 +52,11 @@ class RunContext:
     left_host_ip: str
     right_host_ip: str
     out_dir: Path
+    mode: str = "tunnel"
+    """Which IPsec mode this cell runs, because it decides the traffic endpoints."""
+    left_transit_ip: str = "10.100.0.2"
+    right_transit_ip: str = "10.100.0.3"
+    """The peers' own addresses on the transit link — the endpoints transport protects."""
 
     # Sidecar addresses travel with the context rather than living as module constants
     # in each generator, because the sweep runs several pairs concurrently and each
@@ -50,6 +68,28 @@ class RunContext:
     web_origin_ip: str = "10.2.0.21"
     mail_origin_ip: str = "10.2.0.22"
     xmpp_origin_ip: str = "10.2.0.23"
+
+    @property
+    def is_transport(self) -> bool:
+        return self.mode == "transport"
+
+    @property
+    def source_container(self) -> str:
+        """Where a generator should run: the host behind the gateway, or the gateway."""
+        return self.left_gateway if self.is_transport else self.left_host
+
+    @property
+    def target_container(self) -> str:
+        return self.right_gateway if self.is_transport else self.right_host
+
+    @property
+    def target_ip(self) -> str:
+        """What a generator should address, so the traffic is actually protected."""
+        return self.right_transit_ip if self.is_transport else self.right_host_ip
+
+    @property
+    def source_ip(self) -> str:
+        return self.left_transit_ip if self.is_transport else self.left_host_ip
 
 
 class GenerationResult(BaseModel):

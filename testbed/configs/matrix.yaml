@@ -35,10 +35,11 @@ constraints:
   # IKEv1 (RFC 2409) predates AEAD and cannot negotiate a combined-mode cipher for
   # the IKE SA. Pairing them produces a cell that never establishes.
   ikev2_only_encryptions: [aes256gcm16, aes128gcm16]
-  # Transport mode protects the gateways themselves, not hosts behind them. This
-  # topology drives traffic host-to-host, which transport mode cannot carry: the
-  # tunnel comes up and the traffic routes around it unprotected. Capturing transport
-  # mode properly needs a host-to-host topology, which is recorded as future work.
+  # This matrix stays tunnel-only, and deliberately so. Sampling transport into it
+  # would renumber the configuration set and orphan 15 of the 36 configurations the
+  # M3-verified corpus was built from. Transport coverage is additive instead:
+  # `matrix_transport.yaml` holds it, and its cells land in the same sweep directory
+  # under their own configuration IDs.
   tunnel_mode_only: true
 
 sampling:

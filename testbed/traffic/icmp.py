@@ -70,7 +70,7 @@ class IcmpGenerator:
             [
                 "docker",
                 "exec",
-                self._ctx.left_host,
+                self._ctx.source_container,
                 "ping",
                 "-c",
                 str(count),
@@ -80,7 +80,7 @@ class IcmpGenerator:
                 str(self.variant.payload_bytes),
                 "-W",
                 "5",
-                self._ctx.right_host_ip,
+                self._ctx.target_ip,
             ],
             capture_output=True,
             text=True,

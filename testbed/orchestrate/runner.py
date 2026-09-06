@@ -267,6 +267,11 @@ def run_cell(
             right_host_ip=right_host_ip,
             left_protected_ip=left_protected,
             out_dir=out_dir,
+            # Transport mode protects the peers themselves, so a generator running
+            # under it must address the gateways rather than the hosts behind them.
+            mode=cell.config.mode,
+            left_transit_ip=left_transit,
+            right_transit_ip=right_transit,
             video_origin_ip=getattr(addresses, "video_origin", "10.2.0.20"),
             web_origin_ip=getattr(addresses, "web_origin", "10.2.0.21"),
             mail_origin_ip=getattr(addresses, "mail_origin", "10.2.0.22"),

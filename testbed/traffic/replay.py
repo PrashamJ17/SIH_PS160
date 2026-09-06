@@ -120,9 +120,14 @@ class ReplayGenerator:
         nowhere and the cell looks empty.
         """
         assert self.source_pcap is not None
-        self._exec(ctx.left_host, "mkdir", "-p", REPLAY_DIR)
+        self._exec(ctx.source_container, "mkdir", "-p", REPLAY_DIR)
         copied = subprocess.run(
-            ["docker", "cp", str(self.source_pcap), f"{ctx.left_host}:{REPLAY_DIR}/source.pcap"],
+            [
+                "docker",
+                "cp",
+                str(self.source_pcap),
+                f"{ctx.source_container}:{REPLAY_DIR}/source.pcap",
+            ],
             capture_output=True,
             text=True,
             timeout=300,
@@ -131,16 +136,16 @@ class ReplayGenerator:
         if copied.returncode != 0:
             raise RuntimeError(f"could not copy the replay source in: {copied.stderr.strip()}")
 
-        src_mac = self._mac_of(ctx.left_host, ctx.left_host_ip)
+        src_mac = self._mac_of(ctx.source_container, ctx.source_ip)
         gw_mac = self._mac_of(ctx.left_gateway, ctx.left_protected_ip)
 
         rewrite = self._exec(
-            ctx.left_host,
+            ctx.source_container,
             "tcprewrite",
             f"--infile={REPLAY_DIR}/source.pcap",
             f"--outfile={REPLAY_DIR}/rewritten.pcap",
-            f"--srcipmap=0.0.0.0/0:{ctx.left_host_ip}/32",
-            f"--dstipmap=0.0.0.0/0:{ctx.right_host_ip}/32",
+            f"--srcipmap=0.0.0.0/0:{ctx.source_ip}/32",
+            f"--dstipmap=0.0.0.0/0:{ctx.target_ip}/32",
             f"--enet-smac={src_mac}",
             f"--enet-dmac={gw_mac}",
             "--fixcsum",
@@ -149,7 +154,7 @@ class ReplayGenerator:
             raise RuntimeError(f"tcprewrite failed: {rewrite.stderr.strip()[:300]}")
 
         counted = self._exec(
-            ctx.left_host,
+            ctx.source_container,
             "sh",
             "-c",
             f"tcpdump -r {REPLAY_DIR}/rewritten.pcap -n 2>/dev/null | wc -l",
@@ -162,17 +167,17 @@ class ReplayGenerator:
         ctx = self._ctx
 
         interface = self._exec(
-            ctx.left_host,
+            ctx.source_container,
             "sh",
             "-c",
-            f"ip -o -4 addr show | awk '$4 ~ /^{ctx.left_host_ip}\\// {{print $2}}' | head -1",
+            f"ip -o -4 addr show | awk '$4 ~ /^{ctx.source_ip}\\// {{print $2}}' | head -1",
         ).stdout.strip()
         if not interface:
-            raise RuntimeError(f"no interface in the left host holds {ctx.left_host_ip}")
+            raise RuntimeError(f"no interface on {ctx.source_container} holds {ctx.source_ip}")
 
         started = datetime.now(UTC)
         completed = self._exec(
-            ctx.left_host,
+            ctx.source_container,
             "tcpreplay",
             f"--intf1={interface}",
             f"--mbps={self.rate_mbps}",

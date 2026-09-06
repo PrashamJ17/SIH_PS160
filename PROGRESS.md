@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** M7 gate — ML lane complete
+**Current step:** M7 10/10 — transport sweep, then mode inference
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -506,6 +506,62 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Closing the M7 mode-inference gap: transport mode captured
+
+The blocked M7 item needed transport-mode cells with real ESP. They now exist, and the
+route there is worth recording because two of the three obstacles were invisible from
+the outside.
+
+### Why the first attempt produced zero ESP
+
+Transport mode protects the IPsec **peers themselves**. The testbed drove traffic
+host-to-host, which the peers merely *route* — so the SA established, the traffic went
+around it unprotected, and the runner's ESP guard correctly rejected every cell. The fix
+is `RunContext.source_container` / `target_ip`, which resolve to the hosts in tunnel mode
+and to the gateways in transport mode, so a generator never has to know which mode it is
+running under.
+
+### Two obstacles the fix exposed
+
+**The gateway image was not a traffic source.** It carried `ping` but not `python3` or
+`tcpreplay`, so voip and replay failed at setup the moment they were asked to run on a
+gateway. Transport mode makes the gateway both an IPsec endpoint and a traffic origin,
+and the image now carries the tools and the sidecar scripts to match.
+
+**`replay` cannot work in transport mode at all, and this is not a bug.** `tcpreplay`
+injects raw frames at layer 2, which bypasses the kernel's XFRM output path — so on a
+gateway they leave the interface unencrypted whatever policy is installed. In tunnel
+mode it works because the *host* injects and the gateway encapsulates the frames as
+forwarded traffic; in transport mode the gateway is both injector and encryptor, and the
+injection sidesteps the encryption. The ESP guard catches it every time. `replay` is
+therefore excluded from the transport generator set with that reasoning recorded in the
+code, not silently dropped.
+
+### The corpus was preserved, deliberately
+
+Sampling transport into the main matrix renumbered the configuration set and **orphaned
+15 of the 36 configurations the M3-verified corpus was built from** — measured before it
+was committed. Transport coverage is additive instead: `matrix_transport.yaml` holds it,
+mode is part of a configuration ID so the two sets are disjoint by construction, and a
+test asserts every corpus configuration still belongs to one matrix or the other.
+
+### The signal is real
+
+Same cipher (aes128/sha256), same generator, both modes:
+
+| Mode | Minimum ESP packet |
+|---|---|
+| Tunnel | **156 bytes** |
+| Transport | **140 bytes** |
+
+A 16-byte difference — the inner IP header tunnel mode adds, rounded by AES-CBC's block
+padding. Note that it is only visible *relative to the cipher*: across ciphers, sizes
+range 136–164 for the same traffic, so cipher overhead swamps the mode offset. That has
+a direct consequence for `docs/BASELINES.md`, whose heuristic compares against absolute
+floors of 82 and 102 bytes — figures no real ESP packet in this corpus comes near.
 
 ---
 
