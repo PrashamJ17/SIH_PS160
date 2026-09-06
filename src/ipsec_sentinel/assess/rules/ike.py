@@ -182,7 +182,9 @@ IKE_04 = WeakProposalOffered(
     title="A weaker proposal was offered but not selected",
     severity=Severity.MEDIUM,
     standard_ref="NIST SP 800-77 Rev. 1 section 5.1",
-    attack_technique="T1562.010",
+    # T1562.010 was revoked in the 2026-04 ATT&CK release; T1689 is the live
+    # replacement. A finding citing a revoked technique renders as a dead link.
+    attack_technique="T1689",
     remediation_hint=(
         "Remove the weaker proposals from the configuration. What a gateway advertises "
         "is what it will accept, and a peer offering only the weak option will get it."

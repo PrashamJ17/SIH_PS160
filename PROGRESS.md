@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.8 — ATT&CK and CVE enrichment
+**Current step:** 6.9 — configuration anomaly detection
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -106,6 +106,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `7da6b23`
 - [x] 6.6b — Four additional rules to reach the M6 count of 26 — commit `7853445`
 - [x] 6.7 — Scoring and grading — commit `6a953b1`
+- [x] 6.8 — ATT&CK and CVE enrichment — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
@@ -492,6 +493,27 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Step 6.8 — a stale ATT&CK citation, caught by a test
+
+A test asserting *every technique a rule cites resolves in the catalogue* failed on
+IKE-04, which cited **T1562.010**.
+
+The bundle marks T1562 ("Impair Defenses") and T1562.010 ("Downgrade Attack") as
+`revoked: true`, modified 2026-04-14. The index deliberately excludes revoked
+techniques — a finding citing one renders as a dead link and points an analyst at a
+page that says the technique no longer exists. **T1689 "Downgrade Attack"** is the live
+replacement, and IKE-04 now cites it.
+
+Worth noting because the error was invisible without the catalogue: T1562.010 was a
+correct citation when written, and nothing in the code or a review would have caught
+that it had since been revoked. The test does, and it will catch the next one on the
+next ATT&CK release.
+
+Of 858 attack-patterns in the bundle, 149 are revoked; the index holds the 709 live
+ones.
 
 ---
 
