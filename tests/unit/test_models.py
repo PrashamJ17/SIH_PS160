@@ -300,7 +300,40 @@ class TestTransform:
         assert aes128 != aes256
 
     def test_transform_type_values(self) -> None:
-        assert {t.value for t in TransformType} == {"ENCR", "PRF", "INTEG", "DH", "ESN"}
+        """RFC 7296's five families plus RFC 9370's seven additional key exchanges.
+
+        The ADDKE slots are what carries a hybrid post-quantum handshake: a classical
+        group in the DH transform and a KEM alongside it. Without them a hybrid
+        proposal parses as unknown transform types and post-quantum readiness is
+        undetectable.
+        """
+        assert {t.value for t in TransformType} == {
+            "ENCR",
+            "PRF",
+            "INTEG",
+            "DH",
+            "ESN",
+            "ADDKE1",
+            "ADDKE2",
+            "ADDKE3",
+            "ADDKE4",
+            "ADDKE5",
+            "ADDKE6",
+            "ADDKE7",
+        }
+
+    def test_only_the_addke_families_are_additional_key_exchanges(self) -> None:
+        additional = {t for t in TransformType if t.is_additional_key_exchange}
+        assert additional == {
+            TransformType.ADDKE1,
+            TransformType.ADDKE2,
+            TransformType.ADDKE3,
+            TransformType.ADDKE4,
+            TransformType.ADDKE5,
+            TransformType.ADDKE6,
+            TransformType.ADDKE7,
+        }
+        assert TransformType.DH not in additional
 
 
 class TestESPFlow:

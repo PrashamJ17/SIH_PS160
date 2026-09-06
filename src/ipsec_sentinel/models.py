@@ -49,13 +49,33 @@ _SEVERITY_RANK: Final[dict[Severity, int]] = {
 
 
 class TransformType(StrEnum):
-    """The five negotiable transform families in an IKE proposal."""
+    """The negotiable transform families in an IKE proposal.
+
+    The first five are RFC 7296's original set. ADDKE1 through ADDKE7 are the
+    additional key exchanges added by RFC 9370, which is how a hybrid post-quantum
+    handshake is carried: a classical group in the DH transform and a post-quantum
+    KEM alongside it, so the exchange is at least as strong as the better of the two.
+    Recognising them is what makes post-quantum readiness detectable at all — parsed
+    as unknown types they would be kept but unnameable.
+    """
 
     ENCR = "ENCR"
     PRF = "PRF"
     INTEG = "INTEG"
     DH = "DH"
     ESN = "ESN"
+    ADDKE1 = "ADDKE1"
+    ADDKE2 = "ADDKE2"
+    ADDKE3 = "ADDKE3"
+    ADDKE4 = "ADDKE4"
+    ADDKE5 = "ADDKE5"
+    ADDKE6 = "ADDKE6"
+    ADDKE7 = "ADDKE7"
+
+    @property
+    def is_additional_key_exchange(self) -> bool:
+        """True for the RFC 9370 additional key exchange families."""
+        return self.value.startswith("ADDKE")
 
 
 class Confidence(BaseModel):

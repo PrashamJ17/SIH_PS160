@@ -75,7 +75,25 @@ IKEV1_PAYLOAD_TYPES: Final[dict[int, str]] = {
     131: "NAT-OA",
 }
 
-TRANSFORM_TYPES: Final[dict[int, str]] = {1: "ENCR", 2: "PRF", 3: "INTEG", 4: "DH", 5: "ESN"}
+# Types 6-12 are RFC 9370's additional key exchanges, the transport for a hybrid
+# post-quantum handshake. Without them a hybrid proposal parses as seven unknown
+# transform types and post-quantum readiness cannot be detected at all.
+TRANSFORM_TYPES: Final[dict[int, str]] = {
+    1: "ENCR",
+    2: "PRF",
+    3: "INTEG",
+    4: "DH",
+    5: "ESN",
+    6: "ADDKE1",
+    7: "ADDKE2",
+    8: "ADDKE3",
+    9: "ADDKE4",
+    10: "ADDKE5",
+    11: "ADDKE6",
+    12: "ADDKE7",
+}
+
+ADDITIONAL_KE_TYPES: Final[frozenset[int]] = frozenset(range(6, 13))
 
 ENCR_ALGORITHMS: Final[dict[int, str]] = {
     1: "ENCR_DES_IV64",
@@ -139,7 +157,17 @@ DH_GROUPS: Final[dict[int, tuple[str, int]]] = {
     20: ("384-bit ECP", 384),
     21: ("521-bit ECP", 521),
     31: ("Curve25519", 256),
+    # ML-KEM (FIPS 203), IANA IKEv2 Transform Type 4 registry. The bit figure is the
+    # NIST category expressed as a classical-equivalent strength, not a key size:
+    # these are lattice KEMs and have no Diffie-Hellman modulus to measure.
+    35: ("ML-KEM-512", 128),
+    36: ("ML-KEM-768", 192),
+    37: ("ML-KEM-1024", 256),
 }
+
+# Groups whose security does not rest on the discrete logarithm or elliptic curve
+# problems, and so is not broken by Shor's algorithm.
+POST_QUANTUM_GROUPS: Final[frozenset[int]] = frozenset({35, 36, 37})
 
 # Length in bytes of the KE payload's public value -> the DH groups that produce it.
 #
@@ -175,7 +203,15 @@ NOTIFY_TYPES: Final[dict[int, str]] = {
     16391: "NAT_DETECTION_DESTINATION_IP",
     16395: "COOKIE",
     16406: "REDIRECT",
+    # RFC 8784: mixing a post-quantum pre-shared key into the key derivation. Not a
+    # post-quantum key exchange, but it does defeat harvest-now-decrypt-later for
+    # peers that already share a secret out of band.
+    16435: "USE_PPK",
+    16436: "PPK_IDENTITY",
+    16437: "NO_PPK_AUTH",
 }
+
+NOTIFY_USE_PPK: Final = 16435
 
 _ALGORITHM_TABLES: Final[dict[str, dict[int, str]]] = {
     TransformType.ENCR.value: ENCR_ALGORITHMS,
@@ -217,7 +253,9 @@ def resolve_transform_name(transform_type: TransformType | int, transform_id: in
     if type_name is None:
         return f"UNKNOWN_TRANSFORM_TYPE_{transform_type}_{transform_id}"
 
-    if type_name == TransformType.DH.value:
+    # Additional key exchanges carry group IDs from the same registry as DH, which is
+    # the whole point of RFC 9370: one group space, several slots to put groups in.
+    if type_name == TransformType.DH.value or type_name.startswith("ADDKE"):
         return dh_group_name(transform_id)
 
     table = _ALGORITHM_TABLES.get(type_name, {})
