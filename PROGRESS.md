@@ -150,7 +150,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.1a — **fix: 3DES was undetectable over IKEv1** — commit `5aa3e14`
 - [x] 11.1 — end-to-end integration test — commit `e846f8e`
 - [x] 11.2 — performance benchmarks — commit `f084504`
-- [x] 11.3 — security review of the tool itself — commit `a6bd314`
+- [x] 11.3 — security review of the tool itself — commit `183312b`
+- [x] 11.4 — offline and air-gapped operation — commit `45c6eea`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -586,6 +587,60 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.4 — air-gapped operation, and the silence that would have been a lie
+
+The pipeline running with no network was the easy half; it already did. The half worth
+building was the report **saying** that it ran that way.
+
+### The defect the step existed to find
+
+Enrichment reads two local corpora: a MITRE ATT&CK index and a CVE cache. Both degrade to
+an empty result when absent, deliberately — a report that refuses to render because a
+reference corpus is missing is useless on exactly the hosts this tool is for.
+
+But a report with no ATT&CK technique names and no vendor CVEs is **the same shape as a
+report where nothing matched**. On an air-gapped host the corpora are usually absent, so
+the tool's most common deployment was the one where a degraded run read as a clean bill of
+health. Nothing was wrong with the code; the output was missing a sentence.
+
+`CorpusStatus` now counts what enrichment had, `ReportMetadata.enrichment` carries it into
+every report, and a degraded run renders:
+
+> Enrichment ran with reduced reference data: ATT&CK technique names are unavailable — the
+> MITRE bundle is not present on this host…; vendor CVE enrichment is unavailable — no
+> local CVE cache was found… The protocol CVEs in the threat matrix are built in and
+> unaffected, and every finding in this report was produced without them.
+
+The last clause is the one that matters. The threat matrix's CVEs are compiled into the
+source, so an air-gapped report is not CVE-free — and no finding depends on enrichment at
+all. Without saying so the note would overstate the damage in the other direction, which
+is its own kind of dishonesty.
+
+Schema bumped **1.1 → 1.2**; `schemas/report-1.2.schema.json` published, with 1.0 and 1.1
+kept, because these models forbid unknown fields and a consumer pinned to 1.1 would reject
+the new payload.
+
+### The fixture is stricter than pulling the cable
+
+`socket.socket`, `create_connection`, `getaddrinfo` **and** `gethostbyname` are all
+replaced with functions that raise. A DNS lookup therefore fails here even where a
+resolver would answer — and a lookup is itself a disclosure of what is being analysed, so
+it should fail.
+
+Two tests exist only to prove the fixture bites. Without them, an air-gap test that
+silently stopped air-gapping would keep passing forever.
+
+### The comparison that states the actual claim
+
+`test_findings_are_unchanged_by_the_absence_of_the_network` analyses one capture twice,
+once connected and once air-gapped, and asserts the rule IDs, the estate score and the
+grade are identical. That is what a user cares about: the assessment is a function of the
+capture, not of what the host can reach.
+
+**13 tests, all passing.** Suite: **2325 passed, 2 skipped.**
 
 ---
 
