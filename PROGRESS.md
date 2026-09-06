@@ -145,6 +145,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.2 — REST API — commit `fe9d6dd`
 - [x] 10.3 — dashboard, and the classifier wired in — commit `13ef92f`
 - [x] 10.4 — watch mode with drift detection — commit `9c9b490`
+- [x] 10.4b — device state collector, closing the rekey blind spot — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -580,6 +581,82 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.4b — the rekey blind spot, closed rather than mitigated
+
+Step 10.4 mitigated the CREATE_CHILD_SA limitation three ways and left it a limitation.
+Reading a device's own state removes it: the kernel knows exactly which algorithms are
+installed **right now**, whether or not anyone was listening when they were negotiated.
+
+Detected from state alone, with no capture anywhere in the test:
+
+```
+10.100.0.2 <-> 10.100.0.3 weakened:
+  aes256-sha384-prfsha384-ecp384 -> aes128-sha1-prfsha1-modp1024
+```
+
+### The tool parses; it does not fetch
+
+`collect.py` reads text a device produced — `ip xfrm state`, `swanctl --list-sas` — that
+arrives by whatever means the operator already has: a file, an Ansible run, a sensor on
+the gateway. `local_state()` reads **the machine the tool is running on**, which needs no
+credential and opens no socket.
+
+There is deliberately no `--host`, no `--ssh`, no `--api-key`, and a test asserts none of
+those options exists on any command. The collector is the operator's; the parsing is
+ours, and that division is what keeps the no-credentials claim true rather than aspirational.
+
+### Provenance is kept, not blurred
+
+A finding from device state is a parsed fact, so it sits in Section A with the
+wire-derived ones — but they are not the same evidence. A capture can be re-read by
+anyone; a device's self-report is only as good as the device. So a state-derived sighting
+carries **no `exchange`**, and `analyse --device-state` compares the two and prints the
+disagreement rather than resolving it:
+
+```
+DISAGREES with the capture for eeb4397163c7: the wire negotiated
+aes256-sha384-prfsha384-ecp384, the device reports 3des-md5-prfmd5-modp1024.
+One of the two is not describing the tunnel that is running.
+```
+
+### A lie the first version told
+
+`observe_state` originally scored the sighting by running the rule engine over a tunnel
+with no negotiation. The rules found nothing — because there was nothing to find — and
+returned **100 out of 100**. The output read `score 100 -> 100` beside a tunnel that had
+just dropped from AES-256 to AES-128.
+
+A tunnel appearing to score perfectly *because nothing was checked* is the most
+misleading output available. State sightings are now unscored, the summary says why, and
+severity falls back to what actually changed: a cipher, IKE version, aggressive mode or
+PFS moving the wrong way is critical on its own.
+
+### Two bugs found by making the two mappings agree
+
+A test asserting the device-state transform IDs are a subset of the wire-side ones failed:
+
+* **AES-GCM-8 and GCM-12 were unmapped.** RFC 8221 permits an 8-, 12- or 16-octet ICV and
+  all three are deployed; only 16 was reconstructible, so a real device using either of
+  the others failed with "no configuration equivalent".
+* **AEAD detection was `encryption.endswith("gcm16")`.** With the first bug fixed, GCM-8
+  and GCM-12 were then rejected for lacking an integrity transform they are not supposed
+  to have. It now asks `config_gen.is_aead`, which owns the answer.
+
+### No key material, verified against real keys
+
+`ip xfrm state` prints session keys inline. The parsers read the algorithm name and ICV
+length and never place the key bytes in a returned object — the guarantee the testbed's
+ground-truth harvesting has carried since Phase 1, which is where these parsers came from.
+They were **promoted** into the product rather than copied, so the corpus's ground truth
+and the product's collector cannot drift apart.
+
+The unit test uses a sample with obviously fake keys, because a security tool's git
+history is the last place real ones belong. The live test runs the same assertion against
+a real kernel's output — four real session keys in, zero out — since a fixture only proves
+the regex drops the field it was aimed at.
 
 ---
 

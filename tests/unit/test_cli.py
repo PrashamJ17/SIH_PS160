@@ -473,3 +473,195 @@ class TestWatchRemembers:
         assert result.exit_code == 0, result.output
         assert "not been seen negotiating recently" in result.output
         assert "unverified, not confirmed unchanged" in result.output
+
+
+class TestDeviceState:
+    """Reading a device's own state, at the command line.
+
+    The tool parses state it is given and reads the local machine. It never connects to a
+    remote device, so `--device-state` takes a path and there is no `--host` anywhere.
+    """
+
+    SWANCTL = (
+        "net-net: #1, ESTABLISHED, IKEv2, f341691f052442d6_i* 467f6af2b5f38b52_r\n"
+        "  local  'left' @ 10.100.0.2[4500]\n"
+        "  remote 'right' @ 10.100.0.3[4500]\n"
+        "  AES_CBC-256/HMAC_SHA2_384_192/PRF_HMAC_SHA2_384/ECP_384\n"
+    )
+
+    def _state_file(self, tmp_path: Path, suite: str | None = None) -> Path:
+        text = self.SWANCTL
+        if suite:
+            text = text.replace("AES_CBC-256/HMAC_SHA2_384_192/PRF_HMAC_SHA2_384/ECP_384", suite)
+        target = tmp_path / "gw01.swanctl.txt"
+        target.write_text(text)
+        return target
+
+    def test_analyse_prints_what_the_device_reports(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            main,
+            [
+                "analyse",
+                str(capture()),
+                "--baseline",
+                "default",
+                "--device-state",
+                str(self._state_file(tmp_path)),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "device state" in result.output
+        assert "aes256-sha384-prfsha384-ecp384" in result.output
+
+    def test_a_disagreement_is_stated_loudly(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The interesting case. A device whose self-report differs from its own traffic
+        is either misconfigured or not telling the truth, and both matter."""
+        from ipsec_sentinel.analyse import read_tunnels
+
+        tunnels = read_tunnels(capture())
+        endpoints = tunnels[0].endpoints
+        text = (
+            self.SWANCTL.replace("10.100.0.2", endpoints[0])
+            .replace("10.100.0.3", endpoints[1])
+            .replace(
+                "AES_CBC-256/HMAC_SHA2_384_192/PRF_HMAC_SHA2_384/ECP_384",
+                "3DES_CBC/HMAC_MD5_96/PRF_HMAC_MD5/MODP_1024",
+            )
+        )
+        target = tmp_path / "lying.swanctl.txt"
+        target.write_text(text)
+
+        result = runner.invoke(
+            main,
+            ["analyse", str(capture()), "--baseline", "default", "--device-state", str(target)],
+        )
+        assert result.exit_code == 0, result.output
+        assert "DISAGREES" in result.output
+        assert "not describing the tunnel that is running" in result.output
+
+    def test_a_missing_state_file_is_a_message(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            main,
+            [
+                "analyse",
+                str(capture()),
+                "--baseline",
+                "default",
+                "--device-state",
+                "/nope/state.txt",
+            ],
+        )
+        assert result.exit_code == EXIT_USAGE
+        assert "no such file" in result.output
+        assert "Traceback" not in result.output
+
+    def test_watch_reads_a_state_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(empty),
+                "--for",
+                "0.2",
+                "--baseline",
+                "default",
+                "--device-state",
+                str(self._state_file(tmp_path)),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "device state:" in result.output
+
+    def test_watch_detects_drift_from_state_alone(self, runner: CliRunner, tmp_path: Path) -> None:
+        """No capture involved: this is the rekey blind spot closed."""
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        state_file = tmp_path / "watch-state.json"
+
+        strong = self._state_file(tmp_path)
+        first = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(empty),
+                "--for",
+                "0.2",
+                "--baseline",
+                "default",
+                "--device-state",
+                str(strong),
+                "--state",
+                str(state_file),
+            ],
+        )
+        assert first.exit_code == 0, first.output
+
+        weak_dir = tmp_path / "weak"
+        weak_dir.mkdir()
+        weak = weak_dir / "gw01.swanctl.txt"
+        weak.write_text(
+            self.SWANCTL.replace(
+                "AES_CBC-256/HMAC_SHA2_384_192/PRF_HMAC_SHA2_384/ECP_384",
+                "3DES_CBC/HMAC_MD5_96/PRF_HMAC_MD5/MODP_1024",
+            )
+        )
+        second = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(empty),
+                "--for",
+                "0.2",
+                "--baseline",
+                "default",
+                "--device-state",
+                str(weak),
+                "--state",
+                str(state_file),
+            ],
+        )
+        assert second.exit_code == 0, second.output
+        assert "DRIFT" in second.output
+        assert "not scored" in second.output, "a state sighting has no score to report"
+
+    def test_a_directory_of_snapshots_is_read(self, runner: CliRunner, tmp_path: Path) -> None:
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        collected = tmp_path / "collected"
+        collected.mkdir()
+        for host in ("gw-hq", "gw-branch"):
+            (collected / f"{host}.swanctl.txt").write_text(self.SWANCTL)
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(empty),
+                "--for",
+                "0.2",
+                "--baseline",
+                "default",
+                "--device-state",
+                str(collected),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output.count("device state:") == 2
+
+    def test_there_is_no_option_to_connect_to_a_device(self, runner: CliRunner) -> None:
+        """The tool needs no credential because it never opens a session to a device."""
+        for command in ("analyse", "watch"):
+            text = runner.invoke(main, [command, "--help"]).output
+            for forbidden in ("--host", "--ssh", "--username", "--password", "--api-key"):
+                assert forbidden not in text, f"{command} offers {forbidden}"

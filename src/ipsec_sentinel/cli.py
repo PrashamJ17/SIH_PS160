@@ -95,6 +95,11 @@ def main() -> None:
     type=click.Path(path_type=Path),
     help="Classify traffic with this model. Without it the report makes no inferences.",
 )
+@click.option(
+    "--device-state",
+    type=click.Path(path_type=Path),
+    help="Device state to cross-check the capture against (`swanctl --list-sas`).",
+)
 @click.option("--quiet", is_flag=True, help="Print nothing but errors.")
 def analyse(
     pcap: Path,
@@ -104,6 +109,7 @@ def analyse(
     json_out: Path | None,
     pdf: Path | None,
     model_path: Path | None,
+    device_state: Path | None,
     quiet: bool,
 ) -> None:
     """Analyse a capture and produce a report."""
@@ -143,6 +149,9 @@ def analyse(
         except PDFExportError as exc:
             fail(str(exc))
 
+    if device_state is not None:
+        _report_state_agreement(pcap, device_state, quiet=quiet)
+
     if quiet:
         return
     summary = report.executive
@@ -160,6 +169,67 @@ def analyse(
     for path, label in ((out, "HTML"), (json_out, "JSON"), (pdf, "PDF")):
         if path:
             click.echo(f"\n{label} written to {path}")
+
+
+def _report_state_agreement(pcap: Path, device_state: Path, *, quiet: bool) -> None:
+    """Compare what the wire showed against what the device says about itself.
+
+    Two independent observations of the same tunnel, and the interesting case is when
+    they differ. A device whose self-report does not match its own traffic is either
+    misconfigured in a way nobody has noticed, or not telling the truth; averaging the
+    two would hide both. So the disagreement is printed, not resolved.
+
+    Compared as reconstructed configurations rather than as display strings: the wire
+    carries IANA names and the daemon its own, and matching those textually would report
+    a disagreement on every tunnel.
+    """
+    from ipsec_sentinel.analyse import read_tunnels
+    from ipsec_sentinel.collect import StateError, config_from_state, read_state
+    from ipsec_sentinel.remediate.observed import config_from_exchange
+
+    try:
+        if device_state.name.endswith(".xfrm.txt"):
+            reported = read_state(xfrm=device_state)
+        else:
+            reported = read_state(swanctl=device_state)
+    except StateError as exc:
+        fail(str(exc), EXIT_USAGE)
+
+    from_state = config_from_state(reported)
+    if from_state is None:
+        if not quiet:
+            click.echo(f"\ndevice state ({reported.source}): {reported.describe()}")
+            click.echo("  nothing comparable — no established SA, or an unmapped algorithm")
+        return
+
+    reported_suite = from_state.proposal_string()  # type: ignore[attr-defined]
+    if not quiet:
+        click.echo(f"\ndevice state ({reported.source}): {reported_suite}")
+
+    endpoints = reported.endpoints
+    matched = False
+    for tunnel in read_tunnels(pcap):
+        if tunnel.ike is None:
+            continue
+        if endpoints is not None and tunnel.endpoints != endpoints:
+            continue
+        recovered = config_from_exchange(tunnel.ike)
+        if not recovered.ok or recovered.config is None:
+            continue
+        matched = True
+        wire_suite = recovered.config.proposal_string()
+        if wire_suite == reported_suite:
+            click.echo(f"  agrees with the capture for {tunnel.tunnel_id}")
+        else:
+            click.secho(
+                f"  DISAGREES with the capture for {tunnel.tunnel_id}: "
+                f"the wire negotiated {wire_suite}, the device reports {reported_suite}. "
+                f"One of the two is not describing the tunnel that is running.",
+                fg="red",
+                bold=True,
+            )
+    if not matched and not quiet:
+        click.echo("  no tunnel in the capture matches this device's endpoints")
 
 
 @main.command()
@@ -363,6 +433,20 @@ def scan(target: str, port: int, timeout_s: float, authorised: bool) -> None:
     help="Seed the baseline from a previous assessment's capture.",
 )
 @click.option(
+    "--device-state",
+    type=click.Path(path_type=Path),
+    help=(
+        "A file or directory of device state (`ip xfrm state`, `swanctl --list-sas`). "
+        "Closes the rekey blind spot: state says what is installed now, whether or "
+        "not the negotiation was seen. Read, never fetched."
+    ),
+)
+@click.option(
+    "--local-state",
+    is_flag=True,
+    help="Read this machine's own IPsec state. For a sensor on the gateway itself.",
+)
+@click.option(
     "--stale-after",
     type=float,
     default=86400.0,
@@ -376,6 +460,8 @@ def watch_command(
     duration_s: float | None,
     syslog: str | None,
     from_capture: Path | None,
+    device_state: Path | None,
+    local_state: bool,
     state: Path | None,
     since: Path | None,
     stale_after: float,
@@ -398,6 +484,31 @@ def watch_command(
         PcapPollSource,
         alerts_as_syslog,
     )
+
+    # Device state is read once, up front. It answers a different question from the
+    # wire — "what is installed now" rather than "what was negotiated while we watched" —
+    # and where it is available the rekey blind spot does not exist.
+    states = []
+    if device_state is not None or local_state:
+        from ipsec_sentinel.collect import (
+            StateError,
+            read_state,
+            read_state_directory,
+        )
+        from ipsec_sentinel.collect import local_state as read_local_state
+
+        try:
+            if local_state:
+                states.append(read_local_state())
+            if device_state is not None:
+                if device_state.is_dir():
+                    states.extend(read_state_directory(device_state))
+                elif device_state.name.endswith(".xfrm.txt"):
+                    states.append(read_state(xfrm=device_state))
+                else:
+                    states.append(read_state(swanctl=device_state))
+        except StateError as exc:
+            fail(str(exc), EXIT_USAGE)
 
     source: ExchangeSource
     if from_capture is not None:
@@ -436,6 +547,12 @@ def watch_command(
         fail(str(exc), EXIT_USAGE)
 
     remembered = detector.load(state) if state else 0
+    state_alerts = []
+    for reported in states:
+        alert = detector.observe_state(reported)
+        if alert is not None:
+            state_alerts.append(alert)
+        click.echo(f"device state: {reported.describe()}")
     if since is not None:
         if not since.exists():
             source.close()
@@ -452,6 +569,9 @@ def watch_command(
     elif state or since:
         click.echo("No earlier state was found, so every tunnel starts from its next sighting.")
     seen = 0
+    for alert in state_alerts:
+        seen += 1
+        click.secho(f"DRIFT  {alert.summary()}", fg="red", bold=True)
     try:
         for alert in watch_alerts(source, detector, poll_s, duration_s):
             seen += 1

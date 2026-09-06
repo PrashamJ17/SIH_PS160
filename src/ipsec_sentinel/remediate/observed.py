@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from ipsec_sentinel.models import IKEExchange, Proposal, TransformType
-from testbed.orchestrate.config_gen import TunnelConfig
+from testbed.orchestrate.config_gen import TunnelConfig, is_aead
 
 # IKEv1 and IKEv2 number their algorithms in **separate registries**, and the overlap is
 # actively misleading: value 7 is CAST in IKEv2 and AES in IKEv1, value 5 is 3DES in
@@ -33,10 +33,20 @@ ENCRYPTION_BY_ID: Final[dict[int, str]] = {
     3: "3des",
     11: "null",
     12: "aes",  # key length decides aes128 / aes256
-    20: "aes_gcm16",  # likewise
+    # RFC 8221 permits GCM with an 8-, 12- or 16-octet ICV, and all three are deployed.
+    # Only 16 was mapped at first, so a device reporting either of the others failed
+    # reconstruction with "no configuration equivalent" — found by asserting the
+    # device-state mapping and the wire mapping agree.
+    18: "aes_gcm8",
+    19: "aes_gcm12",
+    20: "aes_gcm16",
 }
 AES_CBC_BY_KEY_LENGTH: Final[dict[int, str]] = {128: "aes128", 192: "aes192", 256: "aes256"}
-AES_GCM_BY_KEY_LENGTH: Final[dict[int, str]] = {128: "aes128gcm16", 256: "aes256gcm16"}
+AES_GCM_BY_KEY_LENGTH: Final[dict[str, dict[int, str]]] = {
+    "aes_gcm8": {128: "aes128gcm8", 192: "aes192gcm8", 256: "aes256gcm8"},
+    "aes_gcm12": {128: "aes128gcm12", 192: "aes192gcm12", 256: "aes256gcm12"},
+    "aes_gcm16": {128: "aes128gcm16", 192: "aes192gcm16", 256: "aes256gcm16"},
+}
 
 # IKEv1 phase 1, RFC 2409 appendix A. Encryption is attribute class 1.
 IKEV1_ENCRYPTION_BY_ID: Final[dict[int, str]] = {
@@ -125,12 +135,13 @@ def _encryption(
         if resolved is None:
             return None, f"no configuration name for {key_length}-bit AES-CBC"
         return resolved, None
-    if name == "aes_gcm16":
+    if name.startswith("aes_gcm"):
         if key_length is None:
             return None, "AES-GCM was negotiated without a key length attribute"
-        resolved = AES_GCM_BY_KEY_LENGTH.get(key_length)
+        resolved = AES_GCM_BY_KEY_LENGTH[name].get(key_length)
         if resolved is None:
-            return None, f"no configuration name for {key_length}-bit AES-GCM-16"
+            icv = name.removeprefix("aes_gcm")
+            return None, f"no configuration name for {key_length}-bit AES-GCM-{icv}"
         return resolved, None
     return name, None
 
@@ -164,7 +175,10 @@ def config_from_proposal(
     if dh_group is None:
         return Reconstruction(None, reason=f"DH group {dh_id} has no configuration equivalent")
 
-    aead = encryption.endswith("gcm16")
+    # Asked of the configuration model rather than guessed from the name. A suffix test
+    # for "gcm16" silently excluded GCM-8 and GCM-12, so those were treated as non-AEAD
+    # and refused for want of an integrity transform they are not supposed to have.
+    aead = is_aead(encryption)
     integrity: str | None = None
     if not aead:
         if TransformType.INTEG.value not in by_type:

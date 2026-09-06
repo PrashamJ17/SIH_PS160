@@ -63,6 +63,7 @@ from typing import Final, Protocol
 from ipsec_sentinel.assess.framework import DEFAULT_BASELINE, RuleRegistry
 from ipsec_sentinel.assess.rules import default_registry
 from ipsec_sentinel.assess.scoring import score_tunnel
+from ipsec_sentinel.collect import DeviceState
 from ipsec_sentinel.logging import get_logger
 from ipsec_sentinel.models import IKEExchange, Severity
 from ipsec_sentinel.parser.constants import dh_security_bits
@@ -225,8 +226,17 @@ class Sighting:
 
     endpoints: tuple[str, str]
     config: TunnelConfig
-    score: int
-    grade: str
+    score: int | None
+    """The assessed score, or ``None`` when it could not be assessed.
+
+    A sighting read from a device's own state has no negotiation for the rule engine to
+    evaluate, and running the rules against an empty tunnel returns no findings and a
+    perfect score. Reporting that would be a lie in the most misleading direction — the
+    tunnel would appear to score 100 precisely because nothing was checked. The drift
+    signal is the parameter comparison, which is exact either way.
+    """
+
+    grade: str | None
     exchange: IKEExchange | None
     """The negotiation this was read from, or ``None`` when restored from saved state.
 
@@ -279,24 +289,43 @@ class DriftAlert:
         configuration that drifted from a standard on its own, and it deserves to be
         read that way.
         """
-        if self.score_drop >= CRITICAL_SCORE_DROP:
+        drop = self.score_drop
+        if drop is not None and drop >= CRITICAL_SCORE_DROP:
+            return Severity.CRITICAL
+        # With no score to compare — a device-state sighting — severity falls back to
+        # what changed. A cipher, a protocol version or aggressive mode moving the wrong
+        # way is a different order of problem from a PRF, and the alert should say so
+        # rather than defaulting everything to the same level.
+        if any(w.parameter in CRITICAL_PARAMETERS for w in self.weakenings):
             return Severity.CRITICAL
         return Severity.HIGH
 
     @property
-    def score_drop(self) -> int:
+    def score_drop(self) -> int | None:
+        """How far the score fell, or ``None`` if either end was not assessed."""
+        if self.previous.score is None or self.current.score is None:
+            return None
         return self.previous.score - self.current.score
 
     def summary(self) -> str:
+        scored = (
+            f" (score {self.previous.score} -> {self.current.score})"
+            if self.previous.score is not None and self.current.score is not None
+            else " (not scored: read from device state, which carries no negotiation)"
+        )
         return (
             f"{self.endpoints[0]} <-> {self.endpoints[1]} weakened: "
-            f"{self.previous.suite} -> {self.current.suite} "
-            f"(score {self.previous.score} -> {self.current.score}); "
+            f"{self.previous.suite} -> {self.current.suite}{scored}; "
             + "; ".join(w.describe() for w in self.weakenings)
         )
 
 
 CRITICAL_SCORE_DROP: Final = 30
+
+# Weakenings that are critical on their own, used when no score comparison is available.
+CRITICAL_PARAMETERS: Final[frozenset[str]] = frozenset(
+    {"encryption", "ike_version", "aggressive_mode", "pfs"}
+)
 
 
 class DriftDetector:
@@ -346,11 +375,53 @@ class DriftDetector:
             seen_at=exchange.timestamp,
         )
 
+    def observe_state(self, state: DeviceState) -> DriftAlert | None:
+        """Record what a device says about itself, and report drift if it got weaker.
+
+        This is the answer to the rekey blind spot rather than a workaround for it. The
+        wire only reveals parameters at IKE_SA_INIT; a device's own state reveals what is
+        installed *right now*, whether or not anyone was listening when it was
+        negotiated. Where state is available there is no blind spot left to mitigate.
+
+        Provenance is kept: a sighting from state carries no ``exchange``, so nothing
+        downstream can mistake "the device told us" for "we saw it on the wire". The two
+        are both parsed facts and they are not the same evidence — a capture can be
+        re-read by anyone, while a device's self-report is only as good as the device.
+        """
+        from ipsec_sentinel.collect import config_from_state
+
+        endpoints = state.endpoints
+        config = config_from_state(state)
+        if endpoints is None or not isinstance(config, TunnelConfig):
+            return None
+
+        # Deliberately not scored. The rule engine assesses a negotiation, and running
+        # it against a tunnel that has none returns no findings and therefore a perfect
+        # score — a tunnel would appear to score 100 exactly because nothing was checked.
+        current = Sighting(
+            endpoints=endpoints,
+            config=config,
+            score=None,
+            grade=None,
+            exchange=None,
+            seen_at=state.collected_at,
+        )
+        return self._record(current)
+
     def observe(self, exchange: IKEExchange) -> DriftAlert | None:
         """Record a negotiation and report drift if the tunnel got weaker."""
         current = self.sighting(exchange)
         if current is None:
             return None
+        return self._record(current)
+
+    def _record(self, current: Sighting) -> DriftAlert | None:
+        """Store a sighting and compare it against the tunnel's own past.
+
+        Shared by the wire and device-state paths so the two cannot diverge on what
+        counts as drift — the comparison is the product's judgement and belongs in one
+        place, whatever supplied the observation.
+        """
         with self._lock:
             previous = self._last.get(current.endpoints)
             self._last[current.endpoints] = current
@@ -448,8 +519,8 @@ class DriftDetector:
                 restored[endpoints] = Sighting(
                     endpoints=endpoints,
                     config=config,
-                    score=int(entry["score"]),
-                    grade=str(entry["grade"]),
+                    score=None if entry["score"] is None else int(entry["score"]),
+                    grade=None if entry["grade"] is None else str(entry["grade"]),
                     exchange=None,
                     seen_at=datetime.fromisoformat(entry["seen_at"]),
                 )

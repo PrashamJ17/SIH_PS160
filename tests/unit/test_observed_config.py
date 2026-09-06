@@ -391,3 +391,62 @@ class TestFromAnExchange:
         recovered = config_from_exchange(exchange)
         assert recovered.config is not None
         assert recovered.config.encryption == "3des"
+
+
+class TestEveryGCMIcvLengthIsMapped:
+    """RFC 8221 permits an 8-, 12- or 16-octet ICV, and all three are deployed.
+
+    Only 16 was mapped at first, so a device reporting either of the others failed
+    reconstruction with "no configuration equivalent". Found by asserting that the
+    device-state mapping and the wire mapping agree — neither is authoritative alone.
+    """
+
+    @pytest.mark.parametrize(
+        ("transform_id", "key_length", "expected"),
+        [
+            (18, 128, "aes128gcm8"),
+            (18, 256, "aes256gcm8"),
+            (19, 128, "aes128gcm12"),
+            (19, 256, "aes256gcm12"),
+            (20, 128, "aes128gcm16"),
+            (20, 256, "aes256gcm16"),
+        ],
+    )
+    def test_each_variant_reconstructs(
+        self, transform_id: int, key_length: int, expected: str
+    ) -> None:
+        recovered = config_from_proposal(
+            proposal(
+                [
+                    transform(TransformType.ENCR, transform_id, "ENCR_AES_GCM", key_length),
+                    transform(TransformType.PRF, 5, "PRF_HMAC_SHA2_256"),
+                    transform(TransformType.DH, 31, "Curve25519"),
+                ]
+            ),
+            ike_version="IKEv2",
+        )
+        assert recovered.ok, recovered.reason
+        assert recovered.config is not None
+        assert recovered.config.encryption == expected
+        assert recovered.config.integrity is None, "AEAD carries its own integrity"
+
+    def test_an_unmappable_gcm_key_length_names_the_icv(self) -> None:
+        recovered = config_from_proposal(
+            proposal(
+                [
+                    transform(TransformType.ENCR, 18, "ENCR_AES_GCM", 512),
+                    transform(TransformType.DH, 31, "Curve25519"),
+                ]
+            ),
+            ike_version="IKEv2",
+        )
+        assert not recovered.ok
+        assert "AES-GCM-8" in (recovered.reason or "")
+
+    def test_every_mapped_name_is_a_configuration_the_matrix_accepts(self) -> None:
+        """A name this maps to that TunnelConfig rejects would fail only at construction."""
+        from ipsec_sentinel.remediate.observed import AES_GCM_BY_KEY_LENGTH
+        from testbed.orchestrate.config_gen import AEAD_ENCRYPTIONS
+
+        names = {n for by_length in AES_GCM_BY_KEY_LENGTH.values() for n in by_length.values()}
+        assert names <= AEAD_ENCRYPTIONS
