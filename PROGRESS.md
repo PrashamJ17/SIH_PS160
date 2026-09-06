@@ -130,6 +130,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.5 — blast radius assessment — commit `5c22acf`
 - [x] 8.6 — automatic fix verification from traffic — commit `3ad23d3`
 - [x] **M8 gate — 7/8 passed, 0 failed, 1 blocked** — tag `v0.9.0-remediation`
+- [x] 9.1 — report model with verified/inferred separation — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -565,6 +566,39 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.1 — the validator that must not be an assertion
+
+The build plan sketches the Section A / Section B guard as:
+
+```python
+@model_validator(mode="after")
+def enforce_separation(self):
+    assert all(f.confidence is None for f in self.section_a_verified)
+```
+
+**`python -O` removes assertions.** The guarantee at the centre of the product — that an
+estimate is never presented as compliance evidence — would silently disappear in exactly
+the deployments most likely to run optimised, and the report would still look correct.
+It raises `ValueError` instead, and `test_the_validator_survives_python_dash_o` runs the
+check in a subprocess under `-O` to prove it.
+
+Two further guards beyond the plan:
+
+- **The executive summary must agree with the body.** A report claiming three critical
+  findings over a section containing one is worse than no summary, because the summary is
+  the part that gets read. Counts and per-severity totals are validated against the
+  findings actually carried.
+- **Provenance records whether the working tree was dirty.** A report naming a commit it
+  was not actually produced from is a decoration, not a provenance record. `git_sha()`
+  and `git_dirty()` both return `None` rather than a plausible default when the answer is
+  unknowable — an installed copy has no repository, and that is not an error.
+
+`ExposureEntry` repeats the `TunnelAssessment` rule that an inference and its confidence
+are present together or not at all, because by the time a class reaches a reader without
+one it is indistinguishable from a parsed fact.
 
 ---
 
