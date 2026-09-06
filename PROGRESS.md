@@ -133,7 +133,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.1 — report model with verified/inferred separation — commit `4ca8cde`
 - [x] 9.2 — report builder — commit `aa41a84`
 - [x] 9.3 — metadata exposure analysis — commit `1a3448d`
-- [x] 9.4 — threat matrix — commit `PENDING`
+- [x] 9.4 — threat matrix — commit `7d66d6d`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
