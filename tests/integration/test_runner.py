@@ -139,23 +139,60 @@ def test_outer_capture_contains_the_handshake(happy_cell) -> None:  # type: igno
     assert len(ike) >= 2, "no IKE in the outer capture — capture started too late"
 
 
+REPLAY_SOURCE = Path("data/raw/sweep_source/replay_source.pcap")
+
+
+@pytest.mark.skipif(not REPLAY_SOURCE.exists(), reason="no replay source corpus")
 def test_a_cell_whose_traffic_was_not_protected_fails(tmp_path: Path) -> None:
     """The guard against the worst kind of corpus corruption.
 
-    In transport mode the IPsec endpoints are the gateways, so host-to-host traffic
-    is not covered by the traffic selectors and routes around the tunnel in the clear.
-    The daemon still reports an established SA and the manifest still says the
-    negotiation matched intent — the sweep produced 20 such cells before this guard
-    existed, each labelled as encrypted traffic containing none. A cell with no ESP in
-    its outer capture must fail.
+    A cell can establish a healthy SA, report that the negotiation matched intent, and
+    still carry no protected traffic at all — twenty such cells reached the sweep before
+    this guard existed, each labelled as encrypted traffic containing none.
+
+    The case used here is ``replay`` under transport mode, and it is real rather than
+    contrived. ``tcpreplay`` injects raw frames at layer 2, which bypasses the kernel's
+    XFRM output path, so on a gateway they leave the interface unencrypted whatever
+    policy is installed. In tunnel mode the same generator works, because the *host*
+    injects and the gateway encapsulates the frames as forwarded traffic.
+
+    This test previously used transport mode with ``icmp``, which failed for a
+    different reason: generators drove the hosts, and transport mode does not protect
+    host-to-host traffic. That is now fixed — transport cells drive the gateways — so
+    the case was moved to one that still genuinely produces no ESP rather than being
+    deleted along with the behaviour it guards.
     """
     transport = anchor("good").with_(mode="transport")
-    cell = CellSpec(transport, generator="icmp", variant="steady_1s", impairment="clean")
-    outcome = run_cell(cell, profile("clean"), duration_s=10, out_dir=tmp_path)
+    cell = CellSpec(transport, generator="replay", variant="mawi_sample", impairment="clean")
+    outcome = run_cell(
+        cell,
+        profile("clean"),
+        duration_s=10,
+        out_dir=tmp_path,
+        replay_source=REPLAY_SOURCE,
+    )
     assert outcome.success is False
     assert "no ESP in the outer capture" in (outcome.error or "")
     # The negotiation still happened; it is the protection that did not.
     assert outcome.details.get("ike_packets", 0) > 0
+
+
+def test_a_transport_mode_cell_does_carry_esp(tmp_path: Path) -> None:
+    """Transport mode is capturable, which is what closed the M7 mode-inference gap.
+
+    Traffic must originate on the gateway: transport protects the IPsec peers
+    themselves, and anything a host behind them sends is merely routed and travels in
+    the clear.
+    """
+    transport = anchor("good").with_(mode="transport")
+    cell = CellSpec(transport, generator="icmp", variant="steady_1s", impairment="clean")
+    outcome = run_cell(cell, profile("clean"), duration_s=10, out_dir=tmp_path)
+    assert outcome.success is True, outcome.error
+    assert outcome.outer_packets > 0
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["intent"]["mode"] == "transport"
+    assert (manifest.get("negotiated_child") or {}).get("mode") == "transport"
 
 
 def test_a_tunnel_mode_cell_does_carry_esp(tmp_path: Path) -> None:
