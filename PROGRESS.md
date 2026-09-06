@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 8 — Remediation
-**Current step:** 8.3 — Cisco generator (Libreswan done)
+**Current step:** 8.4 — zero-downtime sequencing
 **Last milestone tag:** `v0.8.0-ml`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -125,6 +125,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.1 — Change package model with both-ends enforcement — commit `cc3e456`
 - [x] 8.2 — strongSwan config generator (live-tested) — commit `f28e9ee`
 - [x] 8.3a — Libreswan generator (syntax-validated) — commit `8cf629c`
+- [x] 8.3b — Cisco, FortiGate, Juniper, Palo Alto generators (syntax-validated) — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -560,6 +561,44 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 8.3 — vendor generators, and a mapping that would have been wrong
+
+Five vendors, one live-tested and four not, with the distinction written into every
+generated file rather than kept in a README. The file is what gets pasted into a change
+ticket, so the caveat has to travel with it.
+
+| Vendor | Status |
+|---|---|
+| strongSwan | **live-tested** — loaded onto a real pair, tunnel established, findings cleared |
+| Libreswan | syntax-validated, not deployment-tested |
+| Cisco IOS-XE | syntax-validated, not deployment-tested |
+| FortiGate | syntax-validated, not deployment-tested |
+| Juniper SRX | syntax-validated, not deployment-tested |
+| Palo Alto PAN-OS | syntax-validated, not deployment-tested |
+
+The plan says Libreswan *could* be live-tested. It cannot be here — the testbed runs
+strongSwan only — so it is marked with the rest and a test pins that honest until a
+Libreswan container exists.
+
+### The mapping that would have been wrong
+
+The first Cisco table mapped `curve25519` to **group 21**. Group 21 is 521-bit ECP, a
+different curve; IOS-XE does not implement Curve25519 at all. That configuration would
+have loaded cleanly and negotiated something the assessment never asked for — the worst
+possible failure mode, because nothing downstream would notice.
+
+Vendors now declare an `UNSUPPORTED` table naming what they genuinely cannot express
+*and what to use instead*, and `translate` refuses with that suggestion rather than
+approximating. Junos and PAN-OS carry the same Curve25519 gap. Tests assert three
+separate things: that every gap is declared rather than silently missing, that a
+declared gap names an alternative, and that a gap is not simultaneously mapped.
+
+Ruff caught a second real bug in the Libreswan generator: both role branches produced
+identical text, so a "both ends" package described one end twice. The two documents now
+mirror each other.
 
 ---
 

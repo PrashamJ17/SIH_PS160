@@ -50,6 +50,10 @@ DH_GROUP: Final[dict[str, str]] = {
 }
 
 
+# Libreswan implements the whole canonical space, so it has no declared gaps.
+UNSUPPORTED: Final[dict[str, str]] = {}
+
+
 def proposal(config: TunnelConfig) -> str:
     """The ``ike=`` proposal: ``encryption-integrity;dhgroup``.
 

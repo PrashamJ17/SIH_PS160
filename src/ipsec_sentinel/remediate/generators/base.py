@@ -54,13 +54,27 @@ class VendorGenerator(Protocol):
     def render(self, config: TunnelConfig, role: str) -> str: ...
 
 
-def translate(table: dict[str, str], value: str, kind: str, vendor: str) -> str:
-    """Look up a vendor's name for a canonical algorithm, or refuse."""
+def translate(
+    table: dict[str, str],
+    value: str,
+    kind: str,
+    vendor: str,
+    alternative: str | None = None,
+) -> str:
+    """Look up a vendor's name for a canonical algorithm, or refuse.
+
+    Some gaps are real rather than unfinished. Cisco IOS-XE has no Curve25519, and
+    mapping it onto group 21 — which is 521-bit ECP, a different curve entirely — would
+    emit a configuration that loads cleanly and negotiates something the assessment
+    never asked for. Where a vendor genuinely cannot express an algorithm, the refusal
+    names what to use instead.
+    """
     if value not in table:
+        suggestion = f" Use {alternative} instead." if alternative else ""
         raise UnsupportedAlgorithmError(
-            f"{vendor} has no mapping for {kind} {value!r}; supported: "
-            f"{sorted(table)}. Emitting the canonical name would produce a file the "
-            f"device rejects."
+            f"{vendor} cannot express {kind} {value!r}; it supports {sorted(table)}."
+            f"{suggestion} Emitting an approximate name would produce a configuration "
+            f"that loads cleanly and negotiates something else."
         )
     return table[value]
 
