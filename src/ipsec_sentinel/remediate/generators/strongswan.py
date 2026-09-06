@@ -35,6 +35,7 @@ from ipsec_sentinel.remediate.models import (
     ConfigRole,
     DeviceConfig,
 )
+from ipsec_sentinel.remediate.sequence import build_sequence
 from testbed.orchestrate.config_gen import TunnelConfig, render_swanctl_conf
 
 VENDOR: Final = "strongswan"
@@ -155,58 +156,35 @@ def harden(config: TunnelConfig) -> tuple[TunnelConfig, list[str]]:
     return updated, changes
 
 
-def _steps(aggressive_psk: bool) -> list[ChangeStep]:
-    """The ordered, zero-downtime sequence.
+def _steps(current: TunnelConfig, target: TunnelConfig, aggressive_psk: bool) -> list[ChangeStep]:
+    """The change sequence: four steps, plus PSK rotation where one is compromised.
 
-    The peer is staged first and the local end second, so that at no point is the local
-    end offering something the peer will refuse. The reverse order leaves a window in
-    which the tunnel cannot re-establish.
+    Delegates to :func:`build_sequence`, which is verified to keep a common proposal on
+    both ends at every intermediate state — including the half-applied ones. An earlier
+    version of this function staged each end and then rekeyed, which reads as safe and
+    is not: between the two stages the ends offer disjoint proposals.
     """
-    steps = [
-        ChangeStep(
-            order=1,
-            role=ConfigRole.PEER,
-            description="Stage the corrected configuration on the peer",
-            action="Write the new swanctl.conf and run `swanctl --load-all`",
-            expected_disruption_s=0,
-        ),
-        ChangeStep(
-            order=2,
-            role=ConfigRole.LOCAL,
-            description="Stage the corrected configuration locally",
-            action="Write the new swanctl.conf and run `swanctl --load-all`",
-            expected_disruption_s=0,
-        ),
-        ChangeStep(
-            order=3,
-            role=ConfigRole.LOCAL,
-            description="Rekey the tunnel onto the new proposal",
-            action="`swanctl --initiate --child <name>` after terminating the old SA",
-            expected_disruption_s=5,
-        ),
-    ]
-    if aggressive_psk:
-        steps.insert(
-            0,
-            ChangeStep(
-                order=1,
-                role=ConfigRole.PEER,
-                description=(
-                    "Rotate the pre-shared key before anything else. Aggressive Mode "
-                    "has already exposed a crackable hash of the current one, so "
-                    "reusing it carries the compromise forward"
-                ),
-                action="Generate a new PSK out of band and stage it on both ends",
-                reversible=False,
-                expected_disruption_s=0,
-            ),
-        )
-        steps = [replace_order(step, index + 1) for index, step in enumerate(steps)]
-    return steps
+    steps = build_sequence(current.proposal_string(), target.proposal_string())
 
+    if not aggressive_psk:
+        return steps
 
-def replace_order(step: ChangeStep, order: int) -> ChangeStep:
-    return step.model_copy(update={"order": order})
+    # Aggressive Mode with a PSK has already put a crackable hash on the wire, so the
+    # key is compromised before the change begins. Rotating it after the crypto
+    # transition would carry the compromise across; it goes first.
+    rotation = ChangeStep(
+        order=1,
+        role=ConfigRole.BOTH,
+        description=(
+            "Rotate the pre-shared key before anything else. Aggressive Mode has "
+            "already exposed a crackable hash of the current key, so reusing it "
+            "carries the compromise forward into the corrected tunnel."
+        ),
+        action="Generate a new PSK out of band and install it on both peers.",
+        reversible=False,
+        expected_disruption_s=0,
+    )
+    return [rotation, *(step.model_copy(update={"order": step.order + 1}) for step in steps)]
 
 
 def generate_change_package(
@@ -259,7 +237,7 @@ def generate_change_package(
             content=render_swanctl_conf(corrected, "right"),
             notes=list(notes),
         ),
-        sequence=_steps(aggressive_psk),
+        sequence=_steps(config, corrected, aggressive_psk),
         verification=[
             "`swanctl --list-sas` reports the child SA as INSTALLED on both ends",
             f"the negotiated proposal reads {corrected.proposal_string()}",

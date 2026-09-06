@@ -166,12 +166,28 @@ class TestChangePackage:
         assert package.local_config.role is ConfigRole.LOCAL
         assert package.peer_config.role is ConfigRole.PEER
 
-    def test_the_peer_is_staged_before_the_local_end(self) -> None:
-        """The reverse order leaves a window in which the tunnel cannot re-establish."""
+    def test_the_change_steps_apply_to_both_ends_together(self) -> None:
+        """Step 8.4 replaced staging one end before the other with a stronger property.
+
+        Ordering the ends was an attempt to keep the window short. Adding the target
+        alongside the current proposal removes the window instead: at every moment,
+        including while a step has reached one end and not the other, the two ends
+        still share a proposal. ``add`` and ``remove`` are therefore single operations
+        across both ends, and there is no LOCAL-then-PEER ordering left to assert.
+        """
         package = generate_change_package("t1", anchor("weak"), ["CRY-02"])
-        first_local = next(s.order for s in package.sequence if s.role is ConfigRole.LOCAL)
-        first_peer = next(s.order for s in package.sequence if s.role is ConfigRole.PEER)
-        assert first_peer < first_local
+        assert [step.role for step in package.sequence] == [ConfigRole.BOTH] * len(package.sequence)
+        assert all(ConfigRole.LOCAL.value in step.role.covers for step in package.sequence)
+        assert all(ConfigRole.PEER.value in step.role.covers for step in package.sequence)
+
+    def test_the_packaged_sequence_never_leaves_the_ends_disjoint(self) -> None:
+        """The property the ordering used to approximate, asserted directly."""
+        from ipsec_sentinel.remediate.sequence import unsafe_states, verify_zero_downtime
+
+        original = anchor("weak")
+        corrected, _ = harden(original)
+        states = verify_zero_downtime(original.proposal_string(), corrected.proposal_string())
+        assert unsafe_states(states) == []
 
     def test_an_aggressive_psk_tunnel_rotates_the_key_first(self) -> None:
         """The hash is already exposed; reusing the key carries the compromise forward."""

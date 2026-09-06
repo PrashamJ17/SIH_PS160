@@ -36,6 +36,21 @@ from pydantic import BaseModel, Field, model_validator
 class ConfigRole(StrEnum):
     LOCAL = "local"
     PEER = "peer"
+    BOTH = "both"
+    """A step applied to both ends before the next one begins.
+
+    Needed because the zero-downtime pattern is four steps, not eight: "add the target
+    proposal alongside the current one on both ends" is one operation an operator
+    performs, and splitting it into two would imply an ordering between the ends that
+    does not exist and is not required.
+    """
+
+    @property
+    def covers(self) -> frozenset[str]:
+        """Which ends this role actually touches."""
+        if self is ConfigRole.BOTH:
+            return frozenset({ConfigRole.LOCAL.value, ConfigRole.PEER.value})
+        return frozenset({self.value})
 
 
 class ChangeRisk(StrEnum):
@@ -111,6 +126,11 @@ class ChangePackage(BaseModel):
         twice — which passes every "peer_config is present" check while leaving the far
         end untouched, and so drops the tunnel at the next rekey.
         """
+        if self.local_config.role is ConfigRole.BOTH or self.peer_config.role is ConfigRole.BOTH:
+            raise ValueError(
+                "a configuration document belongs to one end; ConfigRole.BOTH describes "
+                "a change *step*, not a file"
+            )
         if self.local_config.role is not ConfigRole.LOCAL:
             raise ValueError(
                 f"local_config carries role {self.local_config.role!r}; a change package "
@@ -139,11 +159,13 @@ class ChangePackage(BaseModel):
             )
         if len(set(orders)) != len(orders):
             raise ValueError(f"change steps share an order number ({orders})")
-        roles = {step.role for step in self.sequence}
-        if roles != {ConfigRole.LOCAL, ConfigRole.PEER}:
+        covered: set[str] = set()
+        for step in self.sequence:
+            covered |= step.role.covers
+        if covered != {ConfigRole.LOCAL.value, ConfigRole.PEER.value}:
             raise ValueError(
-                f"the sequence touches only {sorted(r.value for r in roles)}; an IPsec "
-                f"change applied to one end drops the tunnel at the next rekey"
+                f"the sequence touches only {sorted(covered)}; an IPsec change applied "
+                f"to one end drops the tunnel at the next rekey"
             )
         return self
 

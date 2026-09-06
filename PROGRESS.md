@@ -126,6 +126,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.2 — strongSwan config generator (live-tested) — commit `f28e9ee`
 - [x] 8.3a — Libreswan generator (syntax-validated) — commit `8cf629c`
 - [x] 8.3b — Cisco, FortiGate, Juniper, Palo Alto generators (syntax-validated) — commit `aa3d1bd`
+- [x] 8.4 — zero-downtime change sequencing (live-verified, 0.00s outage) — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -561,6 +562,79 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 8.4 — zero downtime, measured rather than asserted
+
+Four steps, verified on a live pair, with a reachability probe running throughout:
+
+| Approach | Probes | Lost | Longest outage |
+|---|---|---|---|
+| **Sequenced (add → migrate → remove → verify)** | 53 | **0** | **0.00 s** |
+| Naive (replace both ends, then re-establish) | 36 | 3 | **3.84 s** |
+
+Both figures come from the same instrument in the same test file, which is the point:
+a zero on its own is not evidence unless the same measurement can be shown to read
+non-zero when something really does break.
+
+### The plan's step 2 was wrong, and wrong in the dangerous direction
+
+The plan describes step 2 as "rekey and confirm the negotiation now selects the
+target". On strongSwan 5.9.8 that does not work, and it fails silently. An established
+SA keeps the configuration it was created with, so after `swanctl --load-all` loads a
+new proposal list:
+
+- `swanctl --rekey --ike net-net` → renegotiates the **old** proposal
+- `swanctl --rekey --child net-net` → renegotiates the **old** proposal
+- `swanctl --rekey --ike net-net --reauth`, with `charon.make_before_break = yes` →
+  renegotiates the **old** proposal
+
+Every one of those returns "rekey completed successfully", leaves the tunnel up, and
+loses no traffic. An operator following the plan's wording would see a healthy tunnel,
+conclude the remediation had landed, and proceed to step 3 — which removes the old
+proposal from the configuration file while the live SA is still using it. The weak
+crypto stays in service, and the config no longer says so.
+
+What actually adopts the new configuration is establishing a *second* SA from it.
+strongSwan builds it alongside the existing one, both carry traffic, and the old one is
+then deleted. `TestRekeyDoesNotAdoptNewConfiguration` pins the rekey behaviour so that a
+future strongSwan release which fixes it fails the test rather than leaving the
+workaround in place forever.
+
+One further trap: `swanctl --list-sas` prints the newest SA first. Retiring "the first
+one" deletes the SA that just moved to the target and rolls the change back. Step 2's
+text now says to identify the old SA by its algorithms.
+
+### The measuring instrument was the second bug
+
+The first version pinged with `ping -i 0.2` and read its summary. It reported *0%
+packet loss* for the naive control too — because iputils `ping` **exits** when the route
+to its target disappears, which is the exact instant the outage starts. It printed a
+clean summary for the seconds before the failure and nothing about the failure.
+
+That is the worst possible failure mode for a measurement: it returns the answer the
+test wants precisely when the system under test has broken. It was caught by making the
+probe report how long it had been watching and comparing that against the wall-clock
+duration of the change — the naive control came back at **52% coverage**, which is what
+exposed it. The probe is now a supervising loop that timestamps every sample, survives
+the outage, and reports its duration; both runs now show >95% coverage, and the
+coverage check is asserted in both tests.
+
+### What the unit tests assert
+
+The safety property is not the four-step ordering, it is that **the two ends always
+share at least one proposal** — checked over seven states including the half-applied
+ones, where a step has reached one end and not yet the other. `naive_sequence_states`
+supplies a sequence that violates it, and a test asserts the check catches that;
+`test_a_state_with_no_common_proposal_really_does_fail` puts two real peers into that
+state and shows the negotiation returns `NO_PROPOSAL_CHOSEN`.
+
+This superseded the Step 8.2 test asserting the peer is staged before the local end.
+Ordering the ends was an attempt to keep the disjoint window *short*; adding the target
+alongside the current proposal removes the window altogether, so `add` and `remove` are
+now single operations across both ends (`ConfigRole.BOTH`) and there is no ordering left
+to assert. The replacement test asserts the stronger property directly.
 
 ---
 

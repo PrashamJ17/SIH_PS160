@@ -1,284 +1,186 @@
-"""Tests for ESP sequence and replay analysis (build plan Step 5.3).
+"""Tests for zero-downtime change sequencing (build plan Step 8.4).
 
-The last class is the important one. Everything above it checks the analyser against
-sequences this file constructed, which proves the arithmetic and nothing else. The
-cross-check measures loss on real captures and compares it against the loss `tc netem`
-was *told* to inject — ground truth this project did not compute, so it can disagree.
+The load-bearing test is `test_no_intermediate_state_leaves_the_ends_without_a_common
+_proposal`, and its companion proving the check can fail. A safety property asserted
+against only safe inputs proves nothing.
 """
 
 from __future__ import annotations
 
-import time
-from collections import defaultdict
-from datetime import UTC, datetime, timedelta
-from functools import lru_cache
-from pathlib import Path
-
 import pytest
 
-from ipsec_sentinel.parser.esp import AssembledFlow, analyse_sequence, flows_from_capture
-from testbed.orchestrate.netem import PROFILES_BY_NAME
+from ipsec_sentinel.remediate.models import ConfigRole
+from ipsec_sentinel.remediate.sequence import (
+    STEP_COUNT,
+    ProposalState,
+    SequenceError,
+    build_sequence,
+    naive_sequence_states,
+    simulate,
+    unsafe_states,
+    verify_zero_downtime,
+)
 
-BASE = datetime(2026, 9, 5, 12, 0, 0, tzinfo=UTC)
-
-
-def flow(sequences: list[int]) -> AssembledFlow:
-    return AssembledFlow(
-        spi="deadbeef",
-        src_ip="192.0.2.1",
-        dst_ip="192.0.2.2",
-        sizes=[100] * len(sequences),
-        sequences=list(sequences),
-        timestamps=[BASE + timedelta(milliseconds=i) for i in range(len(sequences))],
-    )
-
-
-class TestCleanSequences:
-    def test_a_perfect_sequence_has_no_gaps_and_no_duplicates(self) -> None:
-        analysis = analyse_sequence(flow(list(range(1, 101))))
-        assert analysis.gap_count == 0
-        assert analysis.duplicates == 0
-        assert analysis.reorders == 0
-        assert analysis.missing_count == 0
-        assert analysis.loss_ratio == 0.0
-        assert analysis.replay_suspected is False
-
-    def test_the_span_is_reported(self) -> None:
-        analysis = analyse_sequence(flow(list(range(1, 101))))
-        assert (analysis.lowest, analysis.highest) == (1, 100)
-        assert analysis.expected_count == 100
-        assert analysis.packet_count == 100
-
-    def test_an_empty_flow_analyses_to_nothing_rather_than_raising(self) -> None:
-        analysis = analyse_sequence(flow([]))
-        assert analysis.packet_count == 0
-        assert analysis.gap_count == 0
-        assert analysis.loss_ratio == 0.0
-
-    def test_a_single_packet_flow_is_not_loss(self) -> None:
-        analysis = analyse_sequence(flow([7]))
-        assert analysis.missing_count == 0
-        assert analysis.expected_count == 1
+CURRENT = "3des-md5-modp1024"
+TARGET = "aes256gcm16-curve25519"
 
 
-class TestLoss:
-    def test_one_missing_number_is_one_gap_of_size_one(self) -> None:
-        analysis = analyse_sequence(flow([n for n in range(1, 101) if n != 50]))
-        assert analysis.gap_count == 1
-        assert analysis.gaps[0].size == 1
-        assert analysis.gaps[0].start == analysis.gaps[0].end == 50
-        assert analysis.missing_count == 1
+class TestSequenceShape:
+    def test_the_sequence_has_exactly_four_steps(self) -> None:
+        assert len(build_sequence(CURRENT, TARGET)) == STEP_COUNT
 
-    def test_a_run_of_missing_numbers_is_one_gap_not_many(self) -> None:
-        """A burst loss is one event; counting it as five overstates the instability."""
-        analysis = analyse_sequence(flow([n for n in range(1, 21) if n not in range(5, 10)]))
-        assert analysis.gap_count == 1
-        assert analysis.gaps[0].size == 5
+    def test_the_steps_are_numbered_in_order(self) -> None:
+        orders = [step.order for step in build_sequence(CURRENT, TARGET)]
+        assert orders == [1, 2, 3, 4]
 
-    def test_separate_losses_are_separate_gaps(self) -> None:
-        analysis = analyse_sequence(flow([n for n in range(1, 21) if n not in (5, 15)]))
-        assert analysis.gap_count == 2
-        assert analysis.missing_count == 2
+    def test_every_step_names_which_ends_it_applies_to(self) -> None:
+        """The plan's explicit criterion. "The other one" at 2 a.m. edits the wrong box."""
+        for step in build_sequence(CURRENT, TARGET):
+            assert step.role in (ConfigRole.LOCAL, ConfigRole.PEER, ConfigRole.BOTH)
+            assert step.role.covers
 
-    def test_loss_ratio_is_missing_over_expected(self) -> None:
-        analysis = analyse_sequence(flow([n for n in range(1, 100) if n % 10 != 0]))
-        assert analysis.missing_count == 9  # 10, 20, ... 90
-        assert analysis.expected_count == 99
-        assert analysis.loss_ratio == pytest.approx(9 / 99)
+    def test_the_add_and_remove_steps_apply_to_both_ends(self) -> None:
+        steps = build_sequence(CURRENT, TARGET)
+        assert steps[0].role is ConfigRole.BOTH
+        assert steps[2].role is ConfigRole.BOTH
 
-    def test_loss_past_the_last_arrival_is_not_counted(self) -> None:
-        """A passive observer cannot know a packet was sent if none after it arrived.
+    def test_step_one_offers_both_proposals(self) -> None:
+        """The plan's criterion: step 1's configuration contains both."""
+        step = build_sequence(CURRENT, TARGET)[0]
+        assert CURRENT in step.action
+        assert TARGET in step.action
 
-        Counting the tail as loss would let a flow that simply ended look like one
-        that failed, and every truncated capture would report phantom loss.
+    def test_step_three_offers_only_the_target(self) -> None:
+        """The plan's criterion: step 3's configuration contains only the target."""
+        step = build_sequence(CURRENT, TARGET)[2]
+        assert f"'{TARGET}'" in step.action
+        assert f"'{CURRENT}, {TARGET}'" not in step.action
+
+    def test_no_step_expects_disruption(self) -> None:
+        """That is the whole claim; a step admitting downtime falsifies it."""
+        assert all(s.expected_disruption_s == 0 for s in build_sequence(CURRENT, TARGET))
+
+    def test_step_two_warns_against_continuing_on_failure(self) -> None:
+        """Step 3 is only safe because step 2 proved the target is in use."""
+        step = build_sequence(CURRENT, TARGET)[1]
+        assert "stop here" in step.description
+
+    def test_step_two_warns_against_rekeying_the_existing_sa(self) -> None:
+        """Measured, not assumed: a rekey renegotiates the old proposal.
+
+        ``tests/integration/test_sequence_live.py`` demonstrates this on strongSwan
+        5.9.8 — after reloading a new proposal list, rekeying the IKE SA, rekeying the
+        child SA, and reauthenticating all come back on the *old* proposal, so a
+        sequence built around a rekey would leave the tunnel unchanged while looking
+        like it had worked.
         """
-        analysis = analyse_sequence(flow([1, 2, 3]))
-        assert analysis.missing_count == 0
-        assert analysis.highest == 3
+        step = build_sequence(CURRENT, TARGET)[1]
+        assert "Do not rekey" in step.description
+        assert "Initiate the connection again" in step.action
 
+    def test_step_two_says_how_to_pick_the_sa_to_retire(self) -> None:
+        """Two SAs coexist at that moment and the listing puts the newest first.
 
-class TestReordering:
-    def test_one_swap_is_one_reorder_and_no_gaps(self) -> None:
-        analysis = analyse_sequence(flow([1, 3, 2, 4]))
-        assert analysis.reorders == 1
-        assert analysis.gap_count == 0
-        assert analysis.duplicates == 0
-
-    def test_reordering_is_not_counted_as_loss(self) -> None:
-        """Every number arrived; only the order was wrong."""
-        analysis = analyse_sequence(flow([5, 4, 3, 2, 1]))
-        assert analysis.missing_count == 0
-        assert analysis.reorders == 4
-
-    def test_in_order_arrival_produces_no_reorders(self) -> None:
-        assert analyse_sequence(flow([1, 2, 3, 4, 5])).reorders == 0
-
-
-class TestReplay:
-    def test_a_duplicate_sets_replay_suspected(self) -> None:
-        analysis = analyse_sequence(flow([1, 2, 3, 50, 50, 4]))
-        assert analysis.duplicates == 1
-        assert analysis.replay_suspected is True
-
-    def test_many_duplicates_are_all_counted(self) -> None:
-        analysis = analyse_sequence(flow([1, 1, 1, 2, 2]))
-        assert analysis.duplicates == 3
-
-    def test_no_duplicates_means_no_suspicion(self) -> None:
-        assert analyse_sequence(flow(list(range(1, 51)))).replay_suspected is False
-
-    def test_the_finding_is_suspicion_rather_than_detection(self) -> None:
-        """A passive observer cannot distinguish a replay from a network duplicate.
-
-        The evidence is real; the conclusion is not certain. Naming it `detected`
-        would be exactly the overclaim this project exists to avoid.
+        Retiring "the first one" would delete the SA that just moved to the target and
+        silently roll the change back.
         """
-        from ipsec_sentinel.parser.esp import SequenceAnalysis
+        assert "not by its position" in build_sequence(CURRENT, TARGET)[1].action
 
-        assert hasattr(SequenceAnalysis, "replay_suspected")
-        assert not hasattr(SequenceAnalysis, "replay_detected")
+    def test_an_identical_proposal_is_refused(self) -> None:
+        with pytest.raises(SequenceError, match="identical"):
+            build_sequence(TARGET, TARGET)
 
-
-class TestWrapping:
-    def test_a_wrap_is_a_wrap_and_not_four_billion_missing_packets(self) -> None:
-        analysis = analyse_sequence(flow([0xFFFFFFFE, 0xFFFFFFFF, 0, 1]))
-        assert analysis.wraps == 1
-        assert analysis.missing_count == 0
-        assert analysis.gap_count == 0
-
-    def test_a_wrap_is_not_counted_as_a_reorder(self) -> None:
-        assert analyse_sequence(flow([0xFFFFFFFF, 0, 1])).reorders == 0
-
-    def test_loss_across_a_wrap_is_still_seen(self) -> None:
-        analysis = analyse_sequence(flow([0xFFFFFFFE, 0, 1]))
-        assert analysis.wraps == 1
-        assert analysis.missing_count == 1  # 0xFFFFFFFF never arrived
-
-    def test_two_wraps_are_counted(self) -> None:
-        analysis = analyse_sequence(flow([0xFFFFFFFF, 0, 0xFFFFFFFF, 0]))
-        assert analysis.wraps == 2
-
-    def test_a_flow_with_no_wrap_reports_none(self) -> None:
-        assert analyse_sequence(flow([1, 2, 3])).wraps == 0
+    def test_an_empty_proposal_is_refused(self) -> None:
+        with pytest.raises(SequenceError, match="must be named"):
+            build_sequence("", TARGET)
 
 
-CAPTURES = sorted(Path("data/raw/sweep").glob("*/capture_outer.pcap"))
+class TestTheSafetyProperty:
+    def test_no_intermediate_state_leaves_the_ends_without_a_common_proposal(self) -> None:
+        """The property that makes the sequence zero-downtime.
 
-# Enough captures to estimate a sub-percent loss rate, few enough that this stays a
-# unit test. The sample is a deterministic stride over the sorted list rather than the
-# first N, because cell IDs sort by configuration hash and the first N would over-weight
-# a handful of configurations.
-CROSS_CHECK_SAMPLE = 60
+        Simulated over every state including the half-applied ones — a step reaches one
+        end before the other, and those are the states a four-step narrative glosses
+        over.
+        """
+        states = simulate(CURRENT, TARGET)
+        assert unsafe_states(states) == [], [s.describe() for s in unsafe_states(states)]
 
+    def test_the_simulation_covers_partially_applied_states(self) -> None:
+        """Atomic states alone would miss the window a bad ordering opens."""
+        labels = [state.label for state in simulate(CURRENT, TARGET)]
+        assert any("local end only" in label for label in labels)
+        assert sum("only" in label for label in labels) >= 2
 
-def _profile_of(cell_name: str) -> str | None:
-    for name in ("clean", "wan_good", "wan_poor"):
-        if cell_name.endswith(f"_{name}_r0"):
-            return name
-    return None
+    def test_every_state_is_checked_from_the_initial_one(self) -> None:
+        states = simulate(CURRENT, TARGET)
+        assert states[0].label == "initial"
+        assert states[0].local == (CURRENT,)
+        assert states[-1].local == (TARGET,)
+        assert states[-1].peer == (TARGET,)
 
+    def test_verify_returns_the_states_it_checked(self) -> None:
+        assert len(verify_zero_downtime(CURRENT, TARGET)) == len(simulate(CURRENT, TARGET))
 
-@lru_cache(maxsize=1)
-def _measured_loss() -> dict[str, tuple[float, ...]]:
-    """Loss ratio per flow, grouped by impairment profile.
+    def test_the_check_can_fail(self) -> None:
+        """The naive replace-both-ends approach must be caught.
 
-    Cached: every test in the cross-check needs the same measurement, and parsing the
-    corpus four times would put a minute of capture parsing into `make verify` — which
-    runs before every commit, and which nobody keeps running if it is slow.
-    """
-    candidates = [p for p in CAPTURES if _profile_of(p.parent.name) is not None]
-    stride = max(1, len(candidates) // CROSS_CHECK_SAMPLE)
-    sampled = candidates[::stride][:CROSS_CHECK_SAMPLE]
+        Without this, the safety assertion is only ever run against input that cannot
+        fail it, and proves nothing.
+        """
+        unsafe = unsafe_states(naive_sequence_states(CURRENT, TARGET))
+        assert unsafe, "the naive sequence should pass through a disjoint state"
+        assert "local end only" in unsafe[0].label
 
-    by_profile: dict[str, list[float]] = defaultdict(list)
-    for pcap in sampled:
-        profile = _profile_of(pcap.parent.name)
-        assert profile is not None
-        for assembled in flows_from_capture(pcap):
-            # Short flows cannot measure a sub-percent loss rate at all.
-            if assembled.packet_count < 20:
-                continue
-            by_profile[profile].append(analyse_sequence(assembled).loss_ratio)
-    return {name: tuple(values) for name, values in by_profile.items()}
+    def test_a_disjoint_state_reports_no_common_proposal(self) -> None:
+        state = ProposalState("test", ("A",), ("B",))
+        assert state.is_safe is False
+        assert state.common == ()
+        assert "NO COMMON PROPOSAL" in state.describe()
 
-
-@pytest.mark.skipif(len(CAPTURES) < 30, reason="too few sweep captures for a cross-check")
-class TestImpairmentCrossCheck:
-    """Validate the analyser against loss the testbed was told to inject.
-
-    This is the only test in the file whose expected values this project did not
-    compute. `tc netem` was configured with a loss percentage per profile; the
-    analyser measures loss independently, from ESP sequence numbers, on captures
-    strongSwan produced. If the two agree, the analyser measures reality.
-    """
-
-    def test_clean_flows_show_no_loss_at_all(self) -> None:
-        measured = _measured_loss()
-        assert measured.get("clean"), "no clean flows to check"
-        assert max(measured["clean"]) == 0.0, (
-            "the clean profile injects no loss, so any gap is either a capture defect "
-            "or a bug in the analyser"
-        )
-
-    def test_impaired_flows_show_loss(self) -> None:
-        measured = _measured_loss()
-        assert measured.get("wan_poor"), "no wan_poor flows to check"
-        lossy = [ratio for ratio in measured["wan_poor"] if ratio > 0]
-        assert lossy, "wan_poor injects 1% loss; no flow showed any"
-
-    def test_measured_loss_recovers_the_injected_rate(self) -> None:
-        """The strongest form: the number, not just its sign."""
-        measured = _measured_loss()
-        for profile in ("wan_good", "wan_poor"):
-            if not measured.get(profile):
-                pytest.skip(f"no {profile} flows yet")
-            injected = PROFILES_BY_NAME[profile].loss_pct / 100.0
-            mean = sum(measured[profile]) / len(measured[profile])
-            assert mean == pytest.approx(injected, rel=0.5), (
-                f"{profile}: netem was told to drop {injected:.2%}, sequence numbers "
-                f"show {mean:.4%}"
-            )
-
-    def test_loss_increases_with_the_severity_of_the_profile(self) -> None:
-        measured = _measured_loss()
-        if not all(measured.get(n) for n in ("clean", "wan_good", "wan_poor")):
-            pytest.skip("not all profiles present yet")
-        means = {name: sum(values) / len(values) for name, values in measured.items()}
-        assert means["clean"] < means["wan_good"] < means["wan_poor"]
+    def test_a_shared_state_reports_the_overlap(self) -> None:
+        state = ProposalState("test", ("A", "B"), ("B",))
+        assert state.is_safe is True
+        assert state.common == ("B",)
 
 
-class TestSpanIsNotWalked:
-    """Regression: gap-finding must be O(packets), never O(sequence span).
+class TestGeneratorIntegration:
+    """The change package must carry the verified sequence, not a hand-written one."""
 
-    The first version walked every integer between the lowest and highest sequence
-    number. That is fine for a well-behaved flow, where the span is roughly the packet
-    count — and catastrophic for anything else. Two counter wraps put four billion
-    values between lowest and highest, so a four-packet flow took 82 seconds to
-    analyse. A flow arriving from a hostile peer is attacker-controlled input, and an
-    analyser that can be stalled by six bytes of it is the same defect the parser
-    fuzzing exists to prevent, one layer up.
-    """
+    @staticmethod
+    def _package(label: str, findings: list[str]):  # type: ignore[no-untyped-def]
+        from ipsec_sentinel.remediate.generators.strongswan import generate_change_package
+        from testbed.orchestrate.matrix import expand_matrix
 
-    TIME_LIMIT_S = 1.0
+        config = next(lc.config for lc in expand_matrix() if lc.label == label)
+        return generate_change_package("t1", config, findings)
 
-    def _timed(self, sequences: list[int]) -> float:
-        started = time.perf_counter()
-        analyse_sequence(flow(sequences))
-        return time.perf_counter() - started
+    def test_a_package_carries_the_four_step_sequence(self) -> None:
+        package = self._package("weak", ["CRY-02"])
+        assert len(package.sequence) == STEP_COUNT
 
-    def test_two_wraps_are_analysed_immediately(self) -> None:
-        assert self._timed([0xFFFFFFFF, 0, 0xFFFFFFFF, 0]) < self.TIME_LIMIT_S
+    def test_a_package_expects_no_disruption(self) -> None:
+        package = self._package("weak", ["CRY-02"])
+        assert package.total_expected_disruption_s == 0
 
-    def test_a_maximally_wide_span_is_analysed_immediately(self) -> None:
-        assert self._timed([0, 0xFFFFFFFF]) < self.TIME_LIMIT_S
+    def test_an_aggressive_psk_package_rotates_the_key_first(self) -> None:
+        """The hash is already exposed; rotating after the transition carries it forward."""
+        package = self._package("worst", ["IKE-03"])
+        assert len(package.sequence) == STEP_COUNT + 1
+        assert package.sequence[0].order == 1
+        assert "Rotate the pre-shared key" in package.sequence[0].description
+        assert package.sequence[0].reversible is False
 
-    def test_many_wraps_are_analysed_immediately(self) -> None:
-        assert self._timed([0xFFFFFFFF, 0] * 50) < self.TIME_LIMIT_S
+    def test_the_rotation_does_not_disturb_the_step_ordering(self) -> None:
+        package = self._package("worst", ["IKE-03"])
+        assert [s.order for s in package.sequence] == [1, 2, 3, 4, 5]
 
-    def test_a_wide_span_still_reports_the_gap_correctly(self) -> None:
-        """Fast and wrong would be no better than slow and right."""
-        analysis = analyse_sequence(flow([0, 0xFFFFFFFF]))
-        assert analysis.gap_count == 1
-        assert analysis.gaps[0].start == 1
-        assert analysis.gaps[0].end == 0xFFFFFFFE
-        assert analysis.missing_count == 0xFFFFFFFF - 1
+    def test_the_packaged_sequence_is_itself_zero_downtime(self) -> None:
+        """Simulate the transition the package actually describes."""
+        from ipsec_sentinel.remediate.generators.strongswan import harden
+        from testbed.orchestrate.matrix import expand_matrix
+
+        original = next(lc.config for lc in expand_matrix() if lc.label == "weak")
+        corrected, _ = harden(original)
+        states = verify_zero_downtime(original.proposal_string(), corrected.proposal_string())
+        assert all(state.is_safe for state in states)
