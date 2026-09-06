@@ -268,6 +268,20 @@ class LivePair:
     def initiate(self) -> subprocess.CompletedProcess[str]:
         return exec_in(self.left, "swanctl", "--initiate", "--child", "net-net", timeout=180)
 
+    def rekey_ike(self) -> subprocess.CompletedProcess[str]:
+        """Renegotiate the IKE SA, putting a fresh IKE_SA_INIT on the wire.
+
+        Used when the configuration has *not* changed. ``--initiate`` refuses to build a
+        duplicate child SA with the same traffic selectors, so it cannot be used to
+        produce a second handshake for an unchanged tunnel. A rekey can, and it is also
+        how a watcher normally comes to see a long-lived tunnel's parameters.
+
+        The counterpart matters just as much: after a configuration *change*, a rekey
+        renegotiates the old parameters (established in Step 8.4), so ``initiate`` is the
+        one that shows the new state.
+        """
+        return exec_in(self.left, "swanctl", "--rekey", "--ike", "net-net", timeout=120)
+
     def terminate(self, ike_id: int) -> None:
         exec_in(self.left, "swanctl", "--terminate", "--ike-id", str(ike_id), timeout=120)
 
@@ -294,6 +308,48 @@ class LivePair:
         "except Exception as exc:\n"
         "    print('ERR:' + type(exc).__name__)\n"
     )
+
+    def set_config(self, config: TunnelConfig) -> None:
+        """Replace both ends' configuration entirely, not just the proposal list.
+
+        ``set_proposals`` edits the proposal lines of the config the pair was built
+        from. Watching for drift needs a genuinely different configuration — a different
+        cipher, group, and sometimes IKE version — so both files are re-rendered from
+        the new :class:`TunnelConfig`. The topology and the PSK are unchanged, so the
+        peers still address each other and still authenticate.
+        """
+        for role, path in self._confs.items():
+            path.write_text(render_swanctl_conf(config, role))
+        self.config = config
+
+    def start_ike_capture(self, remote: str = "/tmp/ike.pcap") -> str:
+        """Capture IKE only, inside the left gateway, for the life of the pair.
+
+        Filtered to IKE because the transit interface is mostly ESP, and a watcher that
+        re-reads a growing file should not be re-reading megabytes of payload it cannot
+        decrypt.
+        """
+        exec_in(
+            self.left,
+            "sh",
+            "-c",
+            f"nohup tcpdump -i any -U -w {remote} 'udp port 500 or udp port 4500' "
+            f">/dev/null 2>&1 &",
+            timeout=30,
+        )
+        time.sleep(2)  # tcpdump reports ready slightly before the filter is attached
+        return remote
+
+    def fetch_capture(self, destination: Path, remote: str = "/tmp/ike.pcap") -> Path:
+        """Copy the in-container capture out so a host-side watcher can read it."""
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(
+            ["docker", "cp", f"{self.left}:{remote}", str(destination)],
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        return destination
 
     def send_datagram(
         self, payload: bytes, target: str, port: int = 500, timeout_s: float = 3.0
@@ -358,13 +414,20 @@ class LivePair:
 
 
 @contextmanager
-def live_pair(config: TunnelConfig, *, capture_to: Path | None = None) -> Iterator[LivePair]:
+def live_pair(
+    config: TunnelConfig, *, capture_to: Path | None = None, ike_capture: bool = False
+) -> Iterator[LivePair]:
     """Bring up a pair on ``config`` with editable configuration files.
 
     ``capture_to`` starts a dual capture on the left gateway **before** the tunnel is
     initiated, so the first handshake lands in the outer PCAP. A capture started after
     initiation records ESP with no negotiation to read, which looks healthy and is
     useless to the deterministic lane.
+
+    ``ike_capture`` does the same for the IKE-only capture watch mode reads. It has to
+    start first for the same reason and a sharper one: a later rekey is carried in
+    CREATE_CHILD_SA, whose SA payload is encrypted, so IKE_SA_INIT is the only chance a
+    passive observer gets to read a tunnel's parameters.
     """
     conf_dir = Path(tempfile.mkdtemp(prefix="sentinel-live-"))
     confs: dict[Role, Path] = {"left": conf_dir / "left.conf", "right": conf_dir / "right.conf"}
@@ -393,6 +456,8 @@ def live_pair(config: TunnelConfig, *, capture_to: Path | None = None) -> Iterat
                 )
                 stack.enter_context(capture)
                 pair.capture = capture
+            if ike_capture:
+                pair.start_ike_capture()
             started = pair.initiate()
             assert started.returncode == 0, f"tunnel did not establish: {started.stdout[-400:]}"
             yield pair

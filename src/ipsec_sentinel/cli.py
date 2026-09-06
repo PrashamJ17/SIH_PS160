@@ -345,6 +345,149 @@ def scan(target: str, port: int, timeout_s: float, authorised: bool) -> None:
         click.echo("\nNo weak proposal was accepted.")
 
 
+@main.command()
+@click.argument("interface")
+@click.option("--baseline", default="nist_800_77r1", show_default=True)
+@click.option("--poll", "poll_s", default=2.0, show_default=True, help="Seconds between polls.")
+@click.option("--for", "duration_s", type=float, help="Stop after this many seconds.")
+@click.option("--syslog", help="Send alerts to this collector as host:port.")
+@click.option("--from-capture", type=click.Path(path_type=Path), help="Read a file instead.")
+@click.option(
+    "--state",
+    type=click.Path(path_type=Path),
+    help="Remember what each tunnel was last seen negotiating, across restarts.",
+)
+@click.option(
+    "--since",
+    type=click.Path(path_type=Path),
+    help="Seed the baseline from a previous assessment's capture.",
+)
+@click.option(
+    "--stale-after",
+    type=float,
+    default=86400.0,
+    show_default=True,
+    help="Report tunnels not seen negotiating for this many seconds.",
+)
+def watch_command(
+    interface: str,
+    baseline: str,
+    poll_s: float,
+    duration_s: float | None,
+    syslog: str | None,
+    from_capture: Path | None,
+    state: Path | None,
+    since: Path | None,
+    stale_after: float,
+) -> None:
+    """Watch an interface and alert when a tunnel gets weaker.
+
+    Drift is measured against each tunnel's own past, not against the baseline: a tunnel
+    that was always mediocre is a finding `analyse` already made, while one that *was*
+    strong and is now mediocre is news.
+
+    A tunnel's parameters are only readable at IKE_SA_INIT, so drift is seen when a
+    tunnel next establishes rather than at its next rekey — a rekey's proposals are
+    inside the encrypted exchange.
+    """
+    from ipsec_sentinel.assess.framework import UnknownBaselineError
+    from ipsec_sentinel.watch import (
+        DriftDetector,
+        ExchangeSource,
+        LiveInterfaceSource,
+        PcapPollSource,
+        alerts_as_syslog,
+    )
+
+    source: ExchangeSource
+    if from_capture is not None:
+        if not from_capture.exists():
+            fail(f"no such capture: {from_capture}", EXIT_USAGE)
+        source = PcapPollSource(from_capture)
+    else:
+        import shutil
+
+        if shutil.which("tcpdump") is None:
+            fail(
+                "tcpdump is not installed, and watch mode uses it to read the interface. "
+                "Install it, or pass --from-capture to watch a file another process is "
+                "writing.",
+                EXIT_USAGE,
+            )
+        try:
+            source = LiveInterfaceSource(interface)
+        except OSError as exc:
+            fail(f"could not capture on {interface}: {exc}")
+
+    emitter = None
+    if syslog:
+        from ipsec_sentinel.report.siem import SyslogEmitter
+
+        host, _, port = syslog.partition(":")
+        if not host:
+            fail("--syslog wants host:port", EXIT_USAGE)
+        emitter = SyslogEmitter(host, int(port) if port else 514)
+
+    try:
+        detector = DriftDetector(baseline)
+        detector.resolve_baseline()
+    except UnknownBaselineError as exc:
+        source.close()
+        fail(str(exc), EXIT_USAGE)
+
+    remembered = detector.load(state) if state else 0
+    if since is not None:
+        if not since.exists():
+            source.close()
+            fail(f"no such capture: {since}", EXIT_USAGE)
+        remembered += detector.seed_from_capture(since)
+
+    click.echo(
+        f"Watching {from_capture or interface} against baseline {baseline}. "
+        f"A tunnel seen for the first time sets its own baseline; "
+        f"only a later weakening is reported."
+    )
+    if remembered:
+        click.echo(f"{remembered} tunnel(s) remembered from earlier; drift is measured from those.")
+    elif state or since:
+        click.echo("No earlier state was found, so every tunnel starts from its next sighting.")
+    seen = 0
+    try:
+        for alert in watch_alerts(source, detector, poll_s, duration_s):
+            seen += 1
+            click.secho(f"DRIFT  {alert.summary()}", fg="red", bold=True)
+            for weakening in alert.weakenings:
+                click.echo(f"       {weakening.describe()}")
+            if emitter is not None:
+                result = emitter.emit(alerts_as_syslog([alert]))
+                if not result.complete:
+                    click.secho(f"       siem: {result.summary()}", err=True, fg="yellow")
+    except KeyboardInterrupt:
+        click.echo("stopped")
+    finally:
+        source.close()
+        if state is not None:
+            detector.save(state)
+
+    click.echo(f"{seen} drift alert(s).")
+    # An empty alert log and a quiet network look identical unless something says which.
+    stale = detector.stale(stale_after)
+    if stale:
+        click.secho(
+            f"\n{len(stale)} tunnel(s) have not been seen negotiating recently. Their "
+            f"current parameters are unverified, not confirmed unchanged:",
+            fg="yellow",
+        )
+        for entry in stale:
+            click.echo(f"  {entry.describe()}")
+
+
+def watch_alerts(source: object, detector: object, poll_s: float, duration_s: float | None):  # type: ignore[no-untyped-def]
+    from ipsec_sentinel.watch import watch as watch_loop
+
+    return watch_loop(source, detector=detector, poll_s=poll_s, until=duration_s)  # type: ignore[arg-type]
+
+
 @main.group()
 def dataset() -> None:
     """Build, package and audit the machine-learning dataset."""

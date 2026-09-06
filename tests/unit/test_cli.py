@@ -30,6 +30,7 @@ COMMANDS = [
     ["inventory"],
     ["remediate"],
     ["scan"],
+    ["watch"],
     ["dataset"],
     ["dataset", "build"],
     ["dataset", "audit"],
@@ -279,3 +280,196 @@ class TestScanIsTheOnlyThingThatTransmits:
             ["scan", "127.0.0.1", "--port", "9", "--timeout", "0.1", "--i-have-authorisation"],
         )
         assert "No conclusion can be drawn" in result.output
+
+
+class TestWatch:
+    """The command registers as `watch`; Click strips the `_command` suffix."""
+
+    def test_it_is_reachable_under_the_name_the_plan_uses(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["watch", "--help"])
+        assert result.exit_code == 0
+        assert "alert when a tunnel gets weaker" in result.output
+
+    def test_the_help_states_the_ike_sa_init_limitation(self, runner: CliRunner) -> None:
+        """A limitation nobody should have to rediscover from an empty alert log."""
+        result = runner.invoke(main, ["watch", "--help"])
+        assert "IKE_SA_INIT" in result.output
+        assert "rekey" in result.output
+
+    def test_a_missing_capture_is_a_message(self, runner: CliRunner) -> None:
+        result = runner.invoke(main, ["watch", "eth0", "--from-capture", "/nope/x.pcap"])
+        assert result.exit_code == EXIT_USAGE
+        assert "no such capture" in result.output
+        assert "Traceback" not in result.output
+
+    def test_an_unknown_baseline_is_refused_before_watching(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        """A watcher that starts, prints "watching", then raises twenty minutes later
+        when something finally shows up is worse than one that refuses now."""
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        result = runner.invoke(
+            main,
+            ["watch", "eth0", "--from-capture", str(empty), "--baseline", "no-such-baseline"],
+        )
+        assert result.exit_code == EXIT_USAGE
+        assert "nist_800_77r1" in result.output
+
+    def test_watching_a_quiet_capture_reports_nothing(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        result = runner.invoke(
+            main, ["watch", "eth0", "--from-capture", str(empty), "--for", "0.2"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "0 drift alert(s)" in result.output
+
+    def test_it_says_a_first_sighting_is_not_drift(self, runner: CliRunner, tmp_path: Path) -> None:
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        result = runner.invoke(
+            main, ["watch", "eth0", "--from-capture", str(empty), "--for", "0.2"]
+        )
+        assert "seen for the first time sets its own baseline" in result.output
+
+    def test_a_malformed_syslog_target_is_refused(self, runner: CliRunner, tmp_path: Path) -> None:
+        empty = tmp_path / "empty.pcap"
+        empty.write_bytes(b"")
+        result = runner.invoke(
+            main,
+            ["watch", "eth0", "--from-capture", str(empty), "--for", "0.2", "--syslog", ":514"],
+        )
+        assert result.exit_code == EXIT_USAGE
+        assert "host:port" in result.output
+
+
+class TestWatchRemembers:
+    """The mitigations for the IKE_SA_INIT limitation, at the command line."""
+
+    @staticmethod
+    def _empty(tmp_path: Path) -> Path:
+        target = tmp_path / "empty.pcap"
+        target.write_bytes(b"")
+        return target
+
+    def test_state_is_written_and_read_back(self, runner: CliRunner, tmp_path: Path) -> None:
+        state = tmp_path / "watch.json"
+        first = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(capture()),
+                "--for",
+                "0.3",
+                "--state",
+                str(state),
+                "--baseline",
+                "default",
+            ],
+        )
+        assert first.exit_code == 0, first.output
+        assert state.exists()
+
+        second = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(self._empty(tmp_path)),
+                "--for",
+                "0.2",
+                "--state",
+                str(state),
+                "--baseline",
+                "default",
+            ],
+        )
+        assert second.exit_code == 0, second.output
+        assert "remembered from earlier" in second.output
+
+    def test_it_says_when_there_is_no_earlier_state(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(self._empty(tmp_path)),
+                "--for",
+                "0.2",
+                "--state",
+                str(tmp_path / "absent.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "No earlier state was found" in result.output
+
+    def test_a_previous_capture_can_seed_the_baseline(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(self._empty(tmp_path)),
+                "--for",
+                "0.2",
+                "--since",
+                str(capture()),
+                "--baseline",
+                "default",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "remembered from earlier" in result.output
+
+    def test_a_missing_seed_capture_is_a_message(self, runner: CliRunner, tmp_path: Path) -> None:
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(self._empty(tmp_path)),
+                "--for",
+                "0.2",
+                "--since",
+                "/nope/audit.pcap",
+            ],
+        )
+        assert result.exit_code == EXIT_USAGE
+        assert "no such capture" in result.output
+        assert "Traceback" not in result.output
+
+    def test_silent_tunnels_are_reported_rather_than_implied_healthy(
+        self, runner: CliRunner
+    ) -> None:
+        """An empty alert log and a quiet network must not look the same."""
+        result = runner.invoke(
+            main,
+            [
+                "watch",
+                "eth0",
+                "--from-capture",
+                str(capture()),
+                "--for",
+                "0.3",
+                "--baseline",
+                "default",
+                "--stale-after",
+                "0",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "not been seen negotiating recently" in result.output
+        assert "unverified, not confirmed unchanged" in result.output

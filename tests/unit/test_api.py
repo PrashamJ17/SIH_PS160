@@ -126,27 +126,50 @@ class TestSecurity:
         )
         assert not marker.exists()
 
-    def test_the_temporary_file_is_removed_afterwards(self, client: TestClient) -> None:
+    @staticmethod
+    def _record_temporary_paths(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+        """Capture the exact paths mkstemp hands out during this request.
+
+        Snapshotting the temp directory before and after looked simpler and was wrong:
+        the suite runs under xdist, so another worker's upload lands between the two
+        snapshots and the test fails for a reason that has nothing to do with it.
+        """
         import tempfile
 
-        before = set(Path(tempfile.gettempdir()).glob("sentinel-upload-*"))
+        created: list[Path] = []
+        real = tempfile.mkstemp
+
+        def recording(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+            handle, path = real(*args, **kwargs)  # type: ignore[arg-type]
+            created.append(Path(path))
+            return handle, path
+
+        monkeypatch.setattr(tempfile, "mkstemp", recording)
+        return created
+
+    def test_the_temporary_file_is_removed_afterwards(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        created = self._record_temporary_paths(monkeypatch)
         client.post(
             f"{API_PREFIX}/analyse",
             files={"file": ("capture.pcap", capture_bytes(), "application/octet-stream")},
         )
-        after = set(Path(tempfile.gettempdir()).glob("sentinel-upload-*"))
-        assert after <= before
+        assert created, "the upload did not go through mkstemp"
+        assert not [path for path in created if path.exists()]
 
-    def test_a_failed_analysis_still_removes_the_temporary_file(self, client: TestClient) -> None:
-        import tempfile
-
-        before = set(Path(tempfile.gettempdir()).glob("sentinel-upload-*"))
+    def test_a_failed_analysis_still_removes_the_temporary_file(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A service that leaks a capture into /tmp for every malformed upload is a
+        slower version of the same problem."""
+        created = self._record_temporary_paths(monkeypatch)
         client.post(
             f"{API_PREFIX}/analyse",
             files={"file": ("x.pcap", b"not a capture at all", "application/octet-stream")},
         )
-        after = set(Path(tempfile.gettempdir()).glob("sentinel-upload-*"))
-        assert after <= before
+        assert created
+        assert not [path for path in created if path.exists()]
 
     def test_every_response_forbids_content_sniffing(self, client: TestClient) -> None:
         """A report holds text an attacker influenced; a sniffing browser would render it."""

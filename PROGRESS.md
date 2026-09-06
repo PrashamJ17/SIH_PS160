@@ -144,6 +144,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.1 — command-line interface — commit `b766978`
 - [x] 10.2 — REST API — commit `fe9d6dd`
 - [x] 10.3 — dashboard, and the classifier wired in — commit `13ef92f`
+- [x] 10.4 — watch mode with drift detection — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -579,6 +580,63 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.4 — drift detected in 2.2 seconds, and the blind spot behind it
+
+The scenario from the pitch, run for real: a tunnel configured
+`aes256-sha384-prfsha384-ecp384` is replaced with `aes128-sha1-prfsha1-modp1024` between
+the same endpoints, and the watcher notices **2.2 seconds** after the change — against a
+plan deadline of sixty.
+
+```
+10.100.0.2 <-> 10.100.0.3 weakened:
+  aes256-sha384-prfsha384-ecp384 -> aes128-sha1-prfsha1-modp1024 (score 89 -> 9)
+```
+
+Drift is compared against each tunnel's **own past**, not against a baseline. A tunnel
+that was always mediocre is a finding `analyse` already made; one that *was* strong is
+news, whether or not the new state breaches policy. The direction of travel is the signal.
+
+Two silences are deliberate. A **first sighting is never drift** — with no past there is
+nothing to compare, and alerting there would fill an inbox on every restart until nobody
+read it. A **strengthening is recorded but never alerted**, because an alert that fires on
+good news is one people learn to close.
+
+### The limitation the test design exposed
+
+Building the live test surfaced something that changes what watch mode can promise.
+
+**A rekey is invisible.** `swanctl --rekey` produces `CREATE_CHILD_SA`, whose SA payload
+sits inside the encrypted `SK` payload. The first version of the test used a rekey to put
+a second handshake on the wire and got four unreadable exchanges. **Only `IKE_SA_INIT`
+carries proposals in the clear.**
+
+The narrow version of that limit is benign, for a reason measured back in Step 8.4: an
+IKE SA keeps the configuration it was created with, so a rekey renegotiates the *old*
+parameters. A configuration change only takes effect when a new IKE SA is built, and
+building one is an `IKE_SA_INIT`. The moment the estate actually becomes weaker is the
+moment it becomes visible.
+
+The dangerous version is a watcher with **no memory of the strong past**, because then
+the weak tunnel is a first sighting and no alert fires. Three mitigations, each tested
+live rather than argued:
+
+| Gap | Mitigation |
+|---|---|
+| A restarted watcher forgets | `--state` persists each tunnel's last-seen configuration, written atomically; a version mismatch is ignored rather than guessed at, because restoring a *wrong* past would invent drift |
+| A watcher started after the change has no baseline | `--since <capture>` seeds from the previous audit. Seeded from the capture, not the JSON report: the report holds the suite as a display string, and parsing it back could get one transform wrong and produce a confidently wrong baseline |
+| A tunnel not seen negotiating looks the same as one confirmed unchanged | `stale()` names them — *"last seen 38.2h ago as …; its parameters since then are unverified, not confirmed unchanged"* |
+
+`TestTheLimitationIsMitigated` proves the seeded watcher catches the drift **and** that the
+same watcher without a seed reports nothing — the control that shows the mitigation is
+doing the work.
+
+One residual limit stays a limit: RFC 7296 permits a rekey to renegotiate the SA payload,
+so an implementation that re-reads its configuration at rekey could change parameters
+where this tool cannot see it. strongSwan does not — measured, not assumed — but not every
+stack is strongSwan. It belongs in `LIMITATIONS.md`.
 
 ---
 
