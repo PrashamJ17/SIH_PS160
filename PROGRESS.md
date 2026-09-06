@@ -127,7 +127,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.3a — Libreswan generator (syntax-validated) — commit `8cf629c`
 - [x] 8.3b — Cisco, FortiGate, Juniper, Palo Alto generators (syntax-validated) — commit `aa3d1bd`
 - [x] 8.4 — zero-downtime change sequencing (live-verified, 0.00s outage) — commit `126ca33`
-- [x] 8.5 — blast radius assessment — commit `PENDING`
+- [x] 8.5 — blast radius assessment — commit `5c22acf`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
