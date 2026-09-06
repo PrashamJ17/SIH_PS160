@@ -146,6 +146,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.3 — dashboard, and the classifier wired in — commit `13ef92f`
 - [x] 10.4 — watch mode with drift detection — commit `9c9b490`
 - [x] 10.4b — device state collector, closing the rekey blind spot — commit `f572822`
+- [x] **M10 gate — 8/8 passed, 0 failed** — tag `v0.11.0-interfaces`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -581,6 +582,40 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## ▶ MILESTONE M10 — Interfaces complete
+
+`make verify-all`: **2276 unit + 205 integration passed, 0 failed**.
+`scripts/check_m10.py`: **8/8**.
+
+| # | Acceptance item | Result |
+|---|---|---|
+| 1 | CLI covers every workflow | **PASS** — 9 planned commands present; analyse, inventory, remediate and version run end to end on a real capture; `scan` refuses without authorisation (exit 3) |
+| 2 | API passes all security tests | **PASS** — 27 passed, and the plan's four named tests confirmed present by name rather than by count |
+| 3 | Dashboard loads and functions offline | **PASS** — 13 Chromium tests; the offline one aborts every request outside the origin and then drives an upload to completion |
+| 4 | *(added)* Dashboard references nothing external | **PASS** — the static half of the same claim |
+| 5 | Watch mode detects a live weakening within 60 seconds | **PASS** — detected in 2.2s, with a control asserting an unchanged tunnel reports nothing |
+| 6 | *(added)* Drift is detectable without seeing the negotiation | **PASS** — the rekey blind spot, closed by Step 10.4b |
+| 7 | *(added)* No interface dials out except the one that should | **PASS** |
+| 8 | Full regression green | **PASS** |
+
+### Item 7 was worth adding
+
+The plan checks each interface separately. Item 7 checks the property they share and the
+one the whole product rests on: `analyse`, `inventory` and the API's upload path are run
+with `socket.socket` replaced by a recorder, and **no outbound socket is opened by any of
+them**. The same check then confirms the prober — the one component that is supposed to
+transmit — still refuses without explicit authorisation.
+
+Three interfaces, one claim, checked once rather than trusted three times.
+
+### Item 1 checks that commands work, not that they exist
+
+`--help` exiting zero proves a command is registered. It does not prove it does anything.
+The four read-only workflows are run against a real corpus capture, and `scan` is invoked
+without its authorisation flag to confirm the refusal is live rather than documented.
 
 ---
 
