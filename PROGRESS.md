@@ -128,6 +128,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 8.3b — Cisco, FortiGate, Juniper, Palo Alto generators (syntax-validated) — commit `aa3d1bd`
 - [x] 8.4 — zero-downtime change sequencing (live-verified, 0.00s outage) — commit `126ca33`
 - [x] 8.5 — blast radius assessment — commit `5c22acf`
+- [x] 8.6 — automatic fix verification from traffic — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -563,6 +564,58 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 8.6 — the field that was always None
+
+`verify_remediation` was written against `IKEExchange.proposal_accepted`. **Nothing in
+the codebase ever set that field.** It was declared on the model, defaulted to `None`,
+and populated by no parser — so in production the module would have returned `PENDING`
+for every tunnel, forever, and reported that as an honest "no evidence yet".
+
+The unit tests passed, because they constructed exchanges with the field set by hand.
+That is the whole lesson: a test fixture that builds an object the system never produces
+tests the fixture. It surfaced only when the live test parsed a real capture and got
+**zero** usable negotiations out of fourteen real IKE messages.
+
+What the wire actually gives:
+
+| | initiator message | responder reply |
+|---|---|---|
+| carries | the **full offer list** | the **one proposal chosen** |
+| responder SPI | zero | non-zero |
+
+Neither message answers "what was agreed" alone, which is why the question belongs to
+the negotiation and not to the message. `Negotiation.accepted_proposal` in
+`parser/correlate.py` already read it correctly from the responder's reply. The module
+now groups messages with `group_negotiations` before deciding anything, and
+`proposal_accepted` has been **removed from the model** — a field populated by nobody and
+read as fact by somebody is worse than no field.
+
+The test helper was rewritten to emit a message per direction, so it now builds what the
+parser builds.
+
+### A fourth verdict the plan does not have
+
+The plan lists verified / failed / pending. There is a fourth, and it is the state the
+Step 8.4 sequence deliberately passes through: after step 2 the tunnel is **running on
+the target and still offering the old proposal**. Reading the agreed proposal alone,
+that is indistinguishable from success — and closing the finding there would sign off a
+tunnel a peer can still downgrade by offering only the weak proposal.
+
+`PARTIAL` names that state and keeps the finding open. A model validator enforces the
+rule independently of the logic that picks the status: **no status but `VERIFIED` may
+close anything.**
+
+The live test walks one real change and observes all four in order — failed, partial,
+pending, verified. The pending step matters as much as the rest: removing a proposal from
+a config file is not observable until the peers next negotiate, so the fix is *pending*
+until the wire confirms it. Anything closing the finding at step 3 would be reporting the
+configuration, not the tunnel.
+
+The live pair harness moved to `tests/fixtures/livepair.py` so both integration tests
+share one, and gained optional packet capture that starts before the first handshake.
 
 ---
 

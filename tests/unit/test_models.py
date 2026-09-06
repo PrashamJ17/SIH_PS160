@@ -219,7 +219,6 @@ class TestRoundTrip:
             exchange_type="Aggressive Mode",
             is_aggressive=True,
             proposals_offered=[weak, strong],
-            proposal_accepted=weak,
             ke_group_from_length=2,
             vendor_ids=["4f45"],
             notifies=["NAT_DETECTION_SOURCE_IP"],

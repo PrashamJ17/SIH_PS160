@@ -150,9 +150,17 @@ class ObservedConfig(BaseModel):
 class IKEExchange(BaseModel):
     """A parsed IKE negotiation. Every field here is a fact read off the wire.
 
-    ``proposals_offered`` holds **every** proposal, not just the accepted one: the
-    offer list is the real attack surface, since a gateway advertising 3DES will
-    accept 3DES from a peer that offers only that.
+    ``proposals_offered`` holds **every** proposal in *this message*, not just the
+    accepted one: the offer list is the real attack surface, since a gateway
+    advertising 3DES will accept 3DES from a peer that offers only that.
+
+    There is deliberately no ``proposal_accepted`` field. One message cannot answer
+    what was agreed — the offer list is in the initiator's opening message and the
+    responder's reply carries the single proposal it chose — so the question belongs to
+    the negotiation, not the message. Use
+    :attr:`ipsec_sentinel.parser.correlate.Negotiation.accepted_proposal`, which reads
+    it from the responder's reply and returns ``None`` when that reply was not
+    captured. A field here would be populated by nobody and read as fact by somebody.
     """
 
     initiator_spi: str
@@ -161,7 +169,6 @@ class IKEExchange(BaseModel):
     exchange_type: str
     is_aggressive: bool = False
     proposals_offered: list[Proposal] = Field(default_factory=list)
-    proposal_accepted: Proposal | None = None
     ke_group_from_length: int | None = None
     ike_lifetime_seconds: int | None = None
     """Phase 1 SA lifetime, when the wire carried it.
