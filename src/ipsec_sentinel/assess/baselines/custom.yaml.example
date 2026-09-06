@@ -1,0 +1,61 @@
+# A house baseline. Copy this file, drop the `.example` suffix, and edit.
+#
+# Everything below is validated on load: an unknown field is rejected rather than
+# ignored, every rule ID must be implemented by a real rule, and a severity override
+# for a rule this baseline does not run is an error — not a silent no-op, because a
+# typo in a compliance document should not sit there looking like policy.
+
+id: custom
+name: Example house baseline
+authority: Your organisation
+reference: "Internal cryptographic standard, revision and date"
+description: >-
+  What this baseline is for and who it applies to. One or two sentences; it appears in
+  the report header so a reader knows which policy they are being measured against.
+
+# Set to false unless you encoded this from the controlling document itself.
+verified: false
+provenance: >-
+  How this baseline was derived and what a reader should verify independently. An
+  unverified baseline must explain itself — the loader enforces a minimum length here,
+  because "verified: false" with no explanation is a flag nobody can act on.
+
+# Which rules this authority applies. Remove any it does not.
+rules:
+  - CRY-01   # DH group 1 (768-bit MODP)
+  - CRY-02   # DH group 2 (1024-bit MODP)
+  - CRY-03   # DH group 5 (1536-bit MODP)
+  - CRY-04   # DES
+  - CRY-05   # 3DES
+  - CRY-06   # MD5 integrity
+  - CRY-07   # SHA-1 integrity
+  - CRY-08   # CBC with no integrity
+  - CRY-09   # key shorter than 128 bits
+  - CRY-10   # key shorter than the baseline minimum
+  - IKE-01   # IKEv1 in use
+  - IKE-02   # Aggressive Mode
+  - IKE-03   # Aggressive Mode with PSK
+  - IKE-04   # weaker proposal offered but not selected
+  - PFS-01   # forward secrecy disabled
+  - PFS-02   # child DH group weaker than IKE group
+  - SA-01    # IKE SA lifetime too long
+  - SA-02    # child SA lifetime too long
+  - SA-03    # anti-replay disabled or not enforced
+  - SA-04    # replay window too small
+  - PQC-01   # not resistant to harvest-now-decrypt-later
+
+# Raise or lower a rule's severity for this authority. The key must appear in `rules`.
+severity_overrides:
+  CRY-05: high
+  PQC-01: informational
+
+# Thresholds. Omit any this authority does not specify — omitted is not zero, and a
+# rule bound to an omitted threshold keeps its own default rather than switching off.
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 112   # security strength, not parameter size
+  ike_lifetime_seconds: 86400
+  child_lifetime_seconds: 28800
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

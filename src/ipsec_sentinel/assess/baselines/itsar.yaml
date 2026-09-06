@@ -1,0 +1,59 @@
+id: itsar
+name: ITSAR — Indian Telecom Security Assurance Requirements
+authority: National Centre for Communication Security, Department of Telecommunications (India)
+reference: "Indian Telecom Security Assurance Requirements, issued by NCCS under the MTCTE regime"
+description: >-
+  The security assurance requirements Indian telecom network equipment must meet for
+  certification. Relevant here because operators deploying IPsec on certified equipment
+  are assessed against these requirements, and because no other tool in this space
+  ships an Indian baseline at all.
+verified: false
+provenance: >-
+  ENCODED FROM PUBLIC DESCRIPTION, NOT FROM A VERIFIED COPY OF THE CONTROLLING
+  DOCUMENT. ITSAR documents are issued per equipment category by NCCS and are not
+  freely redistributable, so this baseline expresses the cryptographic requirements
+  those documents are publicly described as imposing: no broken or deprecated
+  algorithms, mandatory integrity protection, forward secrecy, and 128-bit minimum
+  symmetric strength. Before relying on a compliance claim made against this baseline,
+  verify each selected rule and threshold against the ITSAR revision that applies to
+  the equipment category in question. The rule selection is deliberately conservative:
+  it flags more than a narrow reading would, so a passing result is meaningful and a
+  failing one is a prompt to check the source rather than a verdict.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+  - PFS-02
+  - SA-01
+  - SA-02
+  - SA-03
+  - SA-04
+  - PQC-01
+
+severity_overrides:
+  # Telecom equipment carries subscriber traffic in bulk, so an exposed pre-shared key
+  # and unauthenticated encryption are both treated at the top of the scale.
+  CRY-08: critical
+  IKE-01: high
+
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 112
+  ike_lifetime_seconds: 86400
+  child_lifetime_seconds: 28800
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

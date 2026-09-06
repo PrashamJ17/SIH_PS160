@@ -239,6 +239,19 @@ class TestFixtureExpectations:
         fired = {f.rule_id for f in registry.evaluate_all(tunnel, DEFAULT_BASELINE)}
         assert {"CRY-02", "CRY-05", "CRY-06"} <= fired
 
+    def test_a_strong_group_is_not_reported_as_weak_by_parameter_size(self) -> None:
+        """Regression: CRY-11 must compare security strength, not parameter size.
+
+        256-bit ECP has a smaller parameter than 2048-bit MODP and a lower group
+        number than 521-bit ECP, yet provides 128-bit strength against 2048-bit
+        MODP's 112. The first version of CRY-11 compared parameter sizes and reported
+        it as too weak for a 2048-bit floor, which is exactly backwards.
+        """
+        from ipsec_sentinel.assess.rules.crypto import CRY_11
+
+        assert CRY_11.evaluate(tunnel_with([proposal([AES_GCM_256, ECP256])])) is None
+        assert CRY_11.evaluate(tunnel_with([proposal([AES_GCM_256, MODP1024])])) is not None
+
     def test_the_strong_fixture_triggers_none_of_cry_01_to_cry_09(self) -> None:
         registry = RuleRegistry()
         for rule in CRYPTO_RULES:
@@ -262,7 +275,7 @@ class TestRegistryIntegration:
         registry = RuleRegistry()
         for rule in CRYPTO_RULES:
             registry.register(rule)
-        assert len(registry) == 10
+        assert len(registry) == 11
 
     def test_every_finding_is_deterministic(self) -> None:
         registry = RuleRegistry()

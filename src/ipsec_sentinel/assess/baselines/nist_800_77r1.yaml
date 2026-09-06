@@ -1,0 +1,52 @@
+id: nist_800_77r1
+name: NIST SP 800-77 Rev. 1
+authority: National Institute of Standards and Technology (United States)
+reference: "NIST SP 800-77 Rev. 1, Guide to IPsec VPNs (June 2020); algorithm status from NIST SP 800-131A Rev. 2"
+description: >-
+  The general-purpose United States federal guidance for IPsec VPNs. Broad rather than
+  strict: it forbids what is broken and requires 112-bit equivalent strength or better,
+  without mandating a single suite. This is the closest thing to a sensible default.
+verified: true
+provenance: >-
+  Encoded from the published NIST SP 800-77 Rev. 1 and SP 800-131A Rev. 2 algorithm
+  transition tables. The rule selection reflects the algorithms those documents
+  disallow or deprecate; the thresholds are the lifetimes SP 800-77 Rev. 1 recommends.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+  - PFS-02
+  - SA-01
+  - SA-02
+  - SA-03
+  - SA-04
+  - PQC-01
+
+severity_overrides:
+  # SP 800-131A Rev. 2 disallowed 3DES for new use after 2023 but does not treat it as
+  # equivalent to DES, which has been brute-forceable for decades.
+  CRY-05: high
+  # Post-quantum readiness is not yet a NIST IPsec requirement; it is advisory here.
+  PQC-01: informational
+
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 112
+  ike_lifetime_seconds: 86400
+  child_lifetime_seconds: 28800
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

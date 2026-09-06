@@ -1,0 +1,41 @@
+id: rfc_8221_8247
+name: RFC 8221 / RFC 8247
+authority: Internet Engineering Task Force
+reference: "RFC 8221 (ESP and AH algorithm requirements); RFC 8247 (IKEv2 algorithm requirements)"
+description: >-
+  The IETF's own implementation requirements for ESP, AH and IKEv2. Interoperability
+  guidance rather than a security policy: it says what an implementation must support,
+  which is why it is more permissive on lifetimes and forward secrecy than a
+  government baseline while being explicit about disallowed algorithms.
+verified: true
+provenance: >-
+  Encoded from RFC 8221 and RFC 8247 requirement tables. The rule selection follows
+  the MUST NOT and SHOULD NOT entries in those tables. Lifetime and replay-window
+  thresholds are deliberately absent because neither RFC specifies them.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+
+severity_overrides:
+  # RFC 8247 deprecates IKEv1 by reference to RFC 9395, but an interoperability
+  # document has no basis for calling a supported protocol version a high risk.
+  IKE-01: low
+
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 112
+  require_pfs: false

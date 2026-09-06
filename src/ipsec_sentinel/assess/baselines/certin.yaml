@@ -1,0 +1,51 @@
+id: certin
+name: CERT-In cryptographic guidance
+authority: Indian Computer Emergency Response Team, Ministry of Electronics and IT (India)
+reference: "CERT-In directions and advisories on cryptographic controls for Indian entities"
+description: >-
+  The baseline for organisations subject to CERT-In direction. In cryptographic terms
+  it tracks international practice closely, so its value here is jurisdictional rather
+  than technical: it lets an Indian organisation see its estate assessed under the
+  authority that actually governs it.
+verified: false
+provenance: >-
+  ENCODED FROM PUBLIC DESCRIPTION, NOT FROM A VERIFIED COPY OF THE CONTROLLING
+  DOCUMENT. CERT-In issues directions and advisories rather than a single consolidated
+  cryptographic standard, and this baseline reflects the algorithm positions those
+  publications are publicly described as taking — which align closely with NIST SP
+  800-131A. Verify against the current CERT-In directions before making a compliance
+  claim. Where CERT-In is silent on a threshold this baseline follows NIST, and that
+  substitution is itself something a reader should check rather than assume.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+  - SA-01
+  - SA-03
+  - PQC-01
+
+severity_overrides:
+  # CERT-In's directions centre on incident reporting and traceability, so an exposed
+  # pre-shared key is the finding most likely to become a reportable incident.
+  PQC-01: informational
+
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 112
+  ike_lifetime_seconds: 86400
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.6 — compliance baselines (incl. ITSAR, CERT-In)
+**Current step:** 6.6b — additional rules to reach the M6 count
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -103,6 +103,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.3 — IKE configuration rules (IKE-01..IKE-04) — commit `2ed66f2`
 - [x] 6.4 — Forward secrecy and SA rules (PFS-01..SA-04) — commit `635355c`
 - [x] 6.5 — PQC readiness grading — commit `6093f85`
+- [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
@@ -170,6 +171,52 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## Step 6.6 — a real bug the tests caught, and a disclosure decision
+
+### CRY-11 compared the wrong scale
+
+`DH_GROUPS` stores **parameter size** — modulus bits for MODP, curve bits for ECP. The
+first version of CRY-11 compared those directly, which reports **256-bit ECP (128-bit
+strength) as weaker than 2048-bit MODP (112-bit strength)**. Exactly backwards, and the
+mistake was warned against in the rule's own docstring before being made in its body.
+
+Caught by an existing Step 6.2 test — the strong fixture uses group 19 and suddenly
+failed. Fixed with `DH_SECURITY_BITS`, an explicit NIST SP 800-57 Table 2 strength
+table, and the baseline field renamed `dh_group_bits` → **`dh_security_bits`** so the
+scale is named at every use site. A regression test pins group 19 as acceptable at a
+112-bit floor and group 2 as not.
+
+### Two baselines are unverified, and say so
+
+ITSAR and CERT-In are encoded **from public description, not from a verified copy of the
+controlling document**. ITSAR is issued per equipment category by NCCS and is not freely
+redistributable; CERT-In issues directions rather than one consolidated cryptographic
+standard.
+
+Rather than present either as authoritative, every baseline carries `verified` and a
+`provenance` note, the two Indian ones say `NOT FROM A VERIFIED COPY` in capitals, and
+the loader **refuses** an unverified baseline whose provenance is too short to explain
+what a reader should check. Tests assert all of that. A compliance claim traceable to a
+declared interpretation is useful; one that hides being an interpretation is not.
+
+### The baselines are demonstrably not copies of each other
+
+Same 252 tunnels, six authorities, 0 rule errors:
+
+| Baseline | Findings | Severity spread |
+|---|---|---|
+| `cnsa` | 784 | critical 280, high 224, medium 280 |
+| `bsi_tr02102_3` | 714 | critical 91, high 343, medium 280 |
+| `itsar` | 686 | critical 91, high 315, medium 280 |
+| `nist_800_77r1` | 686 | critical 56, high 259, medium 119, info 252 |
+| `certin` | 686 | critical 91, high 224, medium 119, info 252 |
+| `rfc_8221_8247` | 406 | critical 91, high 224, low 91 |
+
+CNSA is strictest and RFC 8221/8247 most permissive, which is what those documents
+actually are.
 
 ---
 

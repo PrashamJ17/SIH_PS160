@@ -30,6 +30,15 @@ sentinel = "ipsec_sentinel.cli:main"
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# The compliance baselines are data, not code, and are loaded from the installed
+# package at runtime. Without this they are absent from a wheel and every baseline
+# lookup fails only once the tool is installed rather than run from a checkout.
+ipsec_sentinel = ["assess/baselines/*.yaml", "assess/baselines/*.example"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

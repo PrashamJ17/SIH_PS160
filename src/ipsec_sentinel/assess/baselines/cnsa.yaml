@@ -1,0 +1,54 @@
+id: cnsa
+name: CNSA Suite 1.0
+authority: National Security Agency (United States)
+reference: "Commercial National Security Algorithm Suite 1.0"
+description: >-
+  The suite for United States national security systems, and by far the strictest
+  baseline here. It does not merely forbid weak algorithms — it mandates a single
+  strong set: AES-256, SHA-384, and ECDH P-384 or 3072-bit MODP. A configuration that
+  passes NIST SP 800-77 comfortably can fail CNSA on key length alone.
+verified: true
+provenance: >-
+  Encoded from the published CNSA Suite 1.0 algorithm table. The distinguishing
+  thresholds are the 256-bit symmetric key and 3072-bit-equivalent group, both of
+  which are explicit in that table.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-10
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+  - PFS-02
+  - SA-01
+  - SA-02
+  - SA-03
+  - SA-04
+  - PQC-01
+
+severity_overrides:
+  # Under CNSA an undersized key is not a deviation to schedule, it is a failure.
+  CRY-10: high
+  CRY-03: critical
+  CRY-11: critical
+  IKE-01: high
+
+minimums:
+  encryption_key_bits: 256
+  dh_security_bits: 128
+  ike_lifetime_seconds: 86400
+  child_lifetime_seconds: 14400
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

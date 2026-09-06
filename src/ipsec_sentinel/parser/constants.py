@@ -169,6 +169,40 @@ DH_GROUPS: Final[dict[int, tuple[str, int]]] = {
 # problems, and so is not broken by Shor's algorithm.
 POST_QUANTUM_GROUPS: Final[frozenset[int]] = frozenset({35, 36, 37})
 
+# Security strength in bits, per NIST SP 800-57 Part 1 Rev. 5 Table 2.
+#
+# This is a SEPARATE scale from the parameter sizes in DH_GROUPS, and conflating the
+# two is a real and easy mistake: 256-bit ECP (group 19) has a smaller parameter than
+# 2048-bit MODP (group 14) but provides *more* security — 128 bits against 112. Any
+# comparison of group strength must go through this table, never through the modulus
+# or curve size.
+DH_SECURITY_BITS: Final[dict[int, int]] = {
+    1: 40,  # 768-bit MODP — below every modern floor
+    2: 80,  # 1024-bit MODP
+    5: 96,  # 1536-bit MODP
+    14: 112,  # 2048-bit MODP
+    15: 128,  # 3072-bit MODP
+    16: 152,  # 4096-bit MODP
+    19: 128,  # 256-bit ECP
+    20: 192,  # 384-bit ECP
+    21: 256,  # 521-bit ECP
+    31: 128,  # Curve25519
+    35: 128,  # ML-KEM-512, NIST category 1
+    36: 192,  # ML-KEM-768, NIST category 3
+    37: 256,  # ML-KEM-1024, NIST category 5
+}
+
+
+def dh_security_bits(group: int) -> int | None:
+    """The security strength of a DH group in bits, or ``None`` if unknown.
+
+    ``None`` rather than a guess: an unrecognised group might be anything, and
+    defaulting it either way would produce a confident wrong answer — a false finding
+    if defaulted low, a missed one if defaulted high.
+    """
+    return DH_SECURITY_BITS.get(group)
+
+
 # Length in bytes of the KE payload's public value -> the DH groups that produce it.
 #
 # MODP public values are one modulus (bits / 8). ECP public values are an uncompressed

@@ -34,8 +34,9 @@ disabled from a network that duplicated a packet.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from ipsec_sentinel.assess.baselines.schema import Baseline
 from ipsec_sentinel.assess.framework import DEFAULT_BASELINE
 from ipsec_sentinel.models import Finding, Severity, TransformType
 from ipsec_sentinel.parser.correlate import Tunnel
@@ -59,6 +60,24 @@ class SARule:
     remediation_hint: str
     attack_technique: str | None = None
     baselines: list[str] = field(default_factory=lambda: [DEFAULT_BASELINE])
+    limit: int = 0
+    """The threshold this rule enforces, which a baseline may override."""
+    threshold_field: str | None = None
+    """Which :class:`Minimums` field supplies :attr:`limit`, if any."""
+
+    def bind(self, baseline: Baseline) -> SARule:
+        """Take this rule's threshold from the baseline.
+
+        A baseline that omits the field leaves the rule's own limit in place: omitted
+        is "this authority does not specify it", not zero, and a policy that forgets a
+        field must not silently make the check unsatisfiable.
+        """
+        if self.threshold_field is None:
+            return self
+        value = getattr(baseline.minimums, self.threshold_field, None)
+        if value is None:
+            return self
+        return replace(self, limit=value)
 
     def evaluate(self, tunnel: Tunnel) -> Finding | None:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -127,16 +146,16 @@ class IKELifetimeTooLong(SARule):
         wire = tunnel.ike.ike_lifetime_seconds if tunnel.ike else None
         supplied = tunnel.config.ike_lifetime_seconds if tunnel.config else None
 
-        if wire is not None and wire > IKE_LIFETIME_LIMIT_S:
+        if wire is not None and wire > self.limit:
             return self._finding(
-                f"the IKE SA lifetime is {_hours(wire)}, over the {_hours(IKE_LIFETIME_LIMIT_S)} "
+                f"the IKE SA lifetime is {_hours(wire)}, over the {_hours(self.limit)} "
                 f"limit ({WIRE_SOURCE} as an IKEv1 phase 1 SA attribute)"
             )
-        if supplied is not None and supplied > IKE_LIFETIME_LIMIT_S:
+        if supplied is not None and supplied > self.limit:
             source = tunnel.config.source if tunnel.config else "configuration"
             return self._finding(
                 f"the IKE SA lifetime is {_hours(supplied)}, over the "
-                f"{_hours(IKE_LIFETIME_LIMIT_S)} limit, per {source}"
+                f"{_hours(self.limit)} limit, per {source}"
             )
         return None
 
@@ -147,11 +166,11 @@ class ChildLifetimeTooLong(SARule):
         config = tunnel.config
         if config is None or config.child_lifetime_seconds is None:
             return None
-        if config.child_lifetime_seconds <= CHILD_LIFETIME_LIMIT_S:
+        if config.child_lifetime_seconds <= self.limit:
             return None
         return self._finding(
             f"the child SA lifetime is {_hours(config.child_lifetime_seconds)}, over "
-            f"the {_hours(CHILD_LIFETIME_LIMIT_S)} limit, per {config.source}"
+            f"the {_hours(self.limit)} limit, per {config.source}"
         )
 
 
@@ -191,7 +210,7 @@ class ReplayWindowTooSmall(SARule):
         config = tunnel.config
         if config is None or config.replay_window is None:
             return None
-        if config.replay_window >= MINIMUM_REPLAY_WINDOW:
+        if config.replay_window >= self.limit:
             return None
         if config.anti_replay_enabled is False:
             # The window is irrelevant when the check is off, and reporting both
@@ -199,7 +218,7 @@ class ReplayWindowTooSmall(SARule):
             return None
         return self._finding(
             f"the anti-replay window is {config.replay_window} packets, below the "
-            f"recommended {MINIMUM_REPLAY_WINDOW}, per {config.source}. On a path that "
+            f"required {self.limit}, per {config.source}. On a path that "
             f"reorders, a window this small drops legitimate packets"
         )
 
@@ -230,6 +249,8 @@ PFS_02 = ChildGroupWeakerThanIKE(
 
 SA_01 = IKELifetimeTooLong(
     id="SA-01",
+    limit=IKE_LIFETIME_LIMIT_S,
+    threshold_field="ike_lifetime_seconds",
     title="IKE SA lifetime longer than 24 hours",
     severity=Severity.MEDIUM,
     standard_ref="NIST SP 800-77 Rev. 1 section 5.1",
@@ -241,6 +262,8 @@ SA_01 = IKELifetimeTooLong(
 
 SA_02 = ChildLifetimeTooLong(
     id="SA-02",
+    limit=CHILD_LIFETIME_LIMIT_S,
+    threshold_field="child_lifetime_seconds",
     title="Child SA lifetime longer than 8 hours",
     severity=Severity.LOW,
     standard_ref="NIST SP 800-77 Rev. 1 section 5.1",
@@ -265,6 +288,8 @@ SA_03 = AntiReplayDisabled(
 
 SA_04 = ReplayWindowTooSmall(
     id="SA-04",
+    limit=MINIMUM_REPLAY_WINDOW,
+    threshold_field="replay_window",
     title="Anti-replay window smaller than 64 packets",
     severity=Severity.LOW,
     standard_ref="RFC 4303 section 3.4.3",

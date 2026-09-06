@@ -26,6 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from ipsec_sentinel.assess.baselines.schema import Baseline
 from ipsec_sentinel.logging import get_logger
 from ipsec_sentinel.models import Finding, sort_findings
 from ipsec_sentinel.parser.correlate import Tunnel
@@ -50,6 +51,21 @@ class Rule(Protocol):
     baselines: list[str]
 
     def evaluate(self, tunnel: Tunnel) -> Finding | None: ...
+
+
+@runtime_checkable
+class BaselineAware(Protocol):
+    """A rule whose thresholds come from the baseline rather than from itself.
+
+    "Key shorter than the minimum" is not one check, it is one check per authority:
+    CNSA wants 256 bits and NIST wants 128, and writing two rules for that would mean
+    two rule IDs, two findings and two remediation lines for one problem. Binding lets
+    a single rule carry the policy it is being run under.
+    """
+
+    id: str
+
+    def bind(self, baseline: Baseline) -> Rule: ...
 
 
 class DuplicateRuleError(ValueError):
@@ -118,15 +134,34 @@ class RuleRegistry:
     def for_baseline(self, baseline: str) -> list[Rule]:
         return [rule for rule in self.rules if baseline in rule.baselines]
 
-    def run(self, tunnel: Tunnel, baseline: str = DEFAULT_BASELINE) -> RuleOutcome:
+    def select(self, baseline: str | Baseline) -> list[Rule]:
+        """The rules a baseline runs, bound to its thresholds.
+
+        A compliance baseline selects rules by ID, so it is authoritative over the
+        rule's own ``baselines`` list — a policy document that names a rule runs it,
+        whether or not the rule expected to belong to that policy.
+        """
+        if isinstance(baseline, str):
+            return self.for_baseline(baseline)
+        selected = [rule for rule in self.rules if baseline.includes(rule.id)]
+        return [
+            rule.bind(baseline) if isinstance(rule, BaselineAware) else rule for rule in selected
+        ]
+
+    def run(self, tunnel: Tunnel, baseline: str | Baseline = DEFAULT_BASELINE) -> RuleOutcome:
         """Evaluate every rule in the baseline, surviving any that fail.
 
         A rule that raises is logged and recorded; the remaining rules still run. A
         rule that returns a finding carrying a confidence is rejected the same way,
         because it has crossed the parse/infer boundary this framework exists to keep.
+
+        When ``baseline`` is a :class:`Baseline` rather than a name, its severity
+        overrides are applied to the findings. The override changes how urgent *this
+        authority* considers a finding; it never changes whether the finding is true,
+        which is why it is applied after evaluation rather than handed to the rule.
         """
         outcome = RuleOutcome()
-        for rule in self.for_baseline(baseline):
+        for rule in self.select(baseline):
             try:
                 finding = rule.evaluate(tunnel)
             except Exception as exc:
@@ -155,11 +190,17 @@ class RuleRegistry:
                 logger.error("rule_emitted_inference", extra={"rule_id": rule.id})
                 outcome.errors.append(message)
                 continue
+            if not isinstance(baseline, str):
+                override = baseline.severity_overrides.get(rule.id)
+                if override is not None and override != finding.severity:
+                    finding = finding.model_copy(update={"severity": override})
             outcome.findings.append(finding)
 
         outcome.findings = sort_findings(outcome.findings)
         return outcome
 
-    def evaluate_all(self, tunnel: Tunnel, baseline: str = DEFAULT_BASELINE) -> list[Finding]:
+    def evaluate_all(
+        self, tunnel: Tunnel, baseline: str | Baseline = DEFAULT_BASELINE
+    ) -> list[Finding]:
         """The findings alone, for callers that do not need the error detail."""
         return self.run(tunnel, baseline).findings

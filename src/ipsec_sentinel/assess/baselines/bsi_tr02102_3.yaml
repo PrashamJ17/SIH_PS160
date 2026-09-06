@@ -1,0 +1,51 @@
+id: bsi_tr02102_3
+name: BSI TR-02102-3
+authority: Bundesamt für Sicherheit in der Informationstechnik (Germany)
+reference: "BSI TR-02102-3, Cryptographic Mechanisms: Use of IPsec and IKEv2"
+description: >-
+  The German federal guidance for IPsec and IKEv2. Distinctive for treating IKEv1 as
+  unacceptable rather than merely deprecated, and for requiring forward secrecy
+  outright. Its symmetric key floor is lower than CNSA's but its protocol requirements
+  are stricter.
+verified: true
+provenance: >-
+  Encoded from the published BSI TR-02102-3 recommendations. The IKEv2 requirement and
+  mandatory forward secrecy are explicit in that document; the lifetime thresholds
+  follow its rekeying guidance.
+
+rules:
+  - CRY-01
+  - CRY-02
+  - CRY-03
+  - CRY-04
+  - CRY-05
+  - CRY-06
+  - CRY-07
+  - CRY-08
+  - CRY-09
+  - CRY-11
+  - IKE-01
+  - IKE-02
+  - IKE-03
+  - IKE-04
+  - PFS-01
+  - PFS-02
+  - SA-01
+  - SA-02
+  - SA-03
+  - SA-04
+  - PQC-01
+
+severity_overrides:
+  # TR-02102-3 does not treat IKEv1 as a deprecation to plan around.
+  IKE-01: high
+  PFS-01: critical
+
+minimums:
+  encryption_key_bits: 128
+  dh_security_bits: 128
+  ike_lifetime_seconds: 86400
+  child_lifetime_seconds: 28800
+  replay_window: 64
+  require_pfs: true
+  require_post_quantum: false

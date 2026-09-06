@@ -23,10 +23,12 @@ produce a confident claim about something it never saw.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from ipsec_sentinel.assess.baselines.schema import Baseline
 from ipsec_sentinel.assess.framework import DEFAULT_BASELINE
 from ipsec_sentinel.models import Finding, Proposal, Severity, Transform, TransformType
+from ipsec_sentinel.parser.constants import dh_security_bits
 from ipsec_sentinel.parser.correlate import Tunnel
 
 # Baselines. "default" is the general-purpose rule set; "strict" adds rules that are
@@ -36,6 +38,10 @@ ALL_BASELINES = [DEFAULT_BASELINE, BASELINE_STRICT]
 
 MINIMUM_KEY_LENGTH = 128
 STRICT_KEY_LENGTH = 256
+
+# The strength CRY-11 demands when no baseline states one: NIST's 112-bit floor, which
+# 2048-bit MODP is the smallest common group to meet.
+DEFAULT_DH_SECURITY_BITS = 112
 
 # Transform IDs. Named rather than inlined so a rule reads as what it checks.
 DH_MODP_768 = 1
@@ -90,6 +96,28 @@ class ProposalRule:
     match: Callable[[Proposal], list[str]]
     attack_technique: str | None = None
     baselines: list[str] = field(default_factory=lambda: [DEFAULT_BASELINE])
+    matcher_factory: Callable[[int], Callable[[Proposal], list[str]]] | None = None
+    threshold_field: str | None = None
+    """Which :class:`Minimums` field parameterises this rule, if any."""
+
+    def bind(self, baseline: Baseline) -> ProposalRule:
+        """Return this rule with its threshold taken from the baseline.
+
+        "Key shorter than the minimum" is one check per authority, not one rule per
+        authority: CNSA wants 256 bits and NIST wants 128. Writing both as separate
+        rules would mean two IDs, two findings and two remediation lines for one
+        problem.
+
+        A baseline that omits the threshold leaves the rule's own default in place.
+        Omitted is not zero — a policy that forgets to state a minimum must not
+        silently switch the check off.
+        """
+        if self.matcher_factory is None or self.threshold_field is None:
+            return self
+        value = getattr(baseline.minimums, self.threshold_field, None)
+        if value is None:
+            return self
+        return replace(self, match=self.matcher_factory(value))
 
     def evaluate(self, tunnel: Tunnel) -> Finding | None:
         if tunnel.ike is None:
@@ -313,6 +341,8 @@ CRY_10 = ProposalRule(
         "only because the selected baseline requires 256-bit keys."
     ),
     match=_match_short_key(STRICT_KEY_LENGTH),
+    matcher_factory=_match_short_key,
+    threshold_field="encryption_key_bits",
     baselines=[BASELINE_STRICT],
 )
 
@@ -331,6 +361,51 @@ def weaknesses_in(proposal: Proposal) -> list[str]:
     return found
 
 
+def _match_weak_group(minimum_bits: int) -> Callable[[Proposal], list[str]]:
+    """DH groups providing less than the baseline's required strength.
+
+    Compared on security strength, never on parameter size or group number. The
+    registry is ordered by neither: group 19 (256-bit ECP) has a smaller parameter
+    than group 14 (2048-bit MODP) and a lower number than group 21, yet is stronger
+    than both group 14 and group 5. An earlier version of this rule compared parameter
+    sizes and reported 256-bit ECP as too weak for a 2048-bit floor, which is exactly
+    backwards.
+    """
+
+    def matcher(proposal: Proposal) -> list[str]:
+        found: list[str] = []
+        for transform in proposal.transforms:
+            if transform.type is None:
+                continue
+            if not (
+                transform.type == TransformType.DH or transform.type.is_additional_key_exchange
+            ):
+                continue
+            bits = dh_security_bits(transform.id)
+            if bits is not None and bits < minimum_bits:
+                found.append(f"{transform.name} ({bits}-bit security strength)")
+        return found
+
+    return matcher
+
+
+CRY_11 = ProposalRule(
+    id="CRY-11",
+    title="Diffie-Hellman group weaker than the baseline requires",
+    severity=Severity.HIGH,
+    standard_ref="NIST SP 800-57 Part 1 Rev. 5, Table 2",
+    attack_technique="T1600.001",
+    remediation_hint=(
+        "Raise the Diffie-Hellman group to meet the baseline's required strength. "
+        "Unlike the fixed-group rules, this threshold comes from the selected "
+        "compliance baseline, so the acceptable group depends on the policy in force."
+    ),
+    match=_match_weak_group(DEFAULT_DH_SECURITY_BITS),
+    matcher_factory=_match_weak_group,
+    threshold_field="dh_security_bits",
+)
+
+
 CRYPTO_RULES: list[ProposalRule] = [
     CRY_01,
     CRY_02,
@@ -342,4 +417,5 @@ CRYPTO_RULES: list[ProposalRule] = [
     CRY_08,
     CRY_09,
     CRY_10,
+    CRY_11,
 ]
