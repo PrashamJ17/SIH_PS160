@@ -74,9 +74,7 @@ class MessageSummary:
     key_lengths: tuple[int, ...] = ()
 
     def describe(self) -> str:
-        pairs = ", ".join(
-            f"{TRANSFORM_TYPES.get(t, t)}={i}" for t, i in self.transforms
-        )
+        pairs = ", ".join(f"{TRANSFORM_TYPES.get(t, t)}={i}" for t, i in self.transforms)
         return (
             f"v{self.version_major} exchange={self.exchange_type} "
             f"transforms=[{pairs}] key_lengths={list(self.key_lengths)}"
@@ -114,9 +112,7 @@ class ComparisonResult:
 
 def tshark_available() -> bool:
     try:
-        subprocess.run(
-            ["tshark", "--version"], capture_output=True, timeout=30, check=True
-        )
+        subprocess.run(["tshark", "--version"], capture_output=True, timeout=30, check=True)
     except (OSError, subprocess.SubprocessError):
         return False
     return True
@@ -147,11 +143,7 @@ def _leaves(node: Any) -> Iterator[tuple[str, Any]]:
     """Yield every (key, scalar) leaf in document order, duplicates intact."""
     if isinstance(node, list):
         for item in node:
-            if (
-                isinstance(item, tuple)
-                and len(item) == 2
-                and isinstance(item[0], str)
-            ):
+            if isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str):
                 key, value = item
                 if isinstance(value, list | tuple):
                     yield from _leaves(value)
@@ -170,18 +162,16 @@ def _summarise_tshark_packet(packet: Any) -> MessageSummary | None:
     exchange_type = -1
     transforms: list[tuple[int, int]] = []
     key_lengths: list[int] = []
-    pending_type: int | None = None
 
     for key, value in leaves:
         if key == "isakmp.version":
             version_major = int(str(value), 16) >> 4
         elif key == "isakmp.exchangetype":
             exchange_type = int(value)
-        elif key == "isakmp.tf.type":
-            pending_type = int(value)
         elif key in TF_ID_FIELDS:
+            # The transform type comes from the field name, so tshark's own
+            # ``isakmp.tf.type`` is redundant here and is deliberately not read.
             transforms.append((TF_ID_FIELDS[key], int(value)))
-            pending_type = None
         elif key in V1_ATTR_TO_TRANSFORM_TYPE:
             transforms.append((V1_ATTR_TO_TRANSFORM_TYPE[key], int(value)))
         elif key in ("isakmp.ike2.attr.key_length", "isakmp.ike.attr.key_length"):

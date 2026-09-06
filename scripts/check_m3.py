@@ -38,77 +38,98 @@ class Check:
 
 
 def evaluate(index: dict[str, Any], sweep_root: Path, audit: Path) -> list[Check]:
-    cells: list[dict[str, Any]] = [
-        c for c in index["cells_detail"] if isinstance(c, dict)
-    ]
+    cells: list[dict[str, Any]] = [c for c in index["cells_detail"] if isinstance(c, dict)]
     checks: list[Check] = []
 
     configs = {c["config_id"] for c in cells}
-    checks.append(Check(
-        f"at least {MIN_CONFIGS} distinct tunnel configurations captured",
-        len(configs) >= MIN_CONFIGS, f"{len(configs)} distinct configurations",
-    ))
+    checks.append(
+        Check(
+            f"at least {MIN_CONFIGS} distinct tunnel configurations captured",
+            len(configs) >= MIN_CONFIGS,
+            f"{len(configs)} distinct configurations",
+        )
+    )
 
     classes = {c["generator"] for c in cells}
-    checks.append(Check(
-        "all 7 traffic classes represented",
-        len(classes) >= MIN_CLASSES, f"{len(classes)}: {sorted(classes)}",
-    ))
+    checks.append(
+        Check(
+            "all 7 traffic classes represented",
+            len(classes) >= MIN_CLASSES,
+            f"{len(classes)}: {sorted(classes)}",
+        )
+    )
 
     impairments = {c["impairment"] for c in cells}
-    checks.append(Check(
-        f"at least {MIN_IMPAIRMENTS} impairment profiles used",
-        len(impairments) >= MIN_IMPAIRMENTS, f"{len(impairments)}: {sorted(impairments)}",
-    ))
+    checks.append(
+        Check(
+            f"at least {MIN_IMPAIRMENTS} impairment profiles used",
+            len(impairments) >= MIN_IMPAIRMENTS,
+            f"{len(impairments)}: {sorted(impairments)}",
+        )
+    )
 
     by_encryption: dict[str, set[str]] = defaultdict(set)
     for cell in cells:
         by_encryption[str(cell["encryption"])].add(str(cell["dh_group"]))
     worst = min(by_encryption.items(), key=lambda kv: len(kv[1])) if by_encryption else ("-", set())
-    checks.append(Check(
-        f"every encryption appears with at least {MIN_DH_PER_ENCRYPTION} DH groups",
-        all(len(v) >= MIN_DH_PER_ENCRYPTION for v in by_encryption.values()),
-        f"minimum is {worst[0]} with {len(worst[1])} groups; "
-        f"all: { {k: len(v) for k, v in sorted(by_encryption.items())} }",
-    ))
+    checks.append(
+        Check(
+            f"every encryption appears with at least {MIN_DH_PER_ENCRYPTION} DH groups",
+            all(len(v) >= MIN_DH_PER_ENCRYPTION for v in by_encryption.values()),
+            f"minimum is {worst[0]} with {len(worst[1])} groups; "
+            f"all: { {k: len(v) for k, v in sorted(by_encryption.items())} }",
+        )
+    )
 
     by_class: dict[str, set[str]] = defaultdict(set)
     for cell in cells:
         by_class[str(cell["generator"])].add(str(cell["config_id"]))
     worst_class = min(by_class.items(), key=lambda kv: len(kv[1])) if by_class else ("-", set())
-    checks.append(Check(
-        f"every traffic class appears with at least {MIN_CONFIGS_PER_CLASS} configurations",
-        all(len(v) >= MIN_CONFIGS_PER_CLASS for v in by_class.values()),
-        f"minimum is {worst_class[0]} with {len(worst_class[1])} configurations",
-    ))
+    checks.append(
+        Check(
+            f"every traffic class appears with at least {MIN_CONFIGS_PER_CLASS} configurations",
+            all(len(v) >= MIN_CONFIGS_PER_CLASS for v in by_class.values()),
+            f"minimum is {worst_class[0]} with {len(worst_class[1])} configurations",
+        )
+    )
 
     total_flows = 0
     for cell in cells:
         inner = sweep_root / str(cell["cell_id"]) / "capture_inner.pcap"
         if inner.exists():
             total_flows += len(count_flows(inner))
-    checks.append(Check(
-        f"total labelled flows at least {MIN_FLOWS}",
-        total_flows >= MIN_FLOWS, f"{total_flows:,} distinct flows across all cells",
-    ))
+    checks.append(
+        Check(
+            f"total labelled flows at least {MIN_FLOWS}",
+            total_flows >= MIN_FLOWS,
+            f"{total_flows:,} distinct flows across all cells",
+        )
+    )
 
-    checks.append(Check(
-        "every packaged cell negotiated what was configured",
-        index["cells_not_matching_intent"] == 0,
-        f"{index['cells_matching_intent']} of {index['cells']} matched intent",
-    ))
+    checks.append(
+        Check(
+            "every packaged cell negotiated what was configured",
+            index["cells_not_matching_intent"] == 0,
+            f"{index['cells_matching_intent']} of {index['cells']} matched intent",
+        )
+    )
 
-    checks.append(Check(
-        "external dataset audit generated",
-        audit.exists() and audit.stat().st_size > 0,
-        f"{audit} ({audit.stat().st_size if audit.exists() else 0} bytes)",
-    ))
+    checks.append(
+        Check(
+            "external dataset audit generated",
+            audit.exists() and audit.stat().st_size > 0,
+            f"{audit} ({audit.stat().st_size if audit.exists() else 0} bytes)",
+        )
+    )
 
     warnings: list[str] = list(index.get("balance_warnings") or [])
-    checks.append(Check(
-        "corpus is not confounded (class vs cipher)",
-        not warnings, "no confound warnings" if not warnings else f"{len(warnings)} warnings",
-    ))
+    checks.append(
+        Check(
+            "corpus is not confounded (class vs cipher)",
+            not warnings,
+            "no confound warnings" if not warnings else f"{len(warnings)} warnings",
+        )
+    )
     return checks
 
 

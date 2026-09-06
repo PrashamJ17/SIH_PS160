@@ -105,8 +105,7 @@ def validate_cell(manifest_path: Path) -> CellRecord:
         capture = cell_dir / str(name)
         if not capture.exists():
             raise PackagingError(
-                f"{manifest_path}: references {role} '{name}' which does not exist "
-                f"at {capture}"
+                f"{manifest_path}: references {role} '{name}' which does not exist at {capture}"
             )
         try:
             packets = verify_pcap(capture)
@@ -137,7 +136,9 @@ def build_index(records: list[CellRecord], source: Path) -> dict[str, Any]:
         "cells_not_matching_intent": len(records) - len(matched),
         "counts": {
             "per_class": dict(sorted(Counter(r.generator for r in records).items())),
-            "per_variant": dict(sorted(Counter(f"{r.generator}/{r.variant}" for r in records).items())),
+            "per_variant": dict(
+                sorted(Counter(f"{r.generator}/{r.variant}" for r in records).items())
+            ),
             "per_config": dict(sorted(Counter(r.config_id for r in records).items())),
             "per_impairment": dict(sorted(Counter(r.impairment for r in records).items())),
             "per_encryption": dict(sorted(Counter(str(r.encryption) for r in records).items())),
@@ -148,9 +149,7 @@ def build_index(records: list[CellRecord], source: Path) -> dict[str, Any]:
         "totals": {
             "outer_packets": sum(r.files["outer_pcap"]["packets"] for r in records),
             "inner_packets": sum(r.files["inner_pcap"]["packets"] for r in records),
-            "bytes": sum(
-                f["bytes"] for r in records for f in r.files.values()
-            ),
+            "bytes": sum(f["bytes"] for r in records for f in r.files.values()),
         },
         "cells_detail": [
             {
@@ -300,8 +299,7 @@ def package(source: Path, out_dir: Path) -> dict[str, Any]:
     manifests = find_manifests(source)
     if not manifests:
         raise PackagingError(
-            f"no manifests found under {source}; run a sweep first with "
-            f"testbed.orchestrate.sweep"
+            f"no manifests found under {source}; run a sweep first with testbed.orchestrate.sweep"
         )
     records = [validate_cell(path) for path in manifests]
     index = build_index(records, source)
@@ -328,8 +326,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"cells packaged      : {index['cells']}")
     print(f"matching intent     : {index['cells_matching_intent']}")
-    print(f"outer/inner packets : {index['totals']['outer_packets']:,} / "
-          f"{index['totals']['inner_packets']:,}")
+    print(
+        f"outer/inner packets : {index['totals']['outer_packets']:,} / "
+        f"{index['totals']['inner_packets']:,}"
+    )
     for warning in index["balance_warnings"]:
         print(f"balance warning     : {warning}")
     print(f"index               : {args.out / 'INDEX.json'}")

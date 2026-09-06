@@ -8,7 +8,6 @@ is worse than no gate.
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import warnings
@@ -135,14 +134,16 @@ def check_beats_mode_heuristic() -> Check:
     modes = sorted(frame["mode"].dropna().unique().tolist())
     if len(modes) < 2:
         return Check(
-            name, "BLOCKED",
+            name,
+            "BLOCKED",
             f"the corpus contains a single mode {modes}; no comparison is possible",
         )
 
     shared = modes_shared_by_traffic_class(frame)
     if not shared:
         return Check(
-            name, "BLOCKED",
+            name,
+            "BLOCKED",
             "no traffic class appears under both modes, so any comparison would "
             "measure traffic-class leakage rather than mode inference",
         )
@@ -161,18 +162,20 @@ def check_beats_mode_heuristic() -> Check:
 
     if model.accuracy <= heuristic["accuracy"]:
         return Check(
-            name, "FAIL",
-            f"model {model.accuracy:.1%} does not beat the heuristic "
-            f"{heuristic['accuracy']:.1%}",
+            name,
+            "FAIL",
+            f"model {model.accuracy:.1%} does not beat the heuristic {heuristic['accuracy']:.1%}",
         )
     if model.accuracy <= majority.accuracy:
         return Check(
-            name, "FAIL",
+            name,
+            "FAIL",
             f"model {model.accuracy:.1%} does not beat the majority class "
             f"{majority.accuracy:.1%}, so it has learned nothing about mode",
         )
     return Check(
-        name, "PASS",
+        name,
+        "PASS",
         f"model {model.accuracy:.1%} (macro-F1 {model.macro_f1:.3f}) vs heuristic "
         f"{heuristic['accuracy']:.1%} at {heuristic['coverage']:.1%} coverage and "
         f"majority class {majority.accuracy:.1%}; measured on {len(subset)} rows in "
@@ -196,9 +199,7 @@ def check_abstention() -> Check:
         return Check(name, "SKIP", "the ML dataset has not been built")
     model, _report, evaluation, classes = _calibrated()
     predictions = predict_with_abstention(model, evaluation, classes, list(FEATURE_NAMES))
-    result = evaluate_abstention(
-        predictions, evaluation["inner_traffic"].astype(str).tolist()
-    )
+    result = evaluate_abstention(predictions, evaluation["inner_traffic"].astype(str).tolist())
     if abstention_rate(predictions) == 0.0:
         return Check(name, "FAIL", "the model never abstains; the confidence is saturated")
     if not result.is_reasonable:
@@ -213,9 +214,7 @@ def check_explanations() -> Check:
     model, _report, evaluation, classes = _calibrated()
     sentences = []
     for i in (0, 5, 25):
-        explanation = explain_prediction(
-            model, evaluation.iloc[[i]], classes, list(FEATURE_NAMES)
-        )
+        explanation = explain_prediction(model, evaluation.iloc[[i]], classes, list(FEATURE_NAMES))
         if not explanation.is_additive():
             return Check(name, "FAIL", "SHAP values do not sum to the prediction")
         sentence = explanation.sentence()
@@ -257,7 +256,8 @@ def check_ml_findings_carry_confidence() -> Check:
     if bad:
         return Check(name, "FAIL", f"{len(bad)} anomaly findings with no confidence")
     return Check(
-        name, "PASS",
+        name,
+        "PASS",
         f"{len(predictions)} predictions and every anomaly finding carry a confidence",
     )
 
@@ -265,10 +265,20 @@ def check_ml_findings_carry_confidence() -> Check:
 def check_ml_tests_pass() -> Check:
     name = "The ML test suites pass"
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/unit", "-k",
-         "features or ml_dataset or split or heuristic or train or generalisation or "
-         "calibration or abstention or explain or confound"],
-        capture_output=True, text=True, cwd=REPO_ROOT, timeout=3600, check=False,
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/unit",
+            "-k",
+            "features or ml_dataset or split or heuristic or train or generalisation or "
+            "calibration or abstention or explain or confound",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        timeout=3600,
+        check=False,
     )
     summary = next(
         (line for line in reversed(result.stdout.splitlines()) if "passed" in line),

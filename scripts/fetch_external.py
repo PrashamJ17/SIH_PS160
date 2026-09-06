@@ -161,9 +161,8 @@ def sha256_of(path: Path, chunk_size: int = 1 << 20) -> str:
 
 
 def _urllib_download(url: str, destination: Path) -> None:
-    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
-        with destination.open("wb") as handle:
-            shutil.copyfileobj(response, handle)
+    with urllib.request.urlopen(url, timeout=120) as response, destination.open("wb") as handle:
+        shutil.copyfileobj(response, handle)
 
 
 def fetch_one(
@@ -189,8 +188,11 @@ def fetch_one(
 
     if target.exists() and not force:
         return FetchResult(
-            key=dataset.key, status="skipped", path=str(target),
-            sha256=sha256_of(target), message="already present",
+            key=dataset.key,
+            status="skipped",
+            path=str(target),
+            sha256=sha256_of(target),
+            message="already present",
         )
 
     if dataset.url is None:
@@ -205,9 +207,10 @@ def fetch_one(
         staged = Path(staging) / dataset.target_name
         try:
             download(dataset.url, staged)
-        except Exception as exc:  # noqa: BLE001 - a failed fetch is a reported result
+        except Exception as exc:
             return FetchResult(
-                key=dataset.key, status="failed",
+                key=dataset.key,
+                status="failed",
                 message=f"download failed: {type(exc).__name__}: {exc}",
             )
 
@@ -221,14 +224,15 @@ def fetch_one(
 
     write_provenance(dataset, target, digest, target_dir)
     return FetchResult(
-        key=dataset.key, status="fetched", path=str(target), sha256=digest,
+        key=dataset.key,
+        status="fetched",
+        path=str(target),
+        sha256=digest,
         message="downloaded and verified",
     )
 
 
-def write_provenance(
-    dataset: Dataset, target: Path, digest: str, target_dir: Path
-) -> Path:
+def write_provenance(dataset: Dataset, target: Path, digest: str, target_dir: Path) -> Path:
     """Record where a file came from, what it hashed to, and when."""
     record = {
         "key": dataset.key,
@@ -257,10 +261,7 @@ def fetch_all(
     unknown = [k for k in keys if k not in DATASETS]
     if unknown:
         raise ValueError(f"unknown dataset(s): {unknown}; have {sorted(DATASETS)}")
-    return [
-        fetch_one(DATASETS[key], dest_root, downloader=downloader, force=force)
-        for key in keys
-    ]
+    return [fetch_one(DATASETS[key], dest_root, downloader=downloader, force=force) for key in keys]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -271,9 +272,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        results = fetch_all(
-            args.dest, only=args.only, force=args.force
-        )
+        results = fetch_all(args.dest, only=args.only, force=args.force)
     except ChecksumMismatchError as exc:
         print(f"integrity failure: {exc}", file=sys.stderr)
         return 1

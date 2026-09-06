@@ -47,8 +47,12 @@ EXPECTED_RULE_COUNT: Final = 26
 COVERAGE_FLOOR: Final = 90.0
 
 WORST_INTENT: Final = {
-    "encryption": "3des", "integrity": "md5", "dh_group": "modp1024",
-    "pfs": False, "ike_version": "ikev1", "aggressive": True,
+    "encryption": "3des",
+    "integrity": "md5",
+    "dh_group": "modp1024",
+    "pfs": False,
+    "ike_version": "ikev1",
+    "aggressive": True,
 }
 BEST_INTENT: Final = {"encryption": "aes256gcm16", "dh_group": "curve25519", "pfs": True}
 
@@ -95,8 +99,19 @@ def check_rule_count() -> Check:
         return Check(name, "FAIL", f"{len(ids)} rules: {ids}")
 
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/unit", "-k", "rules or crypto or scoring or anomaly or pqc or baselines"],
-        capture_output=True, text=True, cwd=REPO_ROOT, timeout=1800, check=False,
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/unit",
+            "-k",
+            "rules or crypto or scoring or anomaly or pqc or baselines",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        timeout=1800,
+        check=False,
     )
     if result.returncode != 0:
         return Check(name, "FAIL", "the rule test suites did not pass")
@@ -141,17 +156,24 @@ def check_baselines_differentiate() -> Check:
     name = "Every baseline loads and produces differentiated results"
     baselines = load_baselines()
     exchange = IKEExchange(
-        initiator_spi="11" * 8, responder_spi="00" * 8, version="IKEv2",
+        initiator_spi="11" * 8,
+        responder_spi="00" * 8,
+        version="IKEv2",
         exchange_type="IKE_SA_INIT",
         proposals_offered=[
-            Proposal(number=1, protocol="IKE", transforms=[
-                Transform(type=TransformType.ENCR, id=12, name="ENCR_AES_CBC", key_length=128),
-                Transform(type=TransformType.INTEG, id=12, name="AUTH_HMAC_SHA2_256_128"),
-                Transform(type=TransformType.DH, id=14, name="2048-bit MODP"),
-            ])
+            Proposal(
+                number=1,
+                protocol="IKE",
+                transforms=[
+                    Transform(type=TransformType.ENCR, id=12, name="ENCR_AES_CBC", key_length=128),
+                    Transform(type=TransformType.INTEG, id=12, name="AUTH_HMAC_SHA2_256_128"),
+                    Transform(type=TransformType.DH, id=14, name="2048-bit MODP"),
+                ],
+            )
         ],
         timestamp=__import__("datetime").datetime.now(__import__("datetime").UTC),
-        src_ip="192.0.2.1", dst_ip="192.0.2.2",
+        src_ip="192.0.2.1",
+        dst_ip="192.0.2.2",
     )
     tunnel = correlate([exchange], [])[0]
     tunnel.config = ObservedConfig(pfs_enabled=True, child_lifetime_seconds=21_600)
@@ -160,28 +182,35 @@ def check_baselines_differentiate() -> Check:
     signatures: dict[str, tuple[object, ...]] = {}
     for baseline_id, baseline in baselines.items():
         findings = registry.run(tunnel, baseline).findings
-        signatures[baseline_id] = tuple(
-            sorted((f.rule_id, f.severity.value) for f in findings)
-        )
+        signatures[baseline_id] = tuple(sorted((f.rule_id, f.severity.value) for f in findings))
     distinct = len(set(signatures.values()))
     if distinct < 2:
         return Check(name, "FAIL", "every baseline produced the same verdict")
     return Check(
-        name, "PASS",
+        name,
+        "PASS",
         f"{len(baselines)} baselines, {distinct} distinct verdicts on one tunnel",
     )
 
 
 def check_pqc_grades() -> Check:
     name = "PQC grading correct for all four grades"
-    def build(transforms: list[Transform], pfs: bool | None = None, notifies: list[str] | None = None) -> Tunnel:
+
+    def build(
+        transforms: list[Transform], pfs: bool | None = None, notifies: list[str] | None = None
+    ) -> Tunnel:
         import datetime as dt
+
         ex = IKEExchange(
-            initiator_spi="11" * 8, responder_spi="00" * 8, version="IKEv2",
+            initiator_spi="11" * 8,
+            responder_spi="00" * 8,
+            version="IKEv2",
             exchange_type="IKE_SA_INIT",
             proposals_offered=[Proposal(number=1, protocol="IKE", transforms=transforms)],
-            notifies=notifies or [], timestamp=dt.datetime.now(dt.UTC),
-            src_ip="192.0.2.1", dst_ip="192.0.2.2",
+            notifies=notifies or [],
+            timestamp=dt.datetime.now(dt.UTC),
+            src_ip="192.0.2.1",
+            dst_ip="192.0.2.2",
         )
         t = correlate([ex], [])[0]
         if pfs is not None:
@@ -234,7 +263,8 @@ def check_anomaly_detection() -> Check:
     if findings[0].confidence is None:
         return Check(name, "FAIL", "the anomaly finding carries no confidence")
     return Check(
-        name, "PASS",
+        name,
+        "PASS",
         f"{len(estate)}-tunnel estate (modal share {summary['modal_share']}), "
         f"1 anomaly at confidence {findings[0].confidence.value:.2f}",
     )
@@ -269,10 +299,20 @@ def check_assess_coverage() -> Check:
     name = f"Coverage of assess/ above {COVERAGE_FLOOR:.0f}%"
     result = subprocess.run(
         [
-            sys.executable, "-m", "pytest", "-m", "not integration",
-            "--cov=ipsec_sentinel.assess", "--cov-report=term", "--no-cov-on-fail",
+            sys.executable,
+            "-m",
+            "pytest",
+            "-m",
+            "not integration",
+            "--cov=ipsec_sentinel.assess",
+            "--cov-report=term",
+            "--no-cov-on-fail",
         ],
-        capture_output=True, text=True, cwd=REPO_ROOT, timeout=1800, check=False,
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        timeout=1800,
+        check=False,
     )
     if result.returncode != 0:
         return Check(name, "FAIL", "the suite did not pass, so coverage is meaningless")
@@ -313,8 +353,10 @@ def main(argv: list[str] | None = None) -> int:
 
     selected = [c for c in CHECKS if not args.only or args.only in c.__name__]
     if not selected:
-        print(f"no check matches {args.only!r}; available: "
-              f"{[c.__name__ for c in CHECKS]}", file=sys.stderr)
+        print(
+            f"no check matches {args.only!r}; available: {[c.__name__ for c in CHECKS]}",
+            file=sys.stderr,
+        )
         return 2
 
     print("M6 — Assessment engine complete\n")

@@ -80,5 +80,12 @@ ignore_missing_imports = true
 line-length = 100
 target-version = "py311"
 
+[tool.ruff.lint.per-file-ignores]
+# These two scripts emit Markdown documents, and their tables are written as literal
+# rows inside triple-quoted strings. Wrapping a row to satisfy the line limit would
+# break the table in the generated document, which is the artefact that matters.
+"scripts/confound_audit.py" = ["E501"]
+"scripts/generalisation_report.py" = ["E501"]
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "SIM", "ARG", "PTH", "RUF"]

@@ -32,9 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    plan = plan_sweep(
-        max_configs=args.max_configs, cross_impairments=args.cross_impairments
-    )
+    plan = plan_sweep(max_configs=args.max_configs, cross_impairments=args.cross_impairments)
     check_balance(plan)
     print(f"planned {len(plan)} cells; writing to {args.out}", flush=True)
 
@@ -52,9 +50,13 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     state = run_sweep(
-        plan, args.out, duration_s=args.duration_s,
-        replay_source=args.replay_source, limit=args.limit,
-        retry_failed=args.retry_failed, on_cell=report,
+        plan,
+        args.out,
+        duration_s=args.duration_s,
+        replay_source=args.replay_source,
+        limit=args.limit,
+        retry_failed=args.retry_failed,
+        on_cell=report,
     )
     print(f"\ncompleted={len(state.completed)} failed={len(state.failed)}")
     return 0

@@ -24,7 +24,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 from testbed.orchestrate.capture import dual_capture_for_pair  # noqa: E402
-from testbed.traffic.base import RunContext  # noqa: E402
 
 
 @dataclass
@@ -44,7 +43,9 @@ class Shape:
     small_packet_fraction: float
 
 
-def measure(pcap: Path, near_ip: str) -> tuple[int, float, float, float, float, float, float, float, float]:
+def measure(
+    pcap: Path, near_ip: str
+) -> tuple[int, float, float, float, float, float, float, float, float]:
     from scapy.layers.inet import IP
     from scapy.utils import PcapReader
 
@@ -99,10 +100,16 @@ def build_generators(replay_source: Path):  # type: ignore[no-untyped-def]
         (VoipGenerator("g711_20ms"), (), {}),
         (VideoGenerator("dash_720p", seed=7), ("video",), {}),
         (WebGenerator("skimming", seed=11), ("web",), {}),
-        (EmailGenerator("smtp_attachment", password=mail_password, seed=5),
-         ("mail",), {"MAIL_PASSWORD": mail_password}),
-        (MessagingGenerator("chat_active", password=xmpp_password, seed=4),
-         ("messaging",), {"XMPP_PASSWORD": xmpp_password}),
+        (
+            EmailGenerator("smtp_attachment", password=mail_password, seed=5),
+            ("mail",),
+            {"MAIL_PASSWORD": mail_password},
+        ),
+        (
+            MessagingGenerator("chat_active", password=xmpp_password, seed=4),
+            ("messaging",),
+            {"XMPP_PASSWORD": xmpp_password},
+        ),
         (ReplayGenerator("cicids2017_benign", source_pcap=replay_source), (), {}),
     ]
 
@@ -135,8 +142,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Measure every generator's traffic shape.")
     parser.add_argument("--duration-s", type=int, default=60)
     parser.add_argument("--out", type=Path, default=REPO_ROOT / "reports" / "generator_shapes.json")
-    parser.add_argument("--only", nargs="*", default=None,
-                        help="measure only these generator names")
+    parser.add_argument(
+        "--only", nargs="*", default=None, help="measure only these generator names"
+    )
     args = parser.parse_args()
 
     sys.path.insert(0, str(REPO_ROOT / "tests"))

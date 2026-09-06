@@ -54,9 +54,7 @@ def captures() -> list[Path]:
 
 
 def tunnels_of(pcap: Path) -> list[Tunnel]:
-    return correlate(
-        extract_ike_exchanges(pcap), assemble_esp_flows(extract_esp_packets(pcap))
-    )
+    return correlate(extract_ike_exchanges(pcap), assemble_esp_flows(extract_esp_packets(pcap)))
 
 
 def check_all_captures_correlate() -> Check:

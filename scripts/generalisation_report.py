@@ -61,9 +61,7 @@ SPLIT_CAPTURE: Final = "held-out captures"
 SPLIT_CONFIG: Final = "held-out configurations"
 SPLIT_DH: Final = "held-out DH groups"
 
-SPLIT_ORDER: Final[tuple[str, ...]] = (
-    SPLIT_RANDOM, SPLIT_CAPTURE, SPLIT_CONFIG, SPLIT_DH
-)
+SPLIT_ORDER: Final[tuple[str, ...]] = (SPLIT_RANDOM, SPLIT_CAPTURE, SPLIT_CONFIG, SPLIT_DH)
 
 
 def run_all_splits(
@@ -73,22 +71,20 @@ def run_all_splits(
     results: dict[str, EvaluationResult] = {}
 
     train, test = split_randomly(frame, seed=seed)
-    results[SPLIT_RANDOM] = evaluate_holdout(
-        train, test, model_name, split_strategy=SPLIT_RANDOM
-    )
+    results[SPLIT_RANDOM] = evaluate_holdout(train, test, model_name, split_strategy=SPLIT_RANDOM)
 
     train, test = split_by_capture(frame, seed=seed)
     assert_no_overlap(train, test, "capture_id")
-    results[SPLIT_CAPTURE] = evaluate_holdout(
-        train, test, model_name, split_strategy=SPLIT_CAPTURE
-    )
+    results[SPLIT_CAPTURE] = evaluate_holdout(train, test, model_name, split_strategy=SPLIT_CAPTURE)
 
     configs = sorted(frame["config_id"].astype(str).unique())
     holdout = configs[: max(1, len(configs) // 5)]
     train, test = split_by_config(frame, holdout)
     assert_no_overlap(train, test, "capture_id")
     results[SPLIT_CONFIG] = evaluate_holdout(
-        train, test, model_name,
+        train,
+        test,
+        model_name,
         split_strategy=f"{SPLIT_CONFIG} ({len(holdout)} of {len(configs)})",
     )
 
@@ -98,7 +94,9 @@ def run_all_splits(
         train_groups, test_groups = groups[:cut], groups[cut:]
         train, test = split_by_dh_group(frame, train_groups, test_groups)
         results[SPLIT_DH] = evaluate_holdout(
-            train, test, model_name,
+            train,
+            test,
+            model_name,
             split_strategy=f"{SPLIT_DH} (train {train_groups}, test {test_groups})",
         )
     return results
@@ -248,8 +246,8 @@ only appears when the result is flattering is not a generalisation report.
 
 ## Dataset
 
-{len(frame)} windows, {frame['capture_id'].nunique()} captures,
-{frame['config_id'].nunique()} configurations, {len(set(labels))} traffic classes,
+{len(frame)} windows, {frame["capture_id"].nunique()} captures,
+{frame["config_id"].nunique()} configurations, {len(set(labels))} traffic classes,
 **{windows_per_capture:.2f} windows per capture**.
 Model: random forest. Baseline to beat: **{majority.accuracy:.1%}** (majority class).
 
@@ -344,8 +342,10 @@ def main(argv: list[str] | None = None) -> int:
     path = write_report(results, frame, args.output)
     for name in SPLIT_ORDER:
         if name in results:
-            print(f"{name:34} accuracy {results[name].accuracy:.1%}  "
-                  f"macro-F1 {results[name].macro_f1:.3f}")
+            print(
+                f"{name:34} accuracy {results[name].accuracy:.1%}  "
+                f"macro-F1 {results[name].macro_f1:.3f}"
+            )
     print(f"\nwritten: {path}")
     return 0
 

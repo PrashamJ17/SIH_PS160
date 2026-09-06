@@ -58,13 +58,11 @@ def check_parses_every_capture() -> Check:
     for pcap in files:
         try:
             messages += len(extract_ike_exchanges(pcap))
-        except Exception as exc:  # noqa: BLE001 - an unhandled exception is the failure
+        except Exception as exc:
             failures.append(f"{pcap.parent.name}: {type(exc).__name__}: {exc}")
     if failures:
         return Check(name, "FAIL", "; ".join(failures[:5]))
-    return Check(
-        name, "PASS", f"{len(files)} captures, {messages} IKE messages, 0 exceptions"
-    )
+    return Check(name, "PASS", f"{len(files)} captures, {messages} IKE messages, 0 exceptions")
 
 
 def check_tshark_parity() -> Check:
@@ -87,9 +85,7 @@ def check_tshark_parity() -> Check:
         return Check(name, "FAIL", f"{len(disagreed)} captures disagree: {disagreed[:5]}")
     if compared == 0:
         return Check(name, "FAIL", "tshark found no messages at all — vacuous agreement")
-    return Check(
-        name, "PASS", f"{len(files)}/{len(files)} captures, {compared} messages compared"
-    )
+    return Check(name, "PASS", f"{len(files)}/{len(files)} captures, {compared} messages compared")
 
 
 def check_fuzzing() -> Check:
@@ -132,7 +128,7 @@ def check_aggressive_mode_detected() -> Check:
                         break
                 except (TruncatedError, MalformedError):
                     continue
-        except Exception:  # noqa: BLE001 - covered by the previous check
+        except Exception:
             continue
     if not aggressive:
         return Check(
@@ -151,12 +147,9 @@ def check_aggressive_mode_detected() -> Check:
 
 def check_key_length_distinguishes_aes() -> Check:
     name = "Key length correctly distinguishes AES-128 from AES-256"
-    from tests.fixtures.builders import build_pcap, build_udp_frame  # noqa: F401
-
-    import tempfile
 
     from ipsec_sentinel.models import Proposal, Transform, TransformType
-    from tests.fixtures.builders import build_ike_sa_init
+    from tests.fixtures.builders import build_ike_sa_init, build_pcap, build_udp_frame  # noqa: F401
 
     observed: dict[int, list[str]] = {}
     for key_length in (128, 256):
@@ -193,9 +186,7 @@ def check_key_length_distinguishes_aes() -> Check:
                     if transform.key_length is not None:
                         real.add(transform.key_length)
     suffix = f"; observed in the dataset: {sorted(real)}" if real else ""
-    return Check(
-        name, "PASS", f"128 -> {observed[128]}, 256 -> {observed[256]}{suffix}"
-    )
+    return Check(name, "PASS", f"128 -> {observed[128]}, 256 -> {observed[256]}{suffix}")
 
 
 def check_all_proposals_extracted() -> Check:
@@ -226,8 +217,14 @@ def check_parser_coverage() -> Check:
     name = f"Coverage of parser/ above {COVERAGE_FLOOR:.0f}%"
     result = subprocess.run(
         [
-            sys.executable, "-m", "pytest", "-m", "not integration",
-            "--cov=ipsec_sentinel.parser", "--cov-report=term", "--no-cov-on-fail",
+            sys.executable,
+            "-m",
+            "pytest",
+            "-m",
+            "not integration",
+            "--cov=ipsec_sentinel.parser",
+            "--cov-report=term",
+            "--no-cov-on-fail",
         ],
         capture_output=True,
         text=True,

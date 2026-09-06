@@ -121,15 +121,10 @@ def control_is_valid(results: list[ScanResult]) -> bool:
     negotiation would still report a confident zero for the external corpora, and the
     conclusion drawn from it would be worthless.
     """
-    return (
-        any(r.ike_packets > 0 for r in results)
-        and any(r.esp_packets > 0 for r in results)
-    )
+    return any(r.ike_packets > 0 for r in results) and any(r.esp_packets > 0 for r in results)
 
 
-def render_report(
-    audits: list[DatasetAudit], control: list[ScanResult], control_ok: bool
-) -> str:
+def render_report(audits: list[DatasetAudit], control: list[ScanResult], control_ok: bool) -> str:
     generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     present = [a for a in audits if a.present]
     absent = [a for a in audits if not a.present]

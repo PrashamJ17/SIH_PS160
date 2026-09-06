@@ -165,8 +165,9 @@ def run_audit(frame: Any, seed: int = 42) -> AuditResult:
         result.cipher_baseline = float(counts.max() / counts.sum())
 
         model = _build_model(MODEL_RANDOM_FOREST, seed, len(result.ciphers))
-        model.fit(frame[list(SIZE_FEATURES)].to_numpy(dtype=float),
-                  frame["cipher"].astype(str).to_numpy())
+        model.fit(
+            frame[list(SIZE_FEATURES)].to_numpy(dtype=float), frame["cipher"].astype(str).to_numpy()
+        )
         order = np.argsort(model.feature_importances_)[::-1][:5]
         result.cipher_top_features = [SIZE_FEATURES[i] for i in order]
 
@@ -231,9 +232,7 @@ def _verdict(result: AuditResult) -> str:
         )
 
     ratio_true = (
-        result.mutual_information_true / result.traffic_entropy
-        if result.traffic_entropy
-        else 0.0
+        result.mutual_information_true / result.traffic_entropy if result.traffic_entropy else 0.0
     )
     ratio_predicted = (
         result.mutual_information_predicted / result.traffic_entropy
@@ -353,10 +352,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"overall accuracy            {result.accuracy_overall:.1%}")
     for cipher in result.by_cipher:
         print(f"  {cipher.cipher:16} {cipher.accuracy:.1%}  ({cipher.rows} windows)")
-    print(f"accuracy spread             {result.accuracy_spread:.1%} "
-          f"({'OK' if result.is_cipher_independent else 'CONFOUNDED'})")
-    print(f"cipher from sizes           {result.cipher_learnability:.1%} "
-          f"(baseline {result.cipher_baseline:.1%}, lift {result.cipher_lift:+.1%})")
+    print(
+        f"accuracy spread             {result.accuracy_spread:.1%} "
+        f"({'OK' if result.is_cipher_independent else 'CONFOUNDED'})"
+    )
+    print(
+        f"cipher from sizes           {result.cipher_learnability:.1%} "
+        f"(baseline {result.cipher_baseline:.1%}, lift {result.cipher_lift:+.1%})"
+    )
     print(f"MI predicted vs cipher      {result.mutual_information_predicted:.4f} nats")
     print(f"\nwritten: {path}")
     return 0

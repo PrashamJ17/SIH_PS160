@@ -642,11 +642,22 @@ deliberately *not*: it loads no model — so an analysis run cannot silently deg
 inferences" while looking complete — and it opens no socket, asserted by monkeypatching
 `socket.socket` to raise and then analysing a real capture end to end.
 
-### Known gap, not blocking
+### The lint gap, closed straight after
 
-`ruff` lints `src tests testbed` but **not** `scripts`, while `mypy` checks all four. The
-milestone check scripts have therefore accumulated lint that `make verify` never sees.
-Recorded here and fixed next rather than folded into the milestone.
+`ruff` linted `src tests testbed` but **not** `scripts`, while `mypy` checked all four —
+so the milestone check scripts accumulated lint that `make verify` never saw. `scripts` is
+now in both `lint` and `fmt`, and the 19 accumulated findings are cleared.
+
+One was real: `compare_with_tshark.py` assigned `pending_type` twice and never read it,
+left over from a design where the transform type was to be paired with the transform ID.
+The type is taken from the field name instead, so tshark's own `isakmp.tf.type` is
+genuinely redundant; the dead store is gone and the Step 4.10 parity tests still pass.
+
+The remaining findings were line-length in `confound_audit.py` and
+`generalisation_report.py`, whose Markdown tables are literal rows inside triple-quoted
+strings — wrapping one to satisfy the limit would break the table in the generated
+document, which is the artefact that matters. Both carry a per-file `E501` ignore with
+that reason.
 
 ---
 
