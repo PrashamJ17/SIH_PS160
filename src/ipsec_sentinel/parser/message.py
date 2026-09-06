@@ -56,6 +56,7 @@ class ParsedMessage:
     header: IKEHeader
     proposals: list[Proposal] = field(default_factory=list)
     ke_group_from_length: int | None = None
+    ike_lifetime_seconds: int | None = None
     auth_methods: list[str] = field(default_factory=list)
     vendor_ids: list[str] = field(default_factory=list)
     notifies: list[str] = field(default_factory=list)
@@ -144,16 +145,22 @@ def _parse_v1(data: bytes) -> ParsedMessage:
                     )
                 )
     auth_methods: list[str] = []
+    lifetime: int | None = None
     if parsed.sa is not None:
         for transform in parsed.sa.transforms:
             method = transform.auth_method
             if method is not None and method not in auth_methods:
                 auth_methods.append(method)
+            # Only seconds are comparable to a time threshold. A kilobyte lifetime is
+            # a volume limit and reading it as seconds would invent a number.
+            if transform.life_type == "seconds" and transform.life_duration is not None:
+                lifetime = max(lifetime or 0, transform.life_duration)
 
     return ParsedMessage(
         header=parsed.header,
         proposals=proposals,
         auth_methods=auth_methods,
+        ike_lifetime_seconds=lifetime,
         psk_hash_exposed=parsed.psk_hash_exposed,
         errors=list(parsed.errors),
     )

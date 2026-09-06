@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from ipaddress import ip_address
 from typing import Final
 
-from ipsec_sentinel.models import IKEExchange, Proposal
+from ipsec_sentinel.models import IKEExchange, ObservedConfig, Proposal
 from ipsec_sentinel.parser.esp import AssembledFlow
 
 # An initiator cannot know the responder's SPI when it sends the first message, so
@@ -167,6 +167,12 @@ class Tunnel:
     ike: IKEExchange | None = None
     negotiation: Negotiation | None = None
     flows: list[AssembledFlow] = field(default_factory=list)
+    config: ObservedConfig | None = None
+    """Configuration the operator supplied for this tunnel, if any.
+
+    Kept here because a Tunnel is "everything known about this tunnel", and some of
+    what is worth knowing cannot be read from packets. Absent by default.
+    """
 
     @property
     def is_orphan(self) -> bool:

@@ -98,6 +98,35 @@ class Proposal(BaseModel):
     transforms: list[Transform] = Field(default_factory=list)
 
 
+class ObservedConfig(BaseModel):
+    """Configuration facts an operator supplied, which the wire cannot carry.
+
+    Several things worth assessing about an IPsec deployment are simply not visible to
+    a passive observer. Perfect forward secrecy is negotiated in IKEv1 Quick Mode or
+    IKEv2 CREATE_CHILD_SA, both of which are encrypted. Anti-replay settings and the
+    replay window size are local to each peer and never appear on the wire at all.
+
+    Rather than infer those from side channels and present the guess as a fact, this
+    model lets an operator supply them. Every field defaults to ``None`` meaning "not
+    supplied", and a rule that depends on an unsupplied field stays silent rather than
+    assuming a default. Silence is the correct output for a question that was not
+    asked — a report claiming PFS is disabled because nobody told it otherwise would
+    be worse than no report.
+
+    Findings derived from these fields are still deterministic: they are read from a
+    document the operator provided, not inferred from traffic. The evidence names the
+    source so a reader can tell wire-derived facts from supplied ones.
+    """
+
+    pfs_enabled: bool | None = None
+    child_dh_group: int | None = None
+    ike_lifetime_seconds: int | None = None
+    child_lifetime_seconds: int | None = None
+    anti_replay_enabled: bool | None = None
+    replay_window: int | None = None
+    source: str = "operator-supplied configuration"
+
+
 class IKEExchange(BaseModel):
     """A parsed IKE negotiation. Every field here is a fact read off the wire.
 
@@ -114,6 +143,14 @@ class IKEExchange(BaseModel):
     proposals_offered: list[Proposal] = Field(default_factory=list)
     proposal_accepted: Proposal | None = None
     ke_group_from_length: int | None = None
+    ike_lifetime_seconds: int | None = None
+    """Phase 1 SA lifetime, when the wire carried it.
+
+    IKEv1 negotiates the lifetime as a cleartext phase 1 SA attribute, so it is a
+    parsed fact there. IKEv2 removed lifetimes from the SA payload entirely (RFC 7296)
+    — each peer keeps its own and never announces it — so this stays ``None`` for
+    IKEv2 and a rule must not read that as "short".
+    """
     auth_methods: list[str] = Field(default_factory=list)
     """Authentication methods offered, read from IKEv1 phase 1 SA attributes.
 

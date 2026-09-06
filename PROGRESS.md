@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.4 — forward secrecy and SA rules
+**Current step:** 6.5 — PQC readiness rules
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -101,6 +101,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.1 — Rule framework — commit `d67658f`
 - [x] 6.2 — Cryptographic strength rules (CRY-01..CRY-10) — commit `a547da4`
 - [x] 6.3 — IKE configuration rules (IKE-01..IKE-04) — commit `2ed66f2`
+- [x] 6.4 — Forward secrecy and SA rules (PFS-01..SA-04) — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
@@ -168,6 +169,38 @@ every encryption in `testbed/configs/matrix.yaml`.
 > pushed verbatim as the plan specifies; it is red for exactly one commit and turns green at
 > Step 0.5. The gate was **not** weakened to manufacture a passing badge — disabling CI,
 > lint or type checking to make progress is explicitly prohibited.
+
+---
+
+## Step 6.4 — what a passive observer cannot see
+
+The build plan's PFS and SA rules assess six settings. **Five of them are invisible to a
+passive observer**, and saying so was the whole design problem of this step.
+
+| Rule | Observable from a capture? |
+|---|---|
+| SA-01 IKE lifetime > 24 h | **Yes for IKEv1** — a cleartext phase 1 SA attribute. This corpus carries 31,680 s and 95,040 s, and SA-01 fires 28 times on the second. **No for IKEv2** — RFC 7296 removed lifetimes from the SA payload; each peer keeps its own and never announces it |
+| SA-03 anti-replay | **Partly** — duplicate ESP sequence numbers are observable; the *cause* is not |
+| PFS-01, PFS-02 | **No** — negotiated in IKEv1 Quick Mode / IKEv2 CREATE_CHILD_SA, both encrypted |
+| SA-02 child lifetime | **No** — phase 2, encrypted |
+| SA-04 replay window | **No** — a local setting that never appears on the wire |
+
+Three options existed: infer them from side channels and present the guess as fact;
+emit them with a confidence and move them to the inferred lane; or take them from the
+operator. **The third was chosen.** `ObservedConfig` carries operator-supplied facts,
+every field defaults to "not supplied", and a rule whose input is missing returns
+`None` — silence, not a default. A report asserting "PFS is disabled" because nobody
+said otherwise would be worse than no report, because an operator would act on it.
+
+Every finding stays deterministic: read from the wire, or read from a document the
+operator provided. **The evidence always names which**, so a reader can separate the two
+without trusting the tool. Fourteen tests assert the silence-without-input behaviour
+directly.
+
+SA-03 is the one hybrid, and its wording carries the whole point. On observed
+duplicates it says the evidence is "consistent with anti-replay being disabled, but a
+passive observer cannot distinguish it from network duplication — confirm against the
+device configuration before acting." The observation is certain; the conclusion is not.
 
 ---
 
