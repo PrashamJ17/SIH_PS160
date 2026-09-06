@@ -124,7 +124,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 8 — Remediation (6 steps → `v0.9.0-remediation`) ← **CURRENT**
 - [x] 8.1 — Change package model with both-ends enforcement — commit `cc3e456`
 - [x] 8.2 — strongSwan config generator (live-tested) — commit `f28e9ee`
-- [x] 8.3a — Libreswan generator (syntax-validated) — commit `PENDING`
+- [x] 8.3a — Libreswan generator (syntax-validated) — commit `8cf629c`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
