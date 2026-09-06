@@ -138,6 +138,38 @@ def split_by_capture(
     return train, test
 
 
+def split_randomly(
+    frame: pd.DataFrame,
+    test_frac: float = DEFAULT_TEST_FRACTION,
+    seed: int = DEFAULT_SEED,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split rows at random, ignoring groups. **This leaks, deliberately.**
+
+    Provided for one purpose: to measure how much a leaking split inflates the score,
+    so the generalisation report can show the gap rather than assert it. Sibling
+    windows from one capture land on both sides and the model is scored on near-copies
+    of what it memorised.
+
+    Never use this to produce a number that will be quoted on its own. It is the
+    optimistic upper bound and the report labels it as such.
+    """
+    import numpy as np
+
+    if frame.empty:
+        raise SplitError("cannot split an empty dataset")
+    if not 0.0 < test_frac < 1.0:
+        raise SplitError(f"test_frac must be between 0 and 1, got {test_frac}")
+
+    rng = np.random.default_rng(seed)
+    order = rng.permutation(len(frame))
+    cut = max(1, min(len(frame) - 1, round(len(frame) * test_frac)))
+    test_positions = set(order[:cut].tolist())
+    mask = np.array([i in test_positions for i in range(len(frame))])
+    train, test = frame[~mask].copy(), frame[mask].copy()
+    _require_non_empty(train, test, "split_randomly")
+    return train, test
+
+
 def split_by_config(
     frame: pd.DataFrame,
     holdout_configs: list[str],

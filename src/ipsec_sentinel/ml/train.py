@@ -254,6 +254,78 @@ def cross_validate(
     )
 
 
+def evaluate_holdout(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    model_name: str = MODEL_RANDOM_FOREST,
+    target: str = DEFAULT_TARGET,
+    seed: int = DEFAULT_SEED,
+    split_strategy: str = "held-out split",
+) -> EvaluationResult:
+    """Fit on one frame and score on another.
+
+    Classes present in test but absent from training are kept in the label set rather
+    than dropped. A model that has never seen a class cannot predict it, and silently
+    removing it from the report would turn a real failure into a clean-looking score.
+    """
+    import numpy as np
+    from sklearn.metrics import (
+        accuracy_score,
+        confusion_matrix,
+        f1_score,
+        precision_recall_fscore_support,
+    )
+
+    _validate(train, target)
+    if test.empty:
+        raise TrainingError("the test side is empty; there is nothing to score")
+
+    train_used = train[train[target].notna()]
+    test_used = test[test[target].notna()]
+    train_labels = sorted(train_used[target].astype(str).unique().tolist())
+    all_labels = sorted(set(train_labels) | set(test_used[target].astype(str).unique().tolist()))
+
+    train_matrix = train_used[list(FEATURE_NAMES)].to_numpy(dtype=float)
+    test_matrix = test_used[list(FEATURE_NAMES)].to_numpy(dtype=float)
+    train_truth = train_used[target].astype(str).to_numpy()
+    test_truth = test_used[target].astype(str).to_numpy()
+
+    model = _build_model(model_name, seed, len(train_labels))
+    if model_name == MODEL_GRADIENT_BOOSTING:
+        lookup = {label: i for i, label in enumerate(train_labels)}
+        model.fit(train_matrix, [lookup[t] for t in train_truth])
+        predicted = np.array([train_labels[int(i)] for i in model.predict(test_matrix)])
+    else:
+        model.fit(train_matrix, train_truth)
+        predicted = model.predict(test_matrix)
+
+    precision, recall, f1, support = precision_recall_fscore_support(
+        test_truth, predicted, labels=all_labels, zero_division=0
+    )
+    return EvaluationResult(
+        model_name=model_name,
+        target=target,
+        accuracy=float(accuracy_score(test_truth, predicted)),
+        macro_f1=float(f1_score(test_truth, predicted, average="macro", zero_division=0)),
+        per_class=[
+            ClassScore(
+                label=label,
+                precision=float(precision[i]),
+                recall=float(recall[i]),
+                f1=float(f1[i]),
+                support=int(support[i]),
+            )
+            for i, label in enumerate(all_labels)
+        ],
+        confusion_matrix=confusion_matrix(test_truth, predicted, labels=all_labels).tolist(),
+        labels=all_labels,
+        folds=1,
+        rows=len(test_used),
+        groups=test_used["capture_id"].nunique() if "capture_id" in test_used else 0,
+        split_strategy=split_strategy,
+    )
+
+
 def compare_models(
     frame: pd.DataFrame,
     target: str = DEFAULT_TARGET,

@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.6 — generalisation report (UNCUTTABLE)
+**Current step:** 7.7 — confidence calibration
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -115,6 +115,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.3 — Leakage-free splitting — commit `1ee6faa`
 - [x] 7.4 — Heuristic baseline for mode inference — commit `4197c81`
 - [x] 7.5 — Traffic classifier training — commit `41e3fbe`
+- [x] 7.6 — Generalisation report **(UNCUTTABLE)** — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
@@ -500,6 +501,47 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Step 7.6 — generalisation results (UNCUTTABLE step, evidence)
+
+All four splits, random forest, on the corrected 581-row corpus. `docs/GENERALISATION.md`
+carries the full per-class scores and confusion matrices.
+
+| Split | Accuracy | Macro-F1 | What it tests |
+|---|---|---|---|
+| Random rows (**leaky**) | 96.6% | 0.969 | Optimistic upper bound |
+| Held-out captures | 96.4% | 0.960 | Realistic in-distribution |
+| **Held-out configurations** | **94.7%** | 0.951 | **Closest to a deployed analyser** |
+| Held-out DH groups | 96.7% | 0.969 | Confound probe |
+
+**The expected drop did not appear, and that needs stating carefully rather than
+celebrating.** Accuracy falls only 1.7 points from held-out captures to held-out
+configurations, and is unchanged on unseen Diffie-Hellman groups. Two readings, both
+true:
+
+* The model genuinely is reading traffic shape rather than a crypto artifact. The DH
+  split is the sharpest test available for that, and it passes at 96.7%.
+* The seven classes come from **deliberately distinct generators** — ICMP, a VoIP codec,
+  video streaming, SMTP. They are far more separable than arbitrary production traffic.
+  These numbers are an **upper bound**, and the document says so under Limitations.
+
+### The over-claim I nearly shipped
+
+The report first concluded that the random split scoring only +0.2% above the capture
+split showed "the inflation a leaking split buys". Read plainly, that invites the
+conclusion that leakage is not a real concern here.
+
+It is not what the number means. This dataset averages **2.31 windows per capture**, so
+a random split has almost no sibling windows available to leak — **the test has very
+little power.** Before the protocol-50 artefacts were removed, one class averaged 29.4
+windows per capture, and a random split over that data would have leaked heavily.
+
+The report now states this explicitly, reports windows-per-capture in its Dataset
+section as the quantity that bounds the leak, and a test asserts the words *"not
+evidence that leakage is harmless"* are present. The grouped split is cheap insurance
+whose value does not happen to show up in this particular number.
 
 ---
 
