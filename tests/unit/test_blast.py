@@ -16,17 +16,18 @@ import pytest
 from ipsec_sentinel.models import Confidence, ESPFlow, TunnelAssessment
 from ipsec_sentinel.remediate.blast import (
     BUSY_THROUGHPUT_BPS,
-    HOURS_PER_DAY,
     IDLE_THROUGHPUT_BPS,
     MIN_HOURS_FOR_DAILY_CYCLE,
     WINDOW_LENGTH_HOURS,
     assess_blast_radius,
-    profile_flows,
-    profile_samples,
+    covers_daily_cycle,
+    is_busy,
+    is_idle,
     realtime_traffic,
     suggest_window,
 )
 from ipsec_sentinel.remediate.models import ChangeRisk
+from ipsec_sentinel.traffic import HOURS_PER_DAY, empty_profile, profile_flows
 
 DAY = datetime(2026, 3, 4, 0, 0, tzinfo=UTC)
 
@@ -236,65 +237,6 @@ class TestRisk:
         assert assessment.radius.estimated_disruption_s == 45
 
 
-class TestProfiling:
-    def test_bytes_are_apportioned_across_the_hours_a_flow_spans(self) -> None:
-        """Half an hour either side of a boundary splits evenly."""
-        spanning = flow(start_hour=9.75, duration_s=1800, packets=100, total_bytes=1000)
-        profile = profile_flows([spanning])
-        assert profile.observed_hours == {9, 10}
-        assert profile.bytes_by_hour[9] == pytest.approx(500, abs=2)
-        assert profile.bytes_by_hour[10] == pytest.approx(500, abs=2)
-        assert sum(profile.bytes_by_hour) == pytest.approx(1000, abs=2)
-
-    def test_an_instantaneous_flow_lands_in_one_hour(self) -> None:
-        profile = profile_flows([flow(start_hour=14, duration_s=0, total_bytes=700)])
-        assert profile.observed_hours == {14}
-        assert profile.bytes_by_hour[14] == 700
-
-    def test_per_packet_samples_are_placed_exactly(self) -> None:
-        """The reason ``profile_samples`` exists: a summary cannot see this shape."""
-        samples = [(DAY + timedelta(hours=3, seconds=s), 100) for s in range(10)]
-        samples += [(DAY + timedelta(hours=3, minutes=59, seconds=s), 100) for s in range(10)]
-        profile = profile_samples(samples)
-        assert profile.observed_hours == {3}
-        assert profile.bytes_by_hour[3] == 2000
-        assert profile.total_packets == 20
-
-    def test_an_empty_profile_claims_nothing(self) -> None:
-        profile = profile_flows([])
-        assert profile.total_bytes == 0
-        assert profile.observed_hours == frozenset()
-        assert profile.is_measurable is False
-        assert profile.is_idle is False, "no observation is not an idle observation"
-        assert profile.is_busy is False
-        assert profile.busiest_hour is None
-
-    def test_a_capture_too_short_to_rate_reports_no_throughput(self) -> None:
-        profile = profile_flows([flow(duration_s=1, packets=5, total_bytes=1_000_000)])
-        assert profile.is_measurable is False
-        assert profile.throughput_bps == 0.0
-
-    def test_a_flow_that_ends_before_it_starts_is_refused(self) -> None:
-        backwards = ESPFlow(
-            spi="deadbeef",
-            src_ip="203.0.113.1",
-            dst_ip="198.51.100.1",
-            packet_count=1,
-            byte_count=100,
-            first_seen=DAY + timedelta(hours=5),
-            last_seen=DAY,
-        )
-        with pytest.raises(ValueError, match="ends before it starts"):
-            profile_flows([backwards])
-
-    def test_the_busiest_hour_is_read_from_observed_hours_only(self) -> None:
-        flows = [
-            flow(start_hour=1, duration_s=3599, total_bytes=50, spi="00000001"),
-            flow(start_hour=2, duration_s=3599, total_bytes=9000, spi="00000002"),
-        ]
-        assert profile_flows(flows).busiest_hour == 2
-
-
 class TestTheGeneratorUsesTheObservation:
     """Wiring, asserted. A blast module the generator ignores is decoration."""
 
@@ -340,3 +282,40 @@ class TestTheGeneratorUsesTheObservation:
     def test_a_psk_rotation_still_forces_a_window_on_an_idle_tunnel(self) -> None:
         package = self._package("worst", ["IKE-03"], observed=tunnel([idle_flow()]))
         assert package.requires_maintenance_window is True
+
+
+class TestTheThresholdsAreJudgementsNotMeasurements:
+    """``is_idle`` and ``is_busy`` stayed in this module when the profiler moved out.
+
+    They are decisions about whether a change needs scheduling, made against thresholds
+    this module chose. The measurement itself has no opinion.
+    """
+
+    def test_an_unobserved_tunnel_is_neither_idle_nor_busy(self) -> None:
+        """No observation is not an idle observation."""
+        profile = empty_profile()
+        assert is_idle(profile) is False
+        assert is_busy(profile) is False
+
+    def test_a_capture_too_short_to_rate_is_neither(self) -> None:
+        profile = profile_flows([flow(duration_s=1, packets=5, total_bytes=10_000_000)])
+        assert is_idle(profile) is False
+        assert is_busy(profile) is False
+
+    def test_a_busy_profile_reads_busy(self) -> None:
+        assert is_busy(profile_flows([busy_flow()])) is True
+        assert is_idle(profile_flows([busy_flow()])) is False
+
+    def test_an_idle_profile_reads_idle(self) -> None:
+        assert is_idle(profile_flows([idle_flow()])) is True
+        assert is_busy(profile_flows([idle_flow()])) is False
+
+    def test_a_short_capture_does_not_cover_the_daily_cycle(self) -> None:
+        assert covers_daily_cycle(profile_flows([flow(duration_s=60)])) is False
+
+    def test_enough_observed_hours_does(self) -> None:
+        flows = [
+            flow(start_hour=h, duration_s=3599, total_bytes=1000, spi=f"{h:08x}")
+            for h in range(MIN_HOURS_FOR_DAILY_CYCLE)
+        ]
+        assert covers_daily_cycle(profile_flows(flows)) is True

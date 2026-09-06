@@ -26,15 +26,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from typing import Final
 
 from pydantic import BaseModel, Field
 
-from ipsec_sentinel.models import Confidence, ESPFlow, TunnelAssessment
+from ipsec_sentinel.models import Confidence, TunnelAssessment
 from ipsec_sentinel.remediate.models import BlastRadius, ChangeRisk
-
-HOURS_PER_DAY: Final = 24
+from ipsec_sentinel.traffic import HOURS_PER_DAY, TrafficProfile, profile_flows
 
 # Traffic whose users notice a sub-second interruption. A dropped packet in a file
 # transfer is retransmitted; a dropped packet in a call is heard.
@@ -47,13 +45,28 @@ REALTIME_CLASSES: Final[frozenset[str]] = frozenset({"voip", "video"})
 BUSY_THROUGHPUT_BPS: Final = 50_000
 IDLE_THROUGHPUT_BPS: Final = 1_000
 
-# Below this the observation is too short for a rate to mean anything.
-MIN_OBSERVATION_S: Final = 5.0
-
 # A trough cannot be located in a day that was mostly not observed. Six hours is not
 # enough to be confident and is stated as such; less than six is not enough to speak.
 MIN_HOURS_FOR_DAILY_CYCLE: Final = 6
 WINDOW_LENGTH_HOURS: Final = 2
+
+
+def is_idle(profile: TrafficProfile) -> bool:
+    """Whether the tunnel was carrying essentially nothing while it was watched.
+
+    A predicate rather than a property of the profile: "idle" is a judgement against a
+    threshold this module chose for deciding whether a change needs scheduling, and it
+    does not belong to the measurement.
+    """
+    return profile.is_measurable and profile.throughput_bps < IDLE_THROUGHPUT_BPS
+
+
+def is_busy(profile: TrafficProfile) -> bool:
+    return profile.is_measurable and profile.throughput_bps >= BUSY_THROUGHPUT_BPS
+
+
+def covers_daily_cycle(profile: TrafficProfile) -> bool:
+    return len(profile.observed_hours) >= MIN_HOURS_FOR_DAILY_CYCLE
 
 
 class MaintenanceWindow(BaseModel):
@@ -75,140 +88,6 @@ class MaintenanceWindow(BaseModel):
         return f"{self.start_hour:02d}:00-{end:02d}:00 local time"
 
 
-@dataclass(frozen=True)
-class TrafficProfile:
-    """How much the tunnel carried, and when.
-
-    ``bytes_by_hour`` is indexed by hour of day. ``observed_hours`` records which of
-    those hours the capture actually covers, because a zero in an unobserved hour means
-    "not watched", not "quiet", and conflating the two is how a maintenance window ends
-    up recommended for the busiest hour of the day.
-    """
-
-    bytes_by_hour: tuple[int, ...]
-    observed_hours: frozenset[int]
-    total_bytes: int
-    total_packets: int
-    span_s: float
-
-    def __post_init__(self) -> None:
-        if len(self.bytes_by_hour) != HOURS_PER_DAY:
-            raise ValueError(f"bytes_by_hour must have {HOURS_PER_DAY} entries")
-
-    @property
-    def throughput_bps(self) -> float:
-        """Mean bytes per second across the observation, or 0 if it was too short."""
-        if self.span_s < MIN_OBSERVATION_S:
-            return 0.0
-        return self.total_bytes / self.span_s
-
-    @property
-    def is_measurable(self) -> bool:
-        return self.span_s >= MIN_OBSERVATION_S and self.total_packets > 0
-
-    @property
-    def is_idle(self) -> bool:
-        return self.is_measurable and self.throughput_bps < IDLE_THROUGHPUT_BPS
-
-    @property
-    def is_busy(self) -> bool:
-        return self.is_measurable and self.throughput_bps >= BUSY_THROUGHPUT_BPS
-
-    @property
-    def covers_daily_cycle(self) -> bool:
-        return len(self.observed_hours) >= MIN_HOURS_FOR_DAILY_CYCLE
-
-    @property
-    def busiest_hour(self) -> int | None:
-        if not self.observed_hours:
-            return None
-        return max(self.observed_hours, key=lambda hour: self.bytes_by_hour[hour])
-
-
-def _empty_profile() -> TrafficProfile:
-    return TrafficProfile(
-        bytes_by_hour=(0,) * HOURS_PER_DAY,
-        observed_hours=frozenset(),
-        total_bytes=0,
-        total_packets=0,
-        span_s=0.0,
-    )
-
-
-def profile_flows(flows: Sequence[ESPFlow]) -> TrafficProfile:
-    """Build an hourly profile from ESP flow summaries.
-
-    A flow summary carries first and last seen but not per-packet times, so its bytes
-    are apportioned across the hours it spans in proportion to how much of each hour it
-    covers. That is an approximation, and it is the reason :func:`profile_samples`
-    exists for callers that still hold per-packet data — the summary cannot distinguish
-    a flow that sent everything in its first minute from one that trickled all day.
-    """
-    if not flows:
-        return _empty_profile()
-
-    buckets = [0] * HOURS_PER_DAY
-    observed: set[int] = set()
-    for flow in flows:
-        start, end = flow.first_seen, flow.last_seen
-        if end < start:
-            raise ValueError(f"flow {flow.spi} ends before it starts")
-        for hour, share in _hour_shares(start, end):
-            buckets[hour] += round(flow.byte_count * share)
-            observed.add(hour)
-
-    first = min(flow.first_seen for flow in flows)
-    last = max(flow.last_seen for flow in flows)
-    return TrafficProfile(
-        bytes_by_hour=tuple(buckets),
-        observed_hours=frozenset(observed),
-        total_bytes=sum(flow.byte_count for flow in flows),
-        total_packets=sum(flow.packet_count for flow in flows),
-        span_s=(last - first).total_seconds(),
-    )
-
-
-def _hour_shares(start: datetime, end: datetime) -> list[tuple[int, float]]:
-    """Fraction of ``start``..``end`` falling in each hour of day it touches."""
-    total = (end - start).total_seconds()
-    if total <= 0:
-        return [(start.hour, 1.0)]
-
-    shares: list[tuple[int, float]] = []
-    cursor = start
-    while cursor < end:
-        boundary = (cursor + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-        chunk_end = min(boundary, end)
-        shares.append((cursor.hour, (chunk_end - cursor).total_seconds() / total))
-        cursor = chunk_end
-    return shares
-
-
-def profile_samples(samples: Sequence[tuple[datetime, int]]) -> TrafficProfile:
-    """Build an hourly profile from per-packet ``(timestamp, size)`` observations.
-
-    Exact where :func:`profile_flows` approximates. Use this when the assembled flows
-    are still in hand.
-    """
-    if not samples:
-        return _empty_profile()
-
-    buckets = [0] * HOURS_PER_DAY
-    observed: set[int] = set()
-    for timestamp, size in samples:
-        buckets[timestamp.hour] += size
-        observed.add(timestamp.hour)
-
-    times = [timestamp for timestamp, _ in samples]
-    return TrafficProfile(
-        bytes_by_hour=tuple(buckets),
-        observed_hours=frozenset(observed),
-        total_bytes=sum(size for _, size in samples),
-        total_packets=len(samples),
-        span_s=(max(times) - min(times)).total_seconds(),
-    )
-
-
 def suggest_window(profile: TrafficProfile) -> MaintenanceWindow | None:
     """The quietest observed stretch of the day, or ``None`` if the day was not seen.
 
@@ -216,7 +95,7 @@ def suggest_window(profile: TrafficProfile) -> MaintenanceWindow | None:
     which would otherwise make it look like the quietest time available — recommending
     a change during the one part of the day nobody watched.
     """
-    if not profile.covers_daily_cycle:
+    if not covers_daily_cycle(profile):
         return None
 
     candidates = [
@@ -330,7 +209,7 @@ def assess_blast_radius(
             f"{confidence.value:.2f}, {confidence.method}); a sub-second interruption "
             f"is noticed by users of real-time traffic even when no session drops"
         )
-    if profile.is_busy:
+    if is_busy(profile):
         required = True
         reasons.append(
             f"sustained {profile.throughput_bps / 1000:.1f} kB/s over "
@@ -339,7 +218,7 @@ def assess_blast_radius(
             f"not instantaneous"
         )
     if not required:
-        if profile.is_idle:
+        if is_idle(profile):
             reasons.append(
                 f"observed at {profile.throughput_bps / 1000:.2f} kB/s, below the "
                 f"{IDLE_THROUGHPUT_BPS / 1000:.0f} kB/s idle threshold"

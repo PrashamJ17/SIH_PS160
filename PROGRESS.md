@@ -132,6 +132,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M8 gate — 7/8 passed, 0 failed, 1 blocked** — tag `v0.9.0-remediation`
 - [x] 9.1 — report model with verified/inferred separation — commit `4ca8cde`
 - [x] 9.2 — report builder — commit `aa41a84`
+- [x] 9.3 — metadata exposure analysis — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -567,6 +568,41 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.3 — the section about the tunnels with nothing wrong
+
+The exposure section is produced for **every** tunnel, and the grade-A ones are the
+point. A report that lists only problems implies a clean tunnel reveals nothing, and
+that is false: encryption protects the contents of a conversation, not the fact that it
+happened, who took part, when, or how much was said.
+
+Three details.
+
+**A session is an SA, not a direction.** Each SA appears twice in the flow list, once
+each way. Counting flows would double every session figure in the report.
+
+**An abstention is not reported as a class.** If the classifier abstained, the entry
+carries no application type at all rather than the class it leaned towards. A reader
+shown "voip" has no way to tell a confident classification from a coin flip unless the
+number travels with it — and the model refuses one without the other.
+
+**Active hours are a subset of observed hours, never an inference about the rest.** An
+hour can be watched and quiet; an hour that was never watched is neither. This is the
+same distinction that Step 8.5 needed for maintenance windows.
+
+A tunnel seen negotiating but carrying no observed traffic still gets an entry with zero
+volume. That it negotiated at all tells an observer these two peers talk to each other.
+
+### A refactor the second consumer justified
+
+`TrafficProfile` and the hourly profiling moved out of `remediate/blast.py` into
+`ipsec_sentinel/traffic.py`. The seam is real: *what was observed* is a neutral fact
+about traffic, while *whether that counts as busy* is a remediation policy about
+scheduling a change. The thresholds and `is_idle` / `is_busy` / `covers_daily_cycle`
+stayed behind as functions in `blast.py`; the measurement moved. The tests split along
+the same line.
 
 ---
 
