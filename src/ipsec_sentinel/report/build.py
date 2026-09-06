@@ -23,6 +23,7 @@ from ipsec_sentinel.assess.inventory import Inventory
 from ipsec_sentinel.assess.scoring import score_estate
 from ipsec_sentinel.models import Finding, Severity, TunnelAssessment
 from ipsec_sentinel.remediate.models import ChangePackage
+from ipsec_sentinel.report.exposure import build_exposure
 from ipsec_sentinel.report.models import (
     ExecutiveSummary,
     MetadataExposure,
@@ -31,6 +32,7 @@ from ipsec_sentinel.report.models import (
     ReportMetadata,
     ThreatMatrix,
 )
+from ipsec_sentinel.report.threat_matrix import build_threat_matrix
 from ipsec_sentinel.version import git_dirty, git_sha, tool_version
 
 PERFECT_SCORE: Final = 100
@@ -177,9 +179,15 @@ def build_report(
 ) -> Report:
     """Route each finding to Section A or B and assemble the report around them.
 
-    ``metadata_exposure``, ``threat_matrix`` and ``pqc`` are supplied by the sections
-    that compute them (Steps 9.3 and 9.4). Omitting one yields its empty form, which is
-    a report missing a section rather than a report making something up.
+    The exposure section and the threat matrix are computed here from the same
+    assessments, so a caller cannot produce a report that quietly omits them. Passing
+    one explicitly overrides it, which is what a caller with a richer source — per-packet
+    timestamps rather than flow summaries — needs.
+
+    ``pqc`` is still supplied by the caller: post-quantum grading reads the key exchange
+    transforms off the negotiation, which a :class:`TunnelAssessment` does not carry.
+    Omitting it yields the empty summary — a report missing a section rather than one
+    making something up.
     """
     findings = _attributed(assessments)
     verified, inferred = route(findings)
@@ -212,8 +220,12 @@ def build_report(
         inventory=inventory,
         section_a_verified=verified,
         section_b_inferred=inferred,
-        metadata_exposure=metadata_exposure or MetadataExposure(),
-        threat_matrix=threat_matrix or ThreatMatrix(),
+        metadata_exposure=(
+            metadata_exposure if metadata_exposure is not None else build_exposure(assessments)
+        ),
+        threat_matrix=(
+            threat_matrix if threat_matrix is not None else build_threat_matrix(assessments)
+        ),
         remediation=list(remediation),
         pqc=pqc or PQCSummary(),
     )

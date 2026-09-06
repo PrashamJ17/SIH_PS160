@@ -24,7 +24,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Final
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ipsec_sentinel.assess.inventory import Inventory
 from ipsec_sentinel.assess.rules.pqc import PQCGrade
@@ -34,7 +34,23 @@ from ipsec_sentinel.remediate.models import ChangePackage
 SCHEMA_VERSION: Final = "1.0"
 
 
-class ReportMetadata(BaseModel):
+class ReportModel(BaseModel):
+    """Base for every model in this file, with unknown fields refused.
+
+    Pydantic ignores unknown fields by default, which has two consequences here. A
+    report loaded from a future schema would silently lose whatever it did not
+    recognise while still validating — data loss that looks like success. And a test
+    that sets a field which has since been renamed keeps passing while testing nothing,
+    which is exactly how the CVE fields on :class:`ThreatMatrixRow` went unnoticed after
+    they moved onto :class:`CVEReference`.
+
+    ``schema_version`` travels with the report so a reader can tell which case it is in.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ReportMetadata(ReportModel):
     """Where this report came from, so a later reader can reproduce it."""
 
     source: str = Field(min_length=1)
@@ -61,7 +77,7 @@ class ReportMetadata(BaseModel):
         return f"{self.tool_version} ({self.git_sha}{suffix})"
 
 
-class ExecutiveSummary(BaseModel):
+class ExecutiveSummary(ReportModel):
     """The first page, written for someone who will read only the first page."""
 
     estate_score: int = Field(ge=0, le=100)
@@ -81,7 +97,7 @@ class ExecutiveSummary(BaseModel):
         return self.findings_by_severity.get(Severity.CRITICAL, 0)
 
 
-class ExposureEntry(BaseModel):
+class ExposureEntry(ReportModel):
     """What an observer learns about one tunnel without breaking any encryption.
 
     Produced for **every** tunnel, including perfectly configured ones. That is the
@@ -119,7 +135,7 @@ class ExposureEntry(BaseModel):
         return self
 
 
-class MetadataExposure(BaseModel):
+class MetadataExposure(ReportModel):
     """The exposure section: what encryption does not hide."""
 
     entries: list[ExposureEntry] = Field(default_factory=list)
@@ -136,7 +152,30 @@ class MetadataExposure(BaseModel):
         return len(self.entries)
 
 
-class ThreatMatrixRow(BaseModel):
+class CVEReference(ReportModel):
+    """A published vulnerability, with the score and the place it came from.
+
+    The identifier, the score and the source are one object rather than three optional
+    fields on a row, so a score can never appear without the CVE it belongs to or the
+    reference a reader can check it against. The invariant is unrepresentable rather
+    than validated.
+    """
+
+    cve_id: str = Field(pattern=r"^CVE-\d{4}-\d{4,}$")
+    cvss_score: float = Field(ge=0.0, le=10.0)
+    cvss_vector: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    scope_note: str = Field(min_length=1)
+    """What the published record actually covers.
+
+    Recorded because relevance is the part that goes wrong. A CVE about one protocol
+    attached to a finding about another looks authoritative and is misinformation.
+    """
+
+    source: str = Field(min_length=1)
+
+
+class ThreatMatrixRow(ReportModel):
     """One adversary technique and the tunnels it applies to."""
 
     technique: str = Field(min_length=1)
@@ -144,22 +183,33 @@ class ThreatMatrixRow(BaseModel):
 
     technique_name: str = Field(min_length=1)
     severity: Severity
+    """The worst severity among the findings that put this technique in reach."""
+
     tunnel_ids: list[str] = Field(min_length=1)
     rule_ids: list[str] = Field(min_length=1)
-    cve_id: str | None = None
-    cvss_score: float | None = Field(default=None, ge=0.0, le=10.0)
+    cves: list[CVEReference] = Field(default_factory=list)
+    includes_inferred: bool = False
+    """Whether any contributing finding was inferred rather than parsed.
 
-    @model_validator(mode="after")
-    def _a_cvss_score_needs_a_cve(self) -> ThreatMatrixRow:
-        if self.cvss_score is not None and self.cve_id is None:
-            raise ValueError("a CVSS score without a CVE identifier cannot be checked")
-        return self
+    Carries the Section A / Section B distinction into the matrix. A row that rests
+    partly on an estimate must not read as though it rests entirely on the wire.
+    """
+
+    @property
+    def worst_cvss(self) -> float | None:
+        return max((cve.cvss_score for cve in self.cves), default=None)
 
 
-class ThreatMatrix(BaseModel):
+class ThreatMatrix(ReportModel):
     """Findings crossed with the techniques they enable."""
 
     rows: list[ThreatMatrixRow] = Field(default_factory=list)
+    uncategorised_rules: list[str] = Field(default_factory=list)
+    """Findings with no ATT&CK technique mapped, named rather than dropped.
+
+    A matrix that silently omits them under-represents the estate while looking
+    complete, and the reader has no way to tell.
+    """
 
     @property
     def techniques(self) -> list[str]:
@@ -169,7 +219,7 @@ class ThreatMatrix(BaseModel):
         return len(self.rows)
 
 
-class PQCEntry(BaseModel):
+class PQCEntry(ReportModel):
     tunnel_id: str = Field(min_length=1)
     grade: PQCGrade
     rationale: str = Field(min_length=1)
@@ -177,7 +227,7 @@ class PQCEntry(BaseModel):
     classical_groups: list[str] = Field(default_factory=list)
 
 
-class PQCSummary(BaseModel):
+class PQCSummary(ReportModel):
     """Post-quantum readiness across the estate."""
 
     entries: list[PQCEntry] = Field(default_factory=list)
@@ -198,7 +248,7 @@ class PQCSummary(BaseModel):
         return sum(1 for entry in self.entries if entry.grade is grade)
 
 
-class Report(BaseModel):
+class Report(ReportModel):
     """A complete assessment, in the shape a reader consumes it."""
 
     metadata: ReportMetadata

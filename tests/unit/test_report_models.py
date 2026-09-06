@@ -21,6 +21,7 @@ from ipsec_sentinel.assess.rules.pqc import PQCGrade
 from ipsec_sentinel.models import Confidence, Finding, Severity
 from ipsec_sentinel.report.models import (
     SCHEMA_VERSION,
+    CVEReference,
     ExecutiveSummary,
     ExposureEntry,
     MetadataExposure,
@@ -249,8 +250,16 @@ class TestRoundTrip:
                         severity=Severity.HIGH,
                         tunnel_ids=["t1"],
                         rule_ids=["CRY-05"],
-                        cve_id="CVE-2016-0800",
-                        cvss_score=5.9,
+                        cves=[
+                            CVEReference(
+                                cve_id="CVE-2016-2183",
+                                cvss_score=7.5,
+                                cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                                summary="Birthday attacks on 64-bit block ciphers.",
+                                scope_note="The record names IPsec alongside TLS and SSH.",
+                                source="https://nvd.nist.gov/vuln/detail/CVE-2016-2183",
+                            )
+                        ],
                     )
                 ]
             ),
@@ -264,6 +273,8 @@ class TestRoundTrip:
         assert restored == built
         assert restored.pqc.worst_grade is PQCGrade.EXPOSED
         assert restored.threat_matrix.techniques == ["T1040"]
+        assert restored.threat_matrix.rows[0].cves[0].cve_id == "CVE-2016-2183"
+        assert restored.threat_matrix.rows[0].worst_cvss == 7.5
 
     def test_the_schema_version_travels_with_the_report(self) -> None:
         built = report()
@@ -350,15 +361,38 @@ class TestExposureEntries:
 
 
 class TestThreatMatrixRows:
-    def test_a_cvss_score_without_a_cve_is_refused(self) -> None:
-        with pytest.raises(ValidationError, match="without a CVE identifier"):
-            ThreatMatrixRow(
-                technique="T1040",
-                technique_name="Network Sniffing",
-                severity=Severity.HIGH,
-                tunnel_ids=["t1"],
-                rule_ids=["CRY-05"],
+    def test_a_score_cannot_exist_without_its_cve(self) -> None:
+        """Not validated — unrepresentable.
+
+        An earlier version carried ``cve_id`` and ``cvss_score`` as two optional fields
+        on the row and validated that they appeared together. They are one object now,
+        so the invalid state cannot be constructed at all.
+        """
+        assert "cvss_score" not in ThreatMatrixRow.model_fields
+        assert "cve_id" not in ThreatMatrixRow.model_fields
+        assert set(CVEReference.model_fields) >= {"cve_id", "cvss_score", "source"}
+
+    def test_a_reference_needs_a_well_formed_cve_id(self) -> None:
+        with pytest.raises(ValidationError):
+            CVEReference(
+                cve_id="CVE-not-a-number",
                 cvss_score=7.5,
+                cvss_vector="CVSS:3.1/AV:N",
+                summary="s",
+                scope_note="n",
+                source="https://nvd.nist.gov/x",
+            )
+
+    def test_a_reference_must_say_what_it_covers(self) -> None:
+        """Relevance is the part that goes wrong, so the scope note is not optional."""
+        with pytest.raises(ValidationError):
+            CVEReference(
+                cve_id="CVE-2016-2183",
+                cvss_score=7.5,
+                cvss_vector="CVSS:3.1/AV:N",
+                summary="s",
+                scope_note="",
+                source="https://nvd.nist.gov/x",
             )
 
     def test_a_row_must_name_at_least_one_tunnel_and_rule(self) -> None:
@@ -377,14 +411,13 @@ class TestThreatMatrixRows:
 
     def test_an_out_of_range_cvss_score_is_refused(self) -> None:
         with pytest.raises(ValidationError):
-            ThreatMatrixRow(
-                technique="T1040",
-                technique_name="Network Sniffing",
-                severity=Severity.HIGH,
-                tunnel_ids=["t1"],
-                rule_ids=["CRY-05"],
-                cve_id="CVE-2016-0800",
+            CVEReference(
+                cve_id="CVE-2016-2183",
                 cvss_score=11.0,
+                cvss_vector="CVSS:3.1/AV:N",
+                summary="s",
+                scope_note="n",
+                source="https://nvd.nist.gov/x",
             )
 
 
@@ -423,3 +456,40 @@ class TestInventoryIsCarriedIntact:
         restored = Report.model_validate_json(built.model_dump_json())
         assert len(restored.inventory.undocumented) == 1
         assert restored == built
+
+
+class TestUnknownFieldsAreRefused:
+    """Pydantic ignores unknown fields by default, and that default is wrong here.
+
+    A report loaded from a future schema would silently drop what it did not recognise
+    while still validating — data loss that looks like success. It is also how a test
+    that sets a renamed field keeps passing while testing nothing, which is what
+    happened to the CVE fields when they moved onto ``CVEReference``.
+    """
+
+    def test_a_report_with_an_unknown_field_is_refused(self) -> None:
+        payload = report().model_dump()
+        payload["invented_section"] = {"anything": True}
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            Report.model_validate(payload)
+
+    def test_a_renamed_field_cannot_be_set_silently(self) -> None:
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            ThreatMatrixRow(
+                technique="T1040",
+                technique_name="Network Sniffing",
+                severity=Severity.HIGH,
+                tunnel_ids=["t1"],
+                rule_ids=["CRY-05"],
+                cve_id="CVE-2016-2183",
+            )
+
+    def test_the_metadata_refuses_unknown_fields_too(self) -> None:
+        payload = metadata().model_dump()
+        payload["author"] = "someone"
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            ReportMetadata.model_validate(payload)
+
+    def test_a_valid_report_still_round_trips(self) -> None:
+        built = report(section_a=[parsed_finding()], section_b=[inferred_finding()])
+        assert Report.model_validate_json(built.model_dump_json()) == built

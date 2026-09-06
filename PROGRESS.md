@@ -133,6 +133,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 9.1 — report model with verified/inferred separation — commit `4ca8cde`
 - [x] 9.2 — report builder — commit `aa41a84`
 - [x] 9.3 — metadata exposure analysis — commit `1a3448d`
+- [x] 9.4 — threat matrix — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -568,6 +569,51 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 9.4 — a CVE citation is a claim, so every one was checked
+
+The ATT&CK mapping needed no invention: every rule already declares its technique, so
+the matrix groups by that rather than adding a second opinion. The CVEs were the work.
+
+**Every entry was verified against its NVD record before being written down**, because a
+CVSS score recalled from memory and printed in a security report is exactly the
+confident-wrong output this project spends its effort avoiding.
+
+| CVE | CVSS v3 | Mapped to | Why |
+|---|---|---|---|
+| CVE-2016-2183 (SWEET32) | 7.5 HIGH | CRY-05, CRY-08 | NVD's own description **names IPsec** alongside TLS and SSH |
+| CVE-2018-5389 | 5.9 MEDIUM | IKE-02, IKE-03 | IKEv1 PSK offline dictionary attack |
+| ~~CVE-2015-4000 (Logjam)~~ | 3.7 LOW | **excluded** | NVD scopes it to *TLS 1.2 and earlier with DHE_EXPORT* |
+
+Logjam is the interesting one. The underlying research on precomputation against
+1024-bit MODP genuinely bears on IKE, and it would have been easy to attach it to CRY-02
+(weak Diffie-Hellman group). But the CVE **as registered** is a TLS vulnerability, and
+attaching it to an IPsec finding would give a misattribution the authority of a citation.
+CRY-02 stands on RFC 8247 instead. The rejection is kept in the source with its reason,
+because "why is Logjam not here?" is a fair question and the answer is evidence of the
+standard being applied.
+
+Every reference carries a `scope_note` saying what its published record actually covers —
+CVE-2018-5389 describes IKEv1 *main* mode, and the note says so and explains why
+aggressive mode is the same attack under worse conditions.
+
+### Two structural fixes
+
+**A CVSS score can no longer exist without its CVE.** They were two optional fields on a
+row, validated to appear together. They are one `CVEReference` object now, so the invalid
+state is unrepresentable rather than rejected.
+
+**Report models refuse unknown fields.** Pydantic ignores them by default, which meant a
+test constructing `ThreatMatrixRow(cve_id=...)` after that field had moved kept passing
+while testing nothing — found only because `make verify` failed on a *different* test in
+the same class. The same default would let a report loaded from a future schema silently
+drop what it did not recognise: data loss that validates cleanly.
+
+The matrix also names findings it could not categorise rather than dropping them, and
+each row records whether any contributing finding was inferred — the Section A / Section B
+split does not stop at the findings list.
 
 ---
 

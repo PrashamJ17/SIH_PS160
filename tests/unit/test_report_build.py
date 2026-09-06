@@ -326,3 +326,74 @@ def test_the_estate_score_reflects_the_assessments(count: int) -> None:
     report = build(assessments)
     assert report.executive.tunnels_assessed == count
     assert report.executive.estate_score == (100 if count == 0 else 40)
+
+
+class TestTheSectionsAreBuiltIn:
+    """A caller must not be able to produce a report that quietly omits a section."""
+
+    def test_the_exposure_section_is_populated_without_being_asked_for(self) -> None:
+        from datetime import timedelta
+
+        from ipsec_sentinel.models import ESPFlow
+
+        assessed = TunnelAssessment(
+            tunnel_id="t-001",
+            endpoints=("203.0.113.1", "198.51.100.1"),
+            esp_flows=[
+                ESPFlow(
+                    spi="aabbccdd",
+                    src_ip="203.0.113.1",
+                    dst_ip="198.51.100.1",
+                    packet_count=10,
+                    byte_count=1000,
+                    first_seen=NOW,
+                    last_seen=NOW + timedelta(minutes=5),
+                )
+            ],
+            score=100,
+            grade="A",
+        )
+        report = build([assessed])
+        assert len(report.metadata_exposure) == 1
+        assert report.metadata_exposure.entries[0].total_bytes == 1000
+
+    def test_a_clean_tunnel_still_reaches_the_exposure_section(self) -> None:
+        report = build([assessment("t-001", [], score=100, grade="A")])
+        assert [e.tunnel_id for e in report.metadata_exposure.entries] == ["t-001"]
+
+    def test_the_threat_matrix_is_populated_without_being_asked_for(self) -> None:
+        with_technique = Finding(
+            rule_id="CRY-05",
+            title="3DES negotiated",
+            severity=Severity.CRITICAL,
+            evidence="e",
+            standard_ref="r",
+            attack_technique="T1600.001",
+            remediation_hint="h",
+        )
+        report = build([assessment("t-001", [with_technique])])
+        assert report.threat_matrix.techniques == ["T1600.001"]
+        assert report.threat_matrix.rows[0].tunnel_ids == ["t-001"]
+
+    def test_an_explicit_section_overrides_the_computed_one(self) -> None:
+        """A caller with per-packet timestamps has a better source than flow summaries."""
+        from ipsec_sentinel.report.models import MetadataExposure
+
+        report = build_report(
+            [assessment("t-001", [])],
+            Inventory(),
+            "nist_800_77r1",
+            source="s",
+            generated_at=NOW,
+            metadata_exposure=MetadataExposure(entries=[]),
+        )
+        assert len(report.metadata_exposure) == 0
+
+    def test_pqc_stays_the_callers_responsibility(self) -> None:
+        """Post-quantum grading reads the negotiation, which an assessment does not carry."""
+        report = build([assessment("t-001", [])])
+        assert report.pqc.entries == []
+
+    def test_a_full_report_still_round_trips(self) -> None:
+        report = build([assessment("t-001", [parsed(), inferred()])])
+        assert Report.model_validate_json(report.model_dump_json()) == report
