@@ -50,7 +50,7 @@ addopts = "-q --strict-markers"
 [[tool.mypy.overrides]]
 # These scientific packages ship no type information. Ignoring them here is narrower
 # than a global relaxation: everything this project writes stays strictly typed.
-module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*"]
+module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*", "shap.*"]
 ignore_missing_imports = true
 
 [tool.mypy]

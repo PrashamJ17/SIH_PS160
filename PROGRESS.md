@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.9 — SHAP explanations
+**Current step:** 7.10 — confound audit
 **Last milestone tag:** `v0.7.0-assessment`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -118,6 +118,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 7.6 — Generalisation report **(UNCUTTABLE)** — commit `9e4f73c`
 - [x] 7.7 — Confidence calibration — commit `8d20cd8`
 - [x] 7.8 — Prediction abstention — commit `57876e7`
+- [x] 7.9 — SHAP explanations — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
