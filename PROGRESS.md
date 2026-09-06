@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 7 — Feature extraction and ML
-**Current step:** 7.3 — leakage-free splitting
+**Current step:** 7.4 — baseline heuristic for mode inference
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -112,6 +112,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 ### Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`) ← **CURRENT**
 - [x] 7.1 — Flow feature extractor (42 features) — commit `36d8609`
 - [x] 7.2 — ML dataset assembly (1,745 rows) — commit `f5a7681`
+- [x] 7.3 — Leakage-free splitting — commit `PENDING`
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
