@@ -142,6 +142,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 10.1a — active IKE prober and observed-config reconstruction — commit `40db773`
 - [x] 10.1b — **fix: a named baseline selected zero rules** — commit `6ab3861`
 - [x] 10.1 — command-line interface — commit `b766978`
+- [x] 10.2 — REST API — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -577,6 +578,46 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 10.2 — the REST API, and its upload endpoint
+
+An upload endpoint reachable over the network is the largest attack surface in this
+project, and everything unusual in `api/app.py` follows from that. The plan says to write
+the security tests and not skip them, so they come first in the test file and check
+*behaviour* rather than the presence of a mitigation.
+
+**The uploaded filename is never used as a path.** It is reduced to a printable label and
+the bytes go to a `mkstemp` path this service chooses. The test uploads a file named
+`../../../../../../<tmp>/etc/crontab` and asserts that directory stays empty — rather
+than asserting that some sanitising function was called.
+
+The label is stripped for more than slashes: it is echoed into report metadata and error
+messages, so terminal escape sequences are removed too. A name of only dots still yields
+a usable name, and 5000 characters are bounded to 96.
+
+**The size limit is enforced while reading.** Trusting `Content-Length` lets a client
+that lies about it exhaust memory anyway, so the body is read in 1 MB chunks and refused
+the moment the ceiling is passed. Tested by sending too much with the limit lowered —
+constructing a real 512 MB body to prove it would be its own denial of service — and by
+the other side of the same check, that an ordinary upload is *not* refused.
+
+**The hardening headers are middleware, not per-route**, so a route added later cannot
+forget them, and a test walks five endpoints including a 404 to confirm it. `nosniff`
+matters concretely here: a report contains text an attacker influenced, and a browser
+that decides for itself that a JSON response is HTML will render it.
+
+The temporary file is removed on the failure path as well as the success path, which is
+asserted separately — a service that leaks a capture into `/tmp` for every malformed
+upload is a slower version of the same problem.
+
+The report store is **bounded and in memory**. Bounded because a server anyone can upload
+to otherwise grows until it is killed, which is a denial of service needing no attacker.
+In memory because reports are derived data — persisting them would mean holding an
+estate's tunnel inventory, endpoint addresses and traffic volumes on disk in a
+network-reachable service, which is a larger promise than this project should make
+quietly.
 
 ---
 
