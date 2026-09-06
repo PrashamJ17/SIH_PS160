@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.9 — configuration anomaly detection
+**Current step:** M6 gate — assessment engine complete
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -107,6 +107,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.6b — Four additional rules to reach the M6 count of 26 — commit `7853445`
 - [x] 6.7 — Scoring and grading — commit `6a953b1`
 - [x] 6.8 — ATT&CK and CVE enrichment — commit `387f0b4`
+- [x] 6.9 — Configuration anomaly detection — commit `PENDING`
+- [ ] **▶ MILESTONE M6** — tag `v0.7.0-assessment`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
@@ -493,6 +495,41 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Step 6.9 — the anomaly detector flagged 89% of the estate
+
+First run against the real corpus: **224 of 252 tunnels flagged as anomalous.** Not a
+crash, not an exception — a confident, well-formed, useless answer.
+
+The cause is that the corpus is a *deliberately diverse* 36-configuration sweep. Its
+modal configuration is **5.6%** of the population, so there is no standard to deviate
+from and every tunnel is an outlier in the only sense the model can measure.
+scikit-learn's `contamination="auto"` assumes a contaminated dataset and duly
+contaminated it.
+
+Two fixes, and the second is the one that matters:
+
+1. `contamination` is set explicitly to 0.1. An outlier is a minority by definition.
+2. **A no-norm guard.** Before running the model, the modal configuration's share of
+   the estate is measured. Below 25%, the module returns nothing and the summary says
+   `no_dominant_configuration: true` with the measured share.
+
+That refusal is the honest output. An estate where no configuration is dominant has no
+template to deviate from, and "this tunnel is unlike its peers" is true of everything
+and therefore means nothing. Reporting it as 224 findings would bury any real signal
+and teach an operator to ignore the section.
+
+Verified on real captures both ways: the full corpus now reports
+`no_dominant_configuration` with 0 findings, and a realistic 43-tunnel estate built
+from one dominant template plus one deviant gateway flags **exactly one** anomaly at
+0.90 confidence, with evidence naming the fields that differ and what the other 98% use.
+
+**This is the first component whose findings carry a confidence.** It is an inference —
+a statistical statement about a population, not a fact read from a packet — so it lands
+in Section B, at INFO severity, capped at 0.95 because an unsupervised outlier score is
+never certainty.
 
 ---
 

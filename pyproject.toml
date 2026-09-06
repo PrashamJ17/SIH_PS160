@@ -47,6 +47,12 @@ markers = [
 ]
 addopts = "-q --strict-markers"
 
+[[tool.mypy.overrides]]
+# scikit-learn ships no type information. Ignoring it here is narrower than a global
+# relaxation: everything this project writes stays strictly typed.
+module = ["sklearn.*"]
+ignore_missing_imports = true
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
