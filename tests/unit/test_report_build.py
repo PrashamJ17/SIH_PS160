@@ -193,18 +193,22 @@ class TestTheHeadline:
     def test_a_critical_finding_leads_the_headline(self) -> None:
         text = build([assessment("t-001", [parsed()])]).executive.headline
         assert "no longer considered safe" in text
-        assert "1 tunnel of the 1 tunnel" in text or "1 tunnel" in text
+        assert text.startswith("The tunnel examined is")
 
     def test_it_counts_affected_tunnels_not_findings(self) -> None:
         """Three findings on one tunnel is one tunnel to fix, not three."""
         text = build(
-            [assessment("t-001", [parsed("CRY-05"), parsed("CRY-02"), parsed("CRY-06")])]
+            [
+                assessment("t-001", [parsed("CRY-05"), parsed("CRY-02"), parsed("CRY-06")]),
+                assessment("t-002", []),
+                assessment("t-003", []),
+            ]
         ).executive.headline
-        assert "1 tunnel of the" in text
+        assert "Of the 3 tunnels examined, 1 is" in text
 
     def test_a_clean_estate_points_at_the_exposure_section(self) -> None:
         text = build([assessment("t-001", [], score=100, grade="A")]).executive.headline
-        assert "meet the selected baseline in full" in text
+        assert "fully compliant with the selected baseline" in text
         assert "who is talking to whom" in text
 
     def test_a_high_severity_estate_does_not_claim_a_crisis(self) -> None:
@@ -438,3 +442,70 @@ class TestAFalsyModelIsNotAMissingOne:
             pqc=PQCSummary(note="deliberately empty for this run"),
         )
         assert report.pqc.note == "deliberately empty for this run"
+
+
+class TestTheHeadlineIsGrammatical:
+    """The M9 criterion is that a non-technical reader understands the summary.
+
+    An earlier version produced "The 1 tunnel examined are soundly configured", which is
+    the first sentence of the document and costs more credibility than the finding
+    beneath it earns. Every branch is checked at one tunnel and at several, because the
+    singular case is the one that reads wrong.
+    """
+
+    @staticmethod
+    def _text(count: int, findings_per_tunnel: list[Finding]) -> str:
+        assessments = [
+            assessment(f"t-{i:03d}", list(findings_per_tunnel) if i == 0 else [])
+            for i in range(count)
+        ]
+        return build(assessments).executive.headline
+
+    @pytest.mark.parametrize("count", [1, 2, 5])
+    def test_no_branch_says_one_tunnel_are(self, count: int) -> None:
+        for findings in (
+            [],
+            [parsed(severity=Severity.LOW)],
+            [parsed()],
+            [parsed(severity=Severity.HIGH)],
+        ):
+            text = self._text(count, findings)
+            assert "1 tunnel are" not in text, text
+            assert "1 tunnels" not in text, text
+            assert "tunnel examined are" not in text, text
+
+    def test_a_single_tunnel_uses_the_singular_throughout(self) -> None:
+        text = self._text(1, [parsed(severity=Severity.LOW)])
+        assert text.startswith("The tunnel examined is")
+        assert "1 minor improvement is suggested" in text
+
+    def test_several_tunnels_use_the_plural(self) -> None:
+        text = self._text(3, [])
+        assert text.startswith("The 3 tunnels examined are")
+
+    def test_one_affected_tunnel_among_many_agrees(self) -> None:
+        assert "Of the 4 tunnels examined, 1 is" in self._text(4, [parsed()])
+
+    def test_several_affected_tunnels_agree(self) -> None:
+        assessments = [
+            assessment("t-001", [parsed()]),
+            assessment("t-002", [parsed()]),
+            assessment("t-003", []),
+        ]
+        text = build(assessments).executive.headline
+        assert "Of the 3 tunnels examined, 2 are" in text
+
+    def test_a_single_serious_weakness_agrees(self) -> None:
+        text = self._text(1, [parsed(severity=Severity.HIGH)])
+        assert "1 serious weakness needs attention across 1 tunnel" in text
+
+    def test_several_serious_weaknesses_agree(self) -> None:
+        text = self._text(2, [parsed("A", Severity.HIGH), parsed("B", Severity.HIGH)])
+        assert "2 serious weaknesses need attention across 2 tunnels" in text
+
+    @pytest.mark.parametrize("count", [0, 1, 2, 7])
+    def test_every_headline_is_a_complete_sentence(self, count: int) -> None:
+        text = self._text(count, [parsed()] if count else [])
+        assert text[0].isupper()
+        assert text.rstrip().endswith(".")
+        assert "  " not in text

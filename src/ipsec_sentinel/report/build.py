@@ -68,6 +68,19 @@ def _plural(count: int, singular: str, plural: str | None = None) -> str:
     return f"{count} {singular}" if count == 1 else f"{count} {plural or singular + 's'}"
 
 
+def _subject(count: int) -> tuple[str, str]:
+    """The sentence subject for a set of tunnels, and the verb that agrees with it.
+
+    Returned together because getting them from separate places is how a report ends up
+    saying "The 1 tunnel examined are soundly configured". The M9 criterion is that a
+    non-technical reader understands the summary, and broken agreement in the opening
+    sentence costs more credibility than the finding beneath it earns.
+    """
+    if count == 1:
+        return "The tunnel examined", "is"
+    return f"The {count} tunnels examined", "are"
+
+
 def headline(
     assessments: Sequence[TunnelAssessment],
     severities: Counter[Severity],
@@ -76,9 +89,8 @@ def headline(
 ) -> str:
     """One sentence for a reader who will read one sentence.
 
-    Written without jargon on purpose. The M9 acceptance criterion is that a
-    non-technical reader understands it, so it says "no longer considered safe" rather
-    than naming an algorithm, and gives the grade in words a reader already has.
+    Written without jargon on purpose: it says "no longer considered safe" rather than
+    naming an algorithm, and gives the grade in words a reader already has.
     """
     if not assessments:
         return (
@@ -86,34 +98,42 @@ def headline(
             "on yet. Check that the capture was taken where the tunnels actually run."
         )
 
-    tunnels = _plural(len(assessments), "tunnel")
+    total = len(assessments)
+    subject, verb = _subject(total)
+    scored = f"The estate scores {score} out of 100 (grade {grade})."
     critical = severities.get(Severity.CRITICAL, 0)
     high = severities.get(Severity.HIGH, 0)
+    minor = sum(severities.values())
 
     if critical:
         affected = len({f.tunnel_id for f in _critical_findings(assessments)})
+        if total == 1:
+            opening = "The tunnel examined is"
+        else:
+            # Phrased to lead with a word rather than a digit. "1 of the 4 tunnels..."
+            # is grammatical but opens the document on a numeral, which reads as a
+            # statistic rather than a sentence.
+            agreement = "is" if affected == 1 else "are"
+            opening = f"Of the {total} tunnels examined, {affected} {agreement}"
         return (
-            f"{_plural(affected, 'tunnel')} of the {tunnels} examined "
-            f"{'is' if affected == 1 else 'are'} protected by cryptography that is no "
-            f"longer considered safe, and should be changed. The estate scores "
-            f"{score} out of 100 (grade {grade})."
+            f"{opening} protected by cryptography that is no longer considered safe, "
+            f"and should be changed. {scored}"
         )
     if high:
         return (
-            f"No immediate crises were found across {tunnels}, but "
+            f"No immediate crises were found, but "
             f"{_plural(high, 'serious weakness', 'serious weaknesses')} "
-            f"{'needs' if high == 1 else 'need'} attention. The estate scores "
-            f"{score} out of 100 (grade {grade})."
+            f"{'needs' if high == 1 else 'need'} attention across "
+            f"{_plural(total, 'tunnel')}. {scored}"
         )
-    if sum(severities.values()):
+    if minor:
         return (
-            f"The {tunnels} examined are soundly configured. "
-            f"{_plural(sum(severities.values()), 'minor improvement')} "
-            f"{'is' if sum(severities.values()) == 1 else 'are'} suggested. The estate "
-            f"scores {score} out of 100 (grade {grade})."
+            f"{subject} {verb} soundly configured. "
+            f"{_plural(minor, 'minor improvement')} "
+            f"{'is' if minor == 1 else 'are'} suggested. {scored}"
         )
     return (
-        f"The {tunnels} examined meet the selected baseline in full, scoring "
+        f"{subject} {verb} fully compliant with the selected baseline, scoring "
         f"{score} out of 100 (grade {grade}). Note the exposure section: even a "
         f"correctly configured tunnel reveals who is talking to whom, and when."
     )
