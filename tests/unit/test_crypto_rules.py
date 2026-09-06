@@ -275,7 +275,7 @@ class TestRegistryIntegration:
         registry = RuleRegistry()
         for rule in CRYPTO_RULES:
             registry.register(rule)
-        assert len(registry) == 11
+        assert len(registry) == 12
 
     def test_every_finding_is_deterministic(self) -> None:
         registry = RuleRegistry()

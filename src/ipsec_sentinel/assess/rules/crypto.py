@@ -50,6 +50,7 @@ DH_MODP_1536 = 5
 
 ENCR_DES_IDS = frozenset({1, 2})  # DES_IV64, DES
 ENCR_3DES_ID = 3
+ENCR_NULL_ID = 11
 INTEG_NONE_ID = 0
 INTEG_MD5_ID = 1
 INTEG_SHA1_ID = 2
@@ -406,6 +407,22 @@ CRY_11 = ProposalRule(
 )
 
 
+CRY_12 = ProposalRule(
+    id="CRY-12",
+    title="NULL encryption offered",
+    severity=Severity.CRITICAL,
+    standard_ref="RFC 2410; RFC 8221 section 5",
+    attack_technique="T1040",
+    remediation_hint=(
+        "Remove ENCR_NULL from the proposals. It provides authentication and integrity "
+        "with no confidentiality whatsoever — the payload travels in cleartext inside "
+        "what looks like an encrypted tunnel, which is worse than no tunnel because it "
+        "is not visible as plaintext to anyone auditing the estate."
+    ),
+    match=_match_encryption(frozenset({ENCR_NULL_ID})),
+)
+
+
 CRYPTO_RULES: list[ProposalRule] = [
     CRY_01,
     CRY_02,
@@ -418,4 +435,5 @@ CRYPTO_RULES: list[ProposalRule] = [
     CRY_09,
     CRY_10,
     CRY_11,
+    CRY_12,
 ]

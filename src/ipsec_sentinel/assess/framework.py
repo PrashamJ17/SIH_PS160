@@ -28,7 +28,7 @@ from typing import Protocol, runtime_checkable
 
 from ipsec_sentinel.assess.baselines.schema import Baseline
 from ipsec_sentinel.logging import get_logger
-from ipsec_sentinel.models import Finding, sort_findings
+from ipsec_sentinel.models import Finding, Severity, sort_findings
 from ipsec_sentinel.parser.correlate import Tunnel
 
 logger = get_logger(__name__)
@@ -41,14 +41,32 @@ DEFAULT_BASELINE = "default"
 
 @runtime_checkable
 class Rule(Protocol):
-    """One deterministic check against a tunnel."""
+    """One deterministic check against a tunnel.
 
-    id: str
-    title: str
-    severity: object
-    standard_ref: str
-    attack_technique: str | None
-    baselines: list[str]
+    Every member is declared read-only. Rules are frozen dataclasses by design — a
+    rule that could be mutated after registration would let one tunnel's evaluation
+    change what every later tunnel is checked against — and a protocol declaring bare
+    annotations would demand settable attributes that a frozen dataclass cannot
+    provide.
+    """
+
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def severity(self) -> Severity: ...
+
+    @property
+    def standard_ref(self) -> str: ...
+
+    @property
+    def attack_technique(self) -> str | None: ...
+
+    @property
+    def baselines(self) -> list[str]: ...
 
     def evaluate(self, tunnel: Tunnel) -> Finding | None: ...
 
@@ -63,7 +81,8 @@ class BaselineAware(Protocol):
     a single rule carry the policy it is being run under.
     """
 
-    id: str
+    @property
+    def id(self) -> str: ...
 
     def bind(self, baseline: Baseline) -> Rule: ...
 

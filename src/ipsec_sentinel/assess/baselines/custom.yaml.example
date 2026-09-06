@@ -32,6 +32,8 @@ rules:
   - CRY-08   # CBC with no integrity
   - CRY-09   # key shorter than 128 bits
   - CRY-10   # key shorter than the baseline minimum
+  - CRY-11   # DH group weaker than the baseline requires
+  - CRY-12   # NULL encryption
   - IKE-01   # IKEv1 in use
   - IKE-02   # Aggressive Mode
   - IKE-03   # Aggressive Mode with PSK
@@ -43,6 +45,9 @@ rules:
   - SA-03    # anti-replay disabled or not enforced
   - SA-04    # replay window too small
   - PQC-01   # not resistant to harvest-now-decrypt-later
+  - ESP-01   # ESP traffic with no observed negotiation
+  - ESP-02   # negotiation with no protected traffic
+  - OPS-01   # implementation disclosed in vendor ID
 
 # Raise or lower a rule's severity for this authority. The key must appear in `rules`.
 severity_overrides:

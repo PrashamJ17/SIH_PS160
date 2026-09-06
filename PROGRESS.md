@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-09-05
 **Current phase:** 6 — Assessment engine
-**Current step:** 6.6b — additional rules to reach the M6 count
+**Current step:** 6.7 — scoring and grading
 **Last milestone tag:** `v0.6.0-esp`
 
 Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 phases,
@@ -104,6 +104,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 6.4 — Forward secrecy and SA rules (PFS-01..SA-04) — commit `635355c`
 - [x] 6.5 — PQC readiness grading — commit `6093f85`
 - [x] 6.6 — Compliance baselines (incl. ITSAR, CERT-In) — commit `7da6b23`
+- [x] 6.6b — Four additional rules to reach the M6 count of 26 — commit `PENDING`
 - [ ] Phase 7 — Feature extraction and ML (10 steps → `v0.8.0-ml`)
 - [ ] Phase 8 — Remediation (6 steps → `v0.9.0-remediation`)
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
@@ -490,6 +491,35 @@ reassuring once you have checked the fuzzer went anywhere.
    snippet uses venv+pip; `uv venv` / `uv pip install` produces a byte-compatible standard
    virtualenv that `pip` also operates on, and is far faster on a slow link. `pyproject.toml`
    is verbatim from the plan. No functional difference.
+
+---
+
+## Plan defects found and corrected
+
+### The plan names 20 rule IDs; M6 requires 26
+
+Steps 6.2–6.4 specify exactly twenty rule IDs (CRY-01..10, IKE-01..04, PFS-01/02,
+SA-01..04). The M6 gate's first acceptance item is "**All 26 rules implemented**". The
+plan contains no other rule tables — an internal inconsistency of six rules.
+
+Resolved by implementing six additions, each filling a gap the named rules genuinely
+leave rather than padding a count:
+
+| Rule | Why it exists |
+|---|---|
+| `PQC-01` | Step 6.5 specifies `grade_pqc()` but no rule to emit its finding |
+| `CRY-11` | DH group below the **baseline's** required strength — the CNSA-vs-NIST differentiator, and the only consumer of `dh_security_bits` |
+| `CRY-12` | NULL encryption. No named rule checked for it at all: cleartext inside what looks like a tunnel |
+| `ESP-01` | ESP with no negotiation — a tunnel whose cryptography is *unexamined*, listed silently next to assessed ones |
+| `ESP-02` | Negotiation with no traffic — failed, or idle and possibly no longer needed |
+| `OPS-01` | Implementation and version disclosed in a cleartext vendor ID |
+
+**26 rules, 0 rule errors over 252 tunnels, every finding `confidence is None`.**
+
+`ipsec_sentinel.assess.rules.default_registry()` is now the single answer to "what does
+this tool check", and a baseline test asserts every implemented rule is claimed by at
+least one baseline — a rule in no baseline never runs, which is coverage that looks
+real and is not.
 
 ---
 

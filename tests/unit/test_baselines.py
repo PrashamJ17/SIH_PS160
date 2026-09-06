@@ -24,11 +24,7 @@ from ipsec_sentinel.assess.baselines.schema import (
     load_baselines,
     validate_against_registry,
 )
-from ipsec_sentinel.assess.framework import RuleRegistry
-from ipsec_sentinel.assess.rules.crypto import CRYPTO_RULES
-from ipsec_sentinel.assess.rules.ike import IKE_RULES
-from ipsec_sentinel.assess.rules.pqc import PQC_RULES
-from ipsec_sentinel.assess.rules.sa import SA_RULES
+from ipsec_sentinel.assess.rules import ALL_RULES, default_registry
 from ipsec_sentinel.models import (
     IKEExchange,
     ObservedConfig,
@@ -39,7 +35,6 @@ from ipsec_sentinel.models import (
 )
 from ipsec_sentinel.parser.correlate import Tunnel, correlate
 
-ALL_RULES = [*CRYPTO_RULES, *IKE_RULES, *SA_RULES, *PQC_RULES]
 BASE = datetime(2026, 9, 6, 12, 0, 0, tzinfo=UTC)
 
 EXPECTED_BASELINES = {
@@ -50,13 +45,6 @@ EXPECTED_BASELINES = {
     "itsar",
     "certin",
 }
-
-
-def full_registry() -> RuleRegistry:
-    registry = RuleRegistry()
-    for rule in ALL_RULES:
-        registry.register(rule)
-    return registry
 
 
 def aes128_tunnel() -> Tunnel:
@@ -246,7 +234,7 @@ class TestBaselinesAreDifferentiated:
     def test_cnsa_and_nist_grade_the_same_tunnel_differently(self) -> None:
         """The test that proves these are policies, not copies with different names."""
         tunnel = aes128_tunnel()
-        registry = full_registry()
+        registry = default_registry()
         cnsa = registry.run(tunnel, get_baseline("cnsa"))
         nist = registry.run(tunnel, get_baseline("nist_800_77r1"))
 
@@ -258,7 +246,7 @@ class TestBaselinesAreDifferentiated:
 
     def test_cnsa_demands_a_stronger_group_than_nist(self) -> None:
         tunnel = aes128_tunnel()
-        registry = full_registry()
+        registry = default_registry()
         cnsa_ids = {f.rule_id for f in registry.run(tunnel, get_baseline("cnsa")).findings}
         nist_ids = {f.rule_id for f in registry.run(tunnel, get_baseline("nist_800_77r1")).findings}
         assert "CRY-11" in cnsa_ids, "2048-bit MODP is below CNSA's 3072-bit requirement"
@@ -277,7 +265,7 @@ class TestBaselinesAreDifferentiated:
 
     def test_severity_overrides_actually_change_a_finding(self) -> None:
         tunnel = aes128_tunnel()
-        registry = full_registry()
+        registry = default_registry()
         cnsa = {f.rule_id: f for f in registry.run(tunnel, get_baseline("cnsa")).findings}
         assert cnsa["CRY-10"].severity is Severity.HIGH, "CNSA raises CRY-10 to high"
         assert cnsa["CRY-11"].severity is Severity.CRITICAL
@@ -285,7 +273,7 @@ class TestBaselinesAreDifferentiated:
     def test_an_override_never_changes_whether_a_finding_is_true(self) -> None:
         """Severity is how urgent an authority considers it, not whether it happened."""
         tunnel = aes128_tunnel()
-        registry = full_registry()
+        registry = default_registry()
         cnsa = registry.run(tunnel, get_baseline("cnsa"))
         assert all(f.confidence is None for f in cnsa.findings)
 
@@ -306,7 +294,7 @@ class TestThresholdBinding:
         assert SA_02.bind(rfc).limit == SA_02.limit
 
     def test_a_baseline_runs_only_the_rules_it_selects(self) -> None:
-        registry = full_registry()
+        registry = default_registry()
         selected = {rule.id for rule in registry.select(get_baseline("rfc_8221_8247"))}
         assert selected == set(get_baseline("rfc_8221_8247").rules)
         assert "SA-01" not in selected

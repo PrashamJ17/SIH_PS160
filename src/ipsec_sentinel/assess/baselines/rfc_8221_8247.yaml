@@ -24,6 +24,7 @@ rules:
   - CRY-08
   - CRY-09
   - CRY-11
+  - CRY-12
   - IKE-01
   - IKE-02
   - IKE-03
