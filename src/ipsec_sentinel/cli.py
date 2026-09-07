@@ -150,7 +150,7 @@ def analyse(
             fail(str(exc))
 
     if device_state is not None:
-        _report_state_agreement(pcap, device_state, quiet=quiet)
+        _report_state_agreement(pcap, device_state, baseline=baseline, quiet=quiet)
 
     if quiet:
         return
@@ -171,7 +171,7 @@ def analyse(
             click.echo(f"\n{label} written to {path}")
 
 
-def _report_state_agreement(pcap: Path, device_state: Path, *, quiet: bool) -> None:
+def _report_state_agreement(pcap: Path, device_state: Path, *, baseline: str, quiet: bool) -> None:
     """Compare what the wire showed against what the device says about itself.
 
     Two independent observations of the same tunnel, and the interesting case is when
@@ -213,6 +213,24 @@ def _report_state_agreement(pcap: Path, device_state: Path, *, quiet: bool) -> N
             f"spi {from_state.esp.spi}" if from_state.esp.spi else "",
         ]
         click.echo("  " + ", ".join(part for part in details if part))
+
+        from ipsec_sentinel.assess.esp import assess_esp
+        from ipsec_sentinel.assess.scoring import score_tunnel
+
+        esp_findings = assess_esp(
+            from_state.esp,
+            source=reported.source,
+            origin=from_state.esp_source or "kernel",
+            baseline=baseline,
+        )
+        score, grade = score_tunnel(esp_findings)
+        colour = "green" if grade in ("A", "B") else "yellow" if grade in ("C", "D") else "red"
+        click.secho(f"  installed SA scores {score}/100 (grade {grade})", fg=colour, bold=True)
+        for finding in esp_findings:
+            click.echo(f"    [{finding.severity.upper():<8}] {finding.rule_id}  {finding.title}")
+            click.echo(f"               {finding.standard_ref}")
+        if not esp_findings:
+            click.echo("    nothing to report against this baseline")
 
     if from_state.config is None:
         if not quiet:

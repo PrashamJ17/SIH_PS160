@@ -77,6 +77,16 @@ class Rule(Protocol):
     def standard_ref(self) -> str: ...
 
     @property
+    def remediation_hint(self) -> str: ...
+
+    """Every rule carries one: a Finding cannot be built without it.
+
+    It was absent from this protocol until the ESP path needed to build a Finding from a
+    rule it held only as a ``Rule``, which is a good argument for the protocol having
+    been incomplete rather than for that path being unusual.
+    """
+
+    @property
     def attack_technique(self) -> str | None: ...
 
     @property

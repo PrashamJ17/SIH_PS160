@@ -212,3 +212,91 @@ class TestDriftFromStateWithoutTheWire:
                 detector.observe_state(state)
                 time.sleep(1)
         assert len(detector.known()) == 1
+
+
+class TestGradingARealKernelsSA:
+    """The findings, from a real kernel rather than a sample I chose the numbers for."""
+
+    def test_a_weak_pair_is_graded_from_its_installed_sa(self) -> None:
+        from ipsec_sentinel.assess.esp import assess_esp
+        from ipsec_sentinel.assess.scoring import score_tunnel
+        from ipsec_sentinel.collect import config_from_state
+
+        configured = anchor("worst")
+        with live_pair(configured) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        reported = config_from_state(state)
+        assert reported is not None and reported.esp is not None
+
+        findings = assess_esp(reported.esp, source="left", origin=reported.esp_source or "kernel")
+        score, grade = score_tunnel(findings)
+
+        assert findings, f"a {configured.encryption}/{configured.integrity} SA produced no findings"
+        assert score < 100
+        assert grade != "A", "3DES with MD5 must not grade A"
+        assert all(finding.confidence is None for finding in findings), "these are parsed facts"
+        assert all("read from the kernel" in finding.evidence for finding in findings)
+
+    def test_the_strongest_pair_raises_no_cryptographic_finding(self) -> None:
+        """AES-256-GCM installs clean. What it does *not* install is a replay window.
+
+        The `best` anchor configures the strongest cryptography in the matrix and says
+        nothing about anti-replay, so strongSwan's default of 32 is what the kernel
+        installs — under the 64 RFC 4303 asks for. SA-04 fires, correctly, and that is
+        the whole argument for this code path: a replay window never appears on the wire
+        in any form, so no capture could ever have found it.
+        """
+        from ipsec_sentinel.assess.esp import assess_esp
+        from ipsec_sentinel.assess.scoring import score_tunnel
+        from ipsec_sentinel.collect import config_from_state
+
+        with live_pair(anchor("best")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        reported = config_from_state(state)
+        assert reported is not None and reported.esp is not None
+
+        findings = assess_esp(reported.esp, source="left", origin="kernel")
+        raised = {finding.rule_id for finding in findings}
+
+        assert not {rule for rule in raised if rule.startswith("CRY-")}, (
+            f"AES-256-GCM should raise no cryptographic finding, got {sorted(raised)}"
+        )
+        assert "SA-03" not in raised, (
+            "the outbound SA's replay-window 0 is normal and must not read as disabled"
+        )
+        assert raised <= {"SA-04"}, f"unexpected findings: {sorted(raised)}"
+        assert score_tunnel(findings)[1] == "A"
+
+    def test_the_replay_window_finding_could_not_come_from_a_capture(self) -> None:
+        """The kernel's value, and the reason SA-04 is reachable at all here."""
+        from ipsec_sentinel.collect import config_from_state
+
+        with live_pair(anchor("best")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        reported = config_from_state(state)
+        assert reported is not None and reported.esp is not None
+        assert reported.esp.replay_window is not None
+        assert reported.esp.replay_window > 0, "the inbound window was lost again"
+
+    def test_the_replay_window_comes_from_the_kernel_not_a_document(self) -> None:
+        """`sa.py` says this setting never appears on the wire. Here it is, first-hand."""
+        from ipsec_sentinel.assess.esp import esp_observed_config
+        from ipsec_sentinel.collect import config_from_state
+
+        with live_pair(anchor("good")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        reported = config_from_state(state)
+        assert reported is not None and reported.esp is not None
+        config = esp_observed_config(reported.esp)
+
+        assert config is not None, "the kernel reported no replay window"
+        assert config.replay_window is not None
+        assert config.anti_replay_enabled is not None

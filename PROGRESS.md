@@ -159,6 +159,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.7b — **fix: nothing documented the compliance baselines** — commit `9f5e509`
 - [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
 - [x] 11.8 — **kernel SA state made load-bearing** — commit `3500741`
+- [x] 11.9 — installed ESP SAs are graded — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -594,6 +595,99 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.9 — the installed SA is graded, and the kernel finds what no capture could
+
+Step 11.8 got kernel state as far as being reported. `3des/md5` printed as neutrally as
+`aes256/sha256`. This grades it:
+
+```
+installed ESP (kernel): 3des/md5
+  mode tunnel, replay window 0, spi 0xc3337439
+  installed SA scores 32/100 (grade F)
+    [CRITICAL] CRY-05  3DES encryption installed
+               NIST SP 800-131A Rev. 2 (disallowed after 2023)
+    [HIGH    ] CRY-06  MD5 integrity installed
+               NIST SP 800-131A Rev. 2
+    [MEDIUM  ] SA-03  Anti-replay protection disabled or not enforced
+               RFC 4303 section 3.4.3
+```
+
+### The rules are reused, not reimplemented
+
+An installed ESP SA genuinely *has* an encryption transform and an integrity transform, so
+it becomes a real `Proposal` and the existing `ProposalRule.match` predicates run against
+it unchanged. Writing a second set of "is this 3DES?" checks is how the IKEv1/IKEv2
+registry bug reached this codebase **three separate times**; there is one set of names and
+both paths consult it.
+
+This is the difference between a kernel SA and a `TunnelConfig`. Step 11.8 refused to
+build a `TunnelConfig` because `ike_version`, `prf` and `dh_group` would have been
+invented. Nothing is invented here — the two transforms are what the kernel installed.
+
+Eight `CRY` rules run from an explicit allowlist, checked against the registry by a test
+so a renamed rule cannot silently stop being checked. `SA-03` and `SA-04` read an
+`ObservedConfig` instead, because they judge a local setting rather than a proposal.
+
+Two things are deliberately *not* reused. The **evidence**: a wire CRY-05 says "offered in
+proposal 2 of 2, not selected", and nothing was offered here — it says
+`ENCR_3DES — installed on gw01, read from the kernel (SPI 0xc3337439)`. And the **title**:
+"3DES encryption offered" becomes "3DES encryption installed", with a test asserting the
+registry keeps its own wording.
+
+### The false positive a live pair caught
+
+The strongest anchor in the matrix — AES-256-GCM-16 — scored **92 instead of 100**. SA-03
+was firing: *anti-replay disabled*, on the best configuration the testbed can build.
+
+A kernel prints one SA per direction, and the real output is:
+
+```
+src 10.100.0.2 dst 10.100.0.3   replay-window 0     <- outbound
+src 10.100.0.3 dst 10.100.0.2   replay-window 32    <- inbound
+```
+
+**Anti-replay is enforced on receive.** There is nothing to replay-check on transmit, so
+`replay-window 0` on the outbound SA is normal and correct on every healthy tunnel in
+existence. `_esp_from_kernel` took the first SA that mapped cleanly, got the outbound one,
+and declared anti-replay off.
+
+That finding would have fired on essentially every gateway this tool was ever pointed at,
+and it is exactly the kind of thing that survives a unit suite: the sample fixture had the
+same 0-then-32 shape and its assertion said `replay_window == 0`, so **the test was
+pinning the bug**. Only a live pair with a known-good configuration showed it.
+
+The window is now the largest any direction of *the same tunnel* reports, grouped by
+`reqid` with an endpoint-pair fallback. All directions reporting zero still means zero,
+which is the finding SA-03 exists for.
+
+### What the kernel found that no capture could
+
+With SA-03 fixed the strong anchor scored **97**, not 100 — and that one is **true**.
+`sa.py`'s own docstring says the replay window "never appears on the wire in any form".
+The `best` anchor configures the strongest cryptography in the matrix and says nothing
+about anti-replay, so strongSwan's default of **32** is what the kernel installs, under
+the 64 RFC 4303 asks for. SA-04 fires, correctly.
+
+That is the entire argument for this code path in one finding: a real, cited, RFC-backed
+weakness on a correctly configured gateway, invisible to every passive capture ever taken
+of it.
+
+### One protocol gap closed
+
+`Rule` did not declare `remediation_hint`, though all 26 rules carry one and a `Finding`
+cannot be built without it. The ESP path holds rules as `Rule` and needed it. Declared,
+with a test that every registered rule supplies one.
+
+**39 unit tests and 15 live tests.** Suite: **2576 passed, 2 skipped.**
+
+### Still not done
+
+The findings reach the CLI, not the `Report`. Building them into a report needs a decision
+about how a device-state finding relates to a captured tunnel — they may describe a tunnel
+the capture never saw — and that is a design question rather than wiring.
 
 ---
 

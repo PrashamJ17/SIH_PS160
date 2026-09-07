@@ -561,8 +561,43 @@ class ReportedConfig:
         )
 
 
+def _same_tunnel(sa: KernelSA, other: KernelSA) -> bool:
+    """Whether two kernel SAs are the two directions of one tunnel.
+
+    ``reqid`` is the kernel's own grouping and is authoritative when both carry one.
+    Falling back to the endpoint pair covers SAs installed without a reqid, and reversing
+    it is the point: the inbound SA's src/dst are the outbound SA's dst/src.
+    """
+    if sa.reqid is not None and other.reqid is not None:
+        return sa.reqid == other.reqid
+    return {sa.src, sa.dst} == {other.src, other.dst}
+
+
+def _replay_window_for(chosen: KernelSA, sas: Sequence[KernelSA]) -> int | None:
+    """The tunnel's replay window, read from the direction where it means something.
+
+    **Anti-replay is enforced on receive.** There is nothing to replay-check on transmit,
+    so a kernel reports ``replay-window 0`` on the outbound SA of every correctly
+    configured tunnel. Taking the window from whichever SA happened to be parsed first
+    therefore declared anti-replay disabled on a healthy gateway — a false SA-03 that
+    would have fired almost everywhere, caught by grading a live pair whose strongest
+    configuration scored 92 instead of 100.
+
+    So the window is the largest any direction of *this* tunnel reports. All directions
+    reporting zero still means zero, which is the finding SA-03 exists for.
+    """
+    windows = [
+        sa.replay_window for sa in sas if sa.replay_window is not None and _same_tunnel(chosen, sa)
+    ]
+    return max(windows) if windows else None
+
+
 def _esp_from_kernel(sas: Sequence[KernelSA]) -> ESPParameters | None:
-    """The ESP parameters the kernel installed, from the first SA that maps cleanly."""
+    """The ESP parameters the kernel installed, from the first SA that maps cleanly.
+
+    The cipher is the same in both directions of a tunnel, so the first mappable SA
+    answers for it. The replay window is not — see :func:`_replay_window_for`.
+    """
     for sa in sas:
         if sa.proto not in (None, "esp") or sa.encryption is None:
             continue
@@ -580,7 +615,7 @@ def _esp_from_kernel(sas: Sequence[KernelSA]) -> ESPParameters | None:
             integrity=integrity,
             aead=sa.aead,
             mode=sa.mode,
-            replay_window=sa.replay_window,
+            replay_window=_replay_window_for(sa, sas),
             spi=sa.spi,
         )
     return None

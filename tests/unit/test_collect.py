@@ -522,10 +522,15 @@ class TestConfigFromStateUsesTheKernel:
         assert reported is None or reported.esp is None
 
     def test_the_esp_parameters_carry_the_replay_window(self) -> None:
-        """SA-03 and SA-04 judge exactly this, and the kernel is where it is true."""
+        """SA-03 and SA-04 judge exactly this, and the kernel is where it is true.
+
+        The sample is a real pair: the outbound SA reports 0 because there is nothing to
+        replay-check on transmit, and the inbound one reports 32. The tunnel's window is
+        32 — this assertion said 0 until a live pair showed why that was wrong.
+        """
         reported = config_from_state(self._kernel_only())
         assert reported is not None and reported.esp is not None
-        assert reported.esp.replay_window == 0
+        assert reported.esp.replay_window == 32
 
     def test_the_esp_parameters_name_their_mode(self) -> None:
         reported = config_from_state(self._kernel_only())
@@ -614,3 +619,52 @@ class TestARedactedKeyYieldsNoLength:
         )
         reported = config_from_state(state)
         assert reported is None or reported.esp is None
+
+
+class TestAntiReplayIsAnInboundProperty:
+    """A kernel prints one SA per direction, and the outbound one always reports zero.
+
+    There is nothing to replay-check on transmit, so `replay-window 0` on the outbound
+    SA is normal and correct. Reading the window from whichever SA came first therefore
+    declared anti-replay disabled on a *correctly configured* gateway — caught against a
+    real strongSwan pair whose strongest anchor scored 92 instead of 100.
+
+    It would have fired on essentially every gateway in existence.
+    """
+
+    PAIR = """src 10.0.0.1 dst 10.0.0.2
+\tproto esp spi 0xaaaa0001 reqid 1 mode tunnel
+\treplay-window 0 flag af-unspec
+\taead rfc4106(gcm(aes)) 0x{key} 128
+src 10.0.0.2 dst 10.0.0.1
+\tproto esp spi 0xbbbb0002 reqid 1 mode tunnel
+\treplay-window 32 flag af-unspec
+\taead rfc4106(gcm(aes)) 0x{key} 128
+""".format(key="ab" * 36)
+
+    BOTH_ZERO = PAIR.replace("replay-window 32", "replay-window 0")
+
+    def _state(self, text: str) -> DeviceState:
+        return DeviceState(
+            source="gw", collected_at=datetime.now(UTC), kernel_sas=tuple(parse_xfrm_state(text))
+        )
+
+    def test_the_outbound_zero_does_not_hide_the_inbound_window(self) -> None:
+        reported = config_from_state(self._state(self.PAIR))
+        assert reported is not None and reported.esp is not None
+        assert reported.esp.replay_window == 32, (
+            "the transmit SA's zero was taken for the tunnel's replay window"
+        )
+
+    def test_anti_replay_genuinely_off_is_still_reported(self) -> None:
+        """The fix must not make the finding unreachable."""
+        reported = config_from_state(self._state(self.BOTH_ZERO))
+        assert reported is not None and reported.esp is not None
+        assert reported.esp.replay_window == 0
+
+    def test_the_window_is_taken_from_the_same_tunnel(self) -> None:
+        """A state file can hold several tunnels; windows must not cross between them."""
+        other = self.PAIR.replace("reqid 1", "reqid 9").replace("10.0.0.", "10.9.9.")
+        reported = config_from_state(self._state(self.BOTH_ZERO + other))
+        assert reported is not None and reported.esp is not None
+        assert reported.esp.replay_window == 0, "a different tunnel's window leaked in"
