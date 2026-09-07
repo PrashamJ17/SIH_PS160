@@ -158,7 +158,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.7 — demo assets and script — commit `b846189`
 - [x] 11.7b — **fix: nothing documented the compliance baselines** — commit `9f5e509`
 - [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
-- [x] 11.8 — **kernel SA state made load-bearing** — commit `PENDING`
+- [x] 11.8 — **kernel SA state made load-bearing** — commit `3500741`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
