@@ -44,6 +44,7 @@ REQUIRED = {
     "SECURITY.md": DOCS / "SECURITY.md",
     "DEPLOYMENT.md": DOCS / "DEPLOYMENT.md",
     "LIMITATIONS.md": DOCS / "LIMITATIONS.md",
+    "WALKTHROUGH.md": DOCS / "WALKTHROUGH.md",
 }
 
 LINK = re.compile(r"\[[^\]]+\]\((?!https?://|mailto:|#)([^)\s]+)\)")
@@ -162,6 +163,40 @@ class TestTheReadmeOrientsAReader:
         lowered = text.lower()
         assert "never writes" in lowered
         assert "credential" in lowered
+
+
+class TestTheWalkthroughIsRunnable:
+    """The walkthrough promises every command runs as written. Two things can break that.
+
+    A renamed demo capture is the likelier one: nothing else in the suite reads
+    `demo/pcaps`, so a rename would leave the document quietly pointing at a file that no
+    longer exists, and the reader finds out instead of the build.
+    """
+
+    @pytest.fixture(scope="class")
+    @staticmethod
+    def text() -> str:
+        return REQUIRED["WALKTHROUGH.md"].read_text()
+
+    def test_every_demo_path_it_names_exists(self, text: str) -> None:
+        referenced = sorted(set(re.findall(r"demo/[\w./-]+", text)))
+        assert referenced, "the walkthrough names no demo file, so this test proves nothing"
+        missing = [name for name in referenced if not (REPO_ROOT / name).exists()]
+        assert not missing, f"the walkthrough names files that do not exist: {missing}"
+
+    def test_it_covers_the_commands_the_readme_advertises(self, text: str) -> None:
+        """A command in the README's table with no worked example is a dead end."""
+        for command in ("analyse", "inventory", "remediate", "watch", "scan"):
+            assert f"sentinel {command}" in text, (
+                f"the walkthrough never shows `sentinel {command}`"
+            )
+
+    def test_it_states_the_blind_spot_rather_than_only_the_capability(self, text: str) -> None:
+        """The rekey blind spot is the least flattering thing about a passive tool, so it
+        is the first thing a rewrite would drop."""
+        lowered = text.lower()
+        assert "create_child_sa" in lowered
+        assert "encrypted" in lowered
 
 
 class TestDeploymentCoversTheSensor:

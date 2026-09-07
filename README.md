@@ -6,6 +6,9 @@ ready-to-review configuration change for the ones that are weak.
 
 Built for Smart India Hackathon 2026, problem statement 160.
 
+**New here? Start with the [walkthrough](docs/WALKTHROUGH.md)** — an end-to-end tour with
+real output, from a first analysis to a change package, in about twenty minutes.
+
 ---
 
 ## The idea
@@ -38,6 +41,9 @@ them. An auditor reads Section A; an engineer prioritising forty tunnels reads S
   [SCORING.md](docs/SCORING.md).
 - **Inventories** tunnels against a documented list and reports the ones nobody
   documented.
+- **Cross-checks the capture against what a gateway actually has installed**, by reading
+  `ip xfrm state` or `swanctl --list-sas` output the operator hands over. This closes the
+  rekey blind spot — see below.
 - **Infers** what a tunnel carries from encrypted flow shape alone, with a calibrated
   confidence, SHAP explanations, and an abstention when the signal is thin.
 - **Grades post-quantum readiness** against RFC 9370 and RFC 8784.
@@ -48,6 +54,29 @@ them. An auditor reads Section A; an engineer prioritising forty tunnels reads S
   fix is actually on the wire.
 - **Watches** an interface and alerts on drift, measured against each tunnel's own past.
 - **Exports** HTML, PDF, versioned JSON, and CEF/LEEF/syslog for a SIEM.
+
+---
+
+## The blind spot, and why it matters
+
+A capture tells you what a tunnel **negotiated**. It cannot tell you what that tunnel is
+running *now*, because IKE parameters are only in the clear at `IKE_SA_INIT` and
+**`CREATE_CHILD_SA` is encrypted**. Every rekey after the first is invisible on the wire.
+
+So a tunnel that established strong and later rekeyed to something weak looks strong
+forever to anyone reading only packets. That is a property of the protocol, not a gap in
+this implementation — and it is why the tool reads more than packets:
+
+```bash
+sentinel analyse capture.pcap --device-state gw-chennai.xfrm.txt
+```
+
+In the bundled demo estate, this drops the score **from 33 to 12**: the one tunnel that
+negotiated AES-256 with a 384-bit curve has 3DES and MD5 installed in the kernel right
+now. A capture-only assessment signs it off as the healthy one.
+
+The state is a **file the operator sends you**, produced by one read-only command. The
+tool never connects to the gateway. That is what keeps the no-credentials claim true.
 
 ---
 
@@ -79,6 +108,9 @@ the marketing above.
 
 ```bash
 bash scripts/install.sh --prefix /opt/ipsec-sentinel
+```
+
+```bash
 export PATH="/opt/ipsec-sentinel/bin:$PATH"
 ```
 
@@ -92,12 +124,13 @@ That capture grades **F**: IKEv1 aggressive mode with pre-shared keys, 3DES, and
 1024-bit MODP group, carrying what the classifier identifies as VoIP. Open `report.html`
 and every finding cites the clause it comes from.
 
-With the traffic classifier and a documented-tunnel list:
+With the traffic classifier, a documented-tunnel list, and gateway state:
 
 ```bash
 sentinel analyse capture.pcap \
   --baseline nist_800_77r1 \
   --known tunnels.yaml \
+  --device-state states/ \
   --model models/traffic.joblib \
   --out report.html --json report.json --pdf report.pdf
 ```
@@ -119,6 +152,24 @@ captures into `./captures`.
 
 ---
 
+## Commands
+
+| Command | What it does | Transmits? |
+|---|---|---|
+| `sentinel analyse` | Assess a capture, write HTML / JSON / PDF | No |
+| `sentinel inventory` | List tunnels, flag undocumented ones | No |
+| `sentinel remediate` | Generate a sequenced change package | No |
+| `sentinel watch` | Follow an interface, alert on drift | No |
+| `sentinel scan` | Enumerate what a gateway *accepts* | **Yes** |
+| `sentinel model` | Train and evaluate the classifier | No |
+| `sentinel dataset` | Build, package and audit the dataset | No |
+| `sentinel version` | Print the build identity | No |
+
+`scan` is the only command that puts a packet on the wire, and the refusal without
+authorisation is enforced in the library rather than only in the CLI.
+
+---
+
 ## The dashboard
 
 ![The IPsec Sentinel dashboard, showing an estate grade of F with cited findings](docs/images/dashboard.png)
@@ -127,6 +178,9 @@ Upload a capture, get the estate grade, drill into any tunnel, and see the SHAP
 explanation behind an inference. It is served under a Content Security Policy with no
 `unsafe-inline` at all — the stylesheet and script were split out of the HTML specifically
 so the policy could forbid inline execution rather than permit it.
+
+A recorded run is in [`demo/IPsec-Sentinel-demo.mp4`](demo/IPsec-Sentinel-demo.mp4), built
+from real command output rather than a scripted screen recording.
 
 ---
 
@@ -145,8 +199,9 @@ instead of the traffic.
 
 The model was trained on **637 rows across 7 classes** generated in a Docker testbed —
 laboratory data, not production traffic, and [DATASET.md](docs/DATASET.md) says what that
-costs. Deterministic findings do not depend on it: an analysis with no model produces a
-complete Section A and an empty Section B.
+costs. **Nothing in this project demonstrates that the classifier works on real enterprise
+traffic, because no such traffic was available.** Deterministic findings do not depend on
+it: an analysis with no model produces a complete Section A and an empty Section B.
 
 ---
 
@@ -172,6 +227,7 @@ with four caveats rather than a summary.
 
 | Document | What is in it |
 |---|---|
+| [WALKTHROUGH.md](docs/WALKTHROUGH.md) | **End-to-end tour with real output — start here** |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The two-lane design and why it exists |
 | [RULES.md](docs/RULES.md) | All 26 rules with standard references — generated from the registry |
 | [COMPLIANCE_BASELINES.md](docs/COMPLIANCE_BASELINES.md) | What each authority requires, and which baselines were verified against a source |
@@ -186,6 +242,20 @@ with four caveats rather than a summary.
 
 ---
 
+## Repository layout
+
+| Path | What is in it |
+|---|---|
+| `src/ipsec_sentinel/` | The product. `parser/` reads packets, `assess/` grades them, `report/` renders, `remediate/` generates configuration |
+| `tests/unit/` | The suite `make verify` runs — no Docker required |
+| `tests/integration/` | Real strongSwan pairs under `netem`; needs Docker |
+| `testbed/` | The Docker topology that generates the training corpus |
+| `demo/` | Bundled captures, a documented-tunnel list, sample gateway state, and the recorded demo |
+| `docs/` | Everything in the table above |
+| `scripts/` | Dataset sweeps, document generators, milestone gates, deck and video builders |
+
+---
+
 ## Development
 
 ```bash
@@ -193,11 +263,15 @@ make verify
 ```
 
 Runs ruff, `mypy --strict` over `src`, `testbed` and `scripts`, and the full unit suite
-with a coverage floor. The integration suite needs Docker and brings up real strongSwan
-pairs under `netem`:
+with a coverage floor. As of the last run: **2611 passed, 2 skipped**, zero type errors
+across 140 files.
+
+The integration suite needs Docker and brings up real strongSwan pairs under `netem`:
 
 ```bash
 make verify-all
 ```
 
 `PROGRESS.md` is the build log: every step, what it found, and what had to be corrected.
+It is worth skimming — most of the interesting bugs in this project were found by running
+things, not by testing them.

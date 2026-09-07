@@ -1,0 +1,10 @@
+src 203.0.113.12 dst 198.51.100.10
+	proto esp spi 0xaaaa0001 reqid 1 mode tunnel
+	replay-window 0 flag af-unspec
+	auth-trunc hmac(md5) 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 96
+	enc cbc(des3_ede) 0xefefefefefefefefefefefefefefefefefefefefefefefef
+src 198.51.100.10 dst 203.0.113.12
+	proto esp spi 0xbbbb0002 reqid 1 mode tunnel
+	replay-window 32 flag af-unspec
+	auth-trunc hmac(md5) 0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd 96
+	enc cbc(des3_ede) 0xefefefefefefefefefefefefefefefefefefefefefefefef
