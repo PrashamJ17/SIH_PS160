@@ -156,6 +156,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.6 — documentation set — commit `cccee96`
 - [x] 11.7a — **fix: `remediate` and `watch` were broken in every installed copy** — commit `f03ee5e`
 - [x] 11.7 — demo assets and script — commit `b846189`
+- [x] 11.7b — **fix: nothing documented the compliance baselines** — commit `9f5e509`
+- [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -591,6 +593,93 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## ▶ M11 — Release candidate: 20/20
+
+`scripts/check_m11.py` runs each checklist item rather than asserting it. Every item that
+can be run was run; nothing was skipped.
+
+```
+make verify-all      2482 unit passed, 2 skipped, 94.06% coverage
+                     296 integration passed in 33:49          exit 0
+check_m11.py         20/20 passed, 0 failed, 0 skipped        exit 0
+test_performance.py  6 passed
+run_demo.sh          completes in under 5s
+```
+
+### Correctness
+
+| Item | Result |
+|---|---|
+| Parser agrees with tshark on dataset captures | **PASS** — 10 passed |
+| Fuzzing: 10,000 inputs, zero crashes, zero hangs | **PASS** — 81 passed |
+| E2E: weak → detected → remediated → verified | **PASS** — 9 passed, 3:41 |
+| Coverage ≥ 85% overall, ≥ 90% parser and assess | **PASS** — overall **94.1%**, parser **98.0%**, assess **98.0%** |
+
+### Honesty
+
+| Item | Result |
+|---|---|
+| Generalisation report with degraded held-out numbers | **PASS** |
+| Confound audit published | **PASS** |
+| Dataset limitations documented | **PASS** |
+| External dataset IPsec audit committed | **PASS** |
+| `LIMITATIONS.md` complete and honest | **PASS** — all five required statements |
+| Section A / B separation enforced by validator | **PASS** — 102 passed |
+
+### Security
+
+| Item | Result |
+|---|---|
+| Zero credential storage, zero device-write paths, no outbound socket, `pip-audit` clean | **PASS** — 25 passed |
+| Air-gapped operation verified | **PASS** — 13 passed |
+| Every command works in an installed copy | **PASS** — 91 passed *(not in the plan's checklist; added after 11.7 found two that did not)* |
+
+### Completeness
+
+| Item | Result |
+|---|---|
+| All 26 rules implemented | **PASS** — 26, every one citing a standard |
+| All baselines including ITSAR and CERT-In | **PASS** — 6 published + 2 tags = 8 selectable |
+| PQC, VID+CVE, inventory, anomaly, remediation, verification, watch | **PASS** — 209 passed |
+
+### Deliverables
+
+| Item | Result |
+|---|---|
+| Prototype, model, dashboard, sample reports, demo video, docs, dataset | **PASS** — all present |
+| Complete technical documentation | **PASS** — 76 passed |
+| Demo runs end to end under ten minutes | **PASS** — 27 passed, demo runs in **under 5 seconds** |
+| Container non-root and under 1 GB, bundle installs offline | **PASS** — 36 passed |
+
+### One checklist item deliberately reported with a caveat
+
+*"All 7 baselines including ITSAR and CERT-In."* There are **6 published baselines and 2
+built-in tags**, so 8 selectable names rather than 7 — the plan's count does not match what
+was built, and the gate reports the actual numbers rather than a matching one.
+
+More importantly, **`certin` and `itsar` were encoded from public descriptions, not from
+verified copies** of the controlling documents, because neither is freely redistributable.
+The gate prints that on the passing line, `docs/COMPLIANCE_BASELINES.md` reproduces each
+provenance paragraph verbatim, and a test fails if that document drops the caveat. A
+compliance claim made against either should be checked against the source.
+
+### What Phase 11 cost, and what it was worth
+
+Four defects, none of which any earlier phase could have found:
+
+1. **`sentinel remediate` and `sentinel watch` were broken in every installed copy** since
+   Phase 8 — found by *running the demo*, not by any test.
+2. **A degraded air-gapped report read as a clean one.** Missing enrichment corpora and
+   "nothing matched" produced identical output.
+3. **`safe_label` left `..` in reduced upload labels**, and `load_model`'s docstring did
+   not say that loading a joblib model executes code.
+4. **Nothing documented the six compliance baselines** — three documents linked to the ML
+   baselines file instead, and the link checker passed because the file exists.
+
+Every one is now guarded by a test that would fail if it recurred.
 
 ---
 
