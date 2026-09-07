@@ -153,6 +153,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.3 — security review of the tool itself — commit `183312b`
 - [x] 11.4 — offline and air-gapped operation — commit `45c6eea`
 - [x] 11.5 — packaging and offline bundle — commit `d55437a`
+- [x] 11.6 — documentation set — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -588,6 +589,84 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.6 — the documentation set, and the table that corrected itself
+
+Ten documents, four of them new: `README.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md` and
+`LIMITATIONS.md`, plus a generated `RULES.md`. **62 tests** in
+`tests/unit/test_documentation.py`.
+
+### RULES.md is generated, not written
+
+A hand-written 26-row rule table is wrong within a week. `scripts/generate_rules_doc.py`
+renders it from the same registry the assessment runs, and a test regenerates and compares
+— the same discipline as the JSON schema. A rule added without regenerating fails
+`make verify` rather than surfacing as a finding nobody can look up.
+
+Generating it also surfaced something a hand-written table would have hidden. The script
+groups rules by family and puts anything it does not recognise under **Uncategorised** —
+and two whole families landed there: `PFS` (forward secrecy) and `OPS` (operational
+disclosure). A hand-written document simply would not have mentioned them.
+
+The generated table also shows both baseline namespaces per rule, which is the distinction
+that caused the Phase 10 defect where a named baseline silently selected zero rules:
+
+| Baseline | Rules selected |
+|---|---|
+| `default` (tag) | 25 |
+| `strict` (tag) | 1 |
+| `cnsa` | 26 |
+| `bsi_tr02102_3`, `itsar`, `nist_800_77r1` | 25 |
+| `certin` | 21 |
+| `rfc_8221_8247` | 16 |
+
+### LIMITATIONS.md, and a claim the plan got wrong
+
+The build plan requires five statements. Writing the fifth honestly meant contradicting the
+plan's own wording.
+
+The plan says *"vendor generators beyond strongSwan/Libreswan are syntax-validated only"*.
+That was the intention at Step 8.3. It is not what shipped: the testbed runs **strongSwan
+only**, there is no Libreswan container, and `libreswan.py`'s own docstring says so. So the
+table reads:
+
+| Target | Validation |
+|---|---|
+| **strongSwan** | Loaded, negotiated and re-analysed on a live daemon |
+| Libreswan, Cisco IOS, Juniper Junos, FortiOS, PAN-OS | **Syntax-validated only** |
+
+Five rows, not four — and the document says the plan anticipated otherwise and why it did
+not happen. The sixth target is **Palo Alto PAN-OS**, not pfSense; the plan's table was
+also wrong about that.
+
+The five required statements are each checked by a separate test, because they are the
+least flattering claims in the project and therefore exactly the ones a later edit would
+soften.
+
+### Every relative link is resolved
+
+`TestEveryLinkResolves` walks every markdown link in all ten documents and asserts the
+target exists. A broken link in a limitations document reads as evasion whether or not it
+was.
+
+### The screenshot is real
+
+`scripts/capture_dashboard.py` drives a real uvicorn with a real demo capture through
+Playwright and screenshots the result — the same path `test_dashboard.py` takes, minus the
+assertions. `docs/images/dashboard.png` shows grade **F**, 8 Section A findings, 0 in
+Section B, with the Section A/B legend visible in the page.
+
+A mock-up would have been faster and would have been a claim the repository could not back.
+The rule for Phase 12 is already in force here: **no figure that a script did not produce.**
+
+### What the tests deliberately do not check
+
+Prose quality. A test asserting a document is well written is a test that passes when it
+should not.
+
+Suite: **2391 passed, 2 skipped.**
 
 ---
 
