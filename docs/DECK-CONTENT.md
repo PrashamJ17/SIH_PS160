@@ -1,8 +1,12 @@
 # SIH 2026 deck — complete slide-by-slide content
 
-Everything on every slide, as text you can paste. Generated alongside
-`docs/SIH2026-Highlanders-IPsec-Sentinel.pptx`; if you edit the deck by hand, edit this
-too, or regenerate both with `python -m scripts.deck.build_deck`.
+Everything on every slide, as text you can paste.
+
+**The submission is [`SIH2026-Highlanders-IPsec-Sentinel.pdf`](SIH2026-Highlanders-IPsec-Sentinel.pdf)**,
+which was finished by hand and is the authoritative artefact. The `.pptx` is no longer
+tracked. `scripts/deck/build_deck.py` and `scripts/deck/render_pdf.py` still generate an
+earlier draft of the deck and **write to that same PDF path**, so run them only if you
+intend to replace the submission.
 
 **Canvas:** 960 × 540 pt (13.333in × 7.5in, 16:9) — the official template's exact size.
 

@@ -338,7 +338,17 @@ def _draw_text(ax: Axes, shape: Any, height: float) -> None:
 def _draw_picture(ax: Axes, shape: Any, height: float) -> None:
     x, y = pts(shape.left), pts(shape.top)
     w, h = pts(shape.width), pts(shape.height)
-    image = Image.open(io.BytesIO(shape.image.blob)).convert("RGB")
+    opened = Image.open(io.BytesIO(shape.image.blob))
+    image: Image.Image
+    if opened.mode in ("RGBA", "LA", "P"):
+        # `.convert("RGB")` alone renders every transparent pixel black, which turned the
+        # SIH logo into a black slab on a white slide. Slides are white, so the alpha is
+        # composited against white rather than discarded.
+        transparent = opened.convert("RGBA")
+        image = Image.new("RGB", transparent.size, "white")
+        image.paste(transparent, (0, 0), transparent)
+    else:
+        image = opened.convert("RGB")
     ax.imshow(
         image,
         extent=(x, x + w, height - y - h, height - y),
