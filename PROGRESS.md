@@ -154,8 +154,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.4 — offline and air-gapped operation — commit `45c6eea`
 - [x] 11.5 — packaging and offline bundle — commit `d55437a`
 - [x] 11.6 — documentation set — commit `cccee96`
-- [x] 11.7a — **fix: `remediate` and `watch` were broken in every installed copy** — commit `PENDING_FIX`
-- [x] 11.7 — demo assets and script — commit `PENDING`
+- [x] 11.7a — **fix: `remediate` and `watch` were broken in every installed copy** — commit `f03ee5e`
+- [x] 11.7 — demo assets and script — commit `b846189`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
