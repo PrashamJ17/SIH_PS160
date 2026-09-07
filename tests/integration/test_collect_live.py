@@ -96,8 +96,71 @@ class TestAgainstRealKernelOutput:
             state, _ = device_state(pair)
 
         recovered = config_from_state(state)
+        assert recovered is not None and recovered.config is not None
+        assert recovered.config.proposal_string() == configured.proposal_string()  # type: ignore[attr-defined]
+
+    def test_the_esp_parameters_come_from_the_kernel(self) -> None:
+        """The half only the kernel can answer for, read from a real kernel.
+
+        The unit tests parse a sample whose key lengths I chose. This measures the key
+        the kernel actually installed, which is the only way to know AES-256 is being
+        reported because it is AES-256.
+        """
+        configured = anchor("good")
+        with live_pair(configured) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        recovered = config_from_state(state)
         assert recovered is not None
-        assert recovered.proposal_string() == configured.proposal_string()  # type: ignore[union-attr]
+        assert recovered.esp is not None
+        assert recovered.esp_source == "kernel", "the kernel is what says what is installed"
+        assert recovered.esp.encryption == configured.encryption
+        assert recovered.esp.mode == configured.mode
+        assert recovered.esp.spi is not None
+
+    def test_a_kernel_only_read_still_yields_esp_parameters(self) -> None:
+        """A gateway whose daemon output is unavailable is no longer opaque."""
+        from datetime import UTC, datetime
+
+        from ipsec_sentinel.collect import DeviceState
+
+        with live_pair(anchor("good")) as pair:
+            time.sleep(2)
+            xfrm = exec_in(pair.left, "ip", "xfrm", "state", timeout=60).stdout
+
+        kernel_only = DeviceState(
+            source="kernel-only",
+            collected_at=datetime.now(UTC),
+            kernel_sas=tuple(parse_xfrm_state(xfrm)),
+        )
+        recovered = config_from_state(kernel_only)
+
+        assert recovered is not None
+        assert recovered.esp is not None
+        assert recovered.config is None, "an ESP SA carries no IKE parameters"
+        assert {"ike_version", "prf", "dh_group"} <= recovered.unknown
+
+    def test_the_kernel_key_length_is_measured_not_assumed(self) -> None:
+        """AES-128 and AES-256 print the same algorithm name; only the key differs."""
+        with live_pair(anchor("good")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        lengths = {sa.encryption_keylen for sa in state.kernel_sas}
+        assert lengths == {256}, f"expected 256-bit keys from the good anchor, saw {lengths}"
+
+    def test_both_algorithms_survive_a_non_aead_sa(self) -> None:
+        """`enc` and `auth` used to overwrite one another in one field."""
+        with live_pair(anchor("weak")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair)
+
+        for sa in state.kernel_sas:
+            if sa.aead:
+                continue
+            assert sa.encryption is not None, "the cipher was lost"
+            assert sa.integrity is not None, "the integrity algorithm was lost"
 
     def test_the_endpoints_are_read(self) -> None:
         with live_pair(anchor("good")) as pair:

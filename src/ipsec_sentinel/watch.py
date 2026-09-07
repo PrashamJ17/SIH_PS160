@@ -391,7 +391,11 @@ class DriftDetector:
         from ipsec_sentinel.collect import config_from_state
 
         endpoints = state.endpoints
-        config = config_from_state(state)
+        reported = config_from_state(state)
+        # Drift compares negotiated parameters, so it needs the IKE half. A kernel-only
+        # read carries real ESP parameters and no IKE ones, and comparing it against a
+        # wire sighting would report a change in everything the kernel cannot see.
+        config = reported.config if reported is not None else None
         if endpoints is None or not isinstance(config, TunnelConfig):
             return None
 

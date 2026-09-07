@@ -158,6 +158,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.7 — demo assets and script — commit `b846189`
 - [x] 11.7b — **fix: nothing documented the compliance baselines** — commit `9f5e509`
 - [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
+- [x] 11.8 — **kernel SA state made load-bearing** — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -593,6 +594,109 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.8 — the kernel half stops dead-ending
+
+An architecture audit asked a direct question: does this project read kernel IPsec state,
+or is it purely a passive analyser? Tracing it rather than trusting the docs produced an
+uncomfortable answer.
+
+`ip xfrm state` **was** being executed and parsed. `KernelSA` objects **were** being
+built. And then `config_from_state` read `state.ike` — the strongSwan half — and never
+touched `state.kernel_sas`. Grepping every use of `kernel_sas` in `src/` found it consumed
+in exactly two places, both inside `collect.py`: an endpoint-pair fallback and an
+emptiness check. `replay_window` and `icv_bits` were parsed and discarded.
+
+So the tool ran a command against the kernel, dropped the answer, and its own docs implied
+otherwise.
+
+### Why the return type grew instead of the config
+
+A kernel ESP SA carries the **child** parameters. `TunnelConfig` requires `ike_version`,
+`prf` and `dh_group`, and **none of those exist in an ESP SA**. Returning a `TunnelConfig`
+built from kernel data would have meant inventing three fields about somebody's gateway —
+the exact failure the wire-side reconstruction already refuses.
+
+So `config_from_state` now returns a `ReportedConfig` carrying both halves and naming what
+neither source could supply:
+
+| Field | Source | Answers |
+|---|---|---|
+| `config` | daemon (`swanctl --list-sas`) | what the peers **negotiated** |
+| `esp` | kernel (`ip xfrm state`), else daemon | what is **installed** |
+| `esp_source` | — | which box said so |
+| `unknown` | — | the IKE fields an ESP SA cannot carry |
+
+A kernel-only read is now a real answer to *"what is protecting this traffic right now"*.
+It is still not an answer to *"what did the peers agree"*, and the `unknown` set says so
+rather than leaving a reader to assume.
+
+What an operator sees, from a state file with no daemon output at all:
+
+```
+installed ESP (kernel): 3des/md5
+  mode tunnel, replay window 0, spi 0xc3337439
+  no IKE parameters in this state, so there is nothing to compare against the capture:
+  child_dh_group, dh_group, encryption, ike_version, integrity, pfs, prf
+```
+
+Before this, that same file printed **"nothing comparable"**.
+
+### Three defects the work uncovered
+
+**1. `enc` and `auth` overwrote each other.** `KernelSA` held one `algorithm` field, and a
+non-AEAD SA prints both lines. Whichever came last won. For an SA running **3DES with
+MD5** the 3DES was the half that disappeared — the most serious finding in the record,
+silently dropped. Now separate `encryption` and `integrity` fields.
+
+**2. AES-128 and AES-256 were indistinguishable.** The kernel prints the algorithm family,
+`cbc(aes)`, not the key size. The only place the size exists is the **length of the key**.
+So the key is now matched, its length measured, and the characters never assigned
+anywhere — `_key_bits()` returns an `int` and the key string dies with the match object.
+The GCM salt is subtracted: RFC 4106 puts four bytes of salt on the wire, so 36 bytes is a
+256-bit key.
+
+**3. `parse_list_sas` never split the ESP suite.** `ESP:AES_CBC-256/HMAC_SHA2_384_192` was
+stored whole in `esp_encryption`, so `esp_integrity` was *always* `None` and `esp_keylen`
+never set — the trailing key-length split ran on a string whose tail is not a number.
+Broken since it was written, and invisible because nothing read the child SA until the
+kernel work needed a fallback for it.
+
+### The bug the fixtures caught
+
+Tightening the key regex to `[0-9a-f]+` broke `test_groundtruth.py`, whose fixtures carry
+`0xREDACTED` — key material stripped before committing, which is exactly what operators
+are told to do before handing a state file over.
+
+`0xREDACTED` is eight characters. Measured as hex that is a **32-bit key**, which would be
+reported as the most serious finding this tool can make and would be entirely an artefact
+of the redaction. `_key_bits` now returns `None` for anything that is not even-length hex,
+and a redacted SA is refused rather than mapped to a guess — because without a key length
+there is no way to tell AES-128 from AES-256.
+
+### Checked against a real kernel
+
+Unit fixtures prove a regex handles text its author chose. The live tests read what a real
+Linux kernel prints on a running strongSwan pair:
+
+- ESP parameters recovered from the kernel match the suite the pair was **configured** with
+- key lengths measured as **256**, not assumed
+- both algorithms survive a non-AEAD SA
+- a kernel-only read yields ESP parameters, `config is None`, and `{ike_version, prf,
+  dh_group} <= unknown`
+- **no real session key reaches a parsed object** — the assertion that already existed,
+  still true against a richer parse
+
+**11 live tests, all passing.** Suite: **2533 passed, 2 skipped.**
+
+### What this does not do
+
+The ESP parameters are reported, not yet **assessed**. `3des/md5` prints neutrally where a
+rule would call it CRITICAL. Roughly nine of the 26 rules — the ones judging cipher,
+integrity, key length and replay window — could run against a kernel-derived child SA, and
+wiring that is the obvious next step. It was not in this change's scope.
 
 ---
 

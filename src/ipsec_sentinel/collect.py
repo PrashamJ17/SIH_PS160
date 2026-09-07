@@ -32,6 +32,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -62,10 +63,16 @@ _XFRM_PROTO = re.compile(r"^\s+proto\s+(?P<proto>\w+)\s+spi\s+(?P<spi>0x[0-9a-f]
 _XFRM_REQID = re.compile(r"\breqid\s+(?P<reqid>\d+)")
 _XFRM_MODE = re.compile(r"\bmode\s+(?P<mode>\w+)")
 _XFRM_REPLAY = re.compile(r"^\s+replay-window\s+(?P<window>\d+)")
-# Deliberately non-capturing on the key: it is matched only so it can be skipped.
+# The key is captured only so its *length* can be measured and the bytes dropped on the
+# next line. Length is the difference between AES-128 and AES-256, and there is no other
+# way to know it: the kernel prints the algorithm family, not the key size.
 _XFRM_ALG = re.compile(
-    r"^\s+(?P<kind>aead|enc|auth-trunc|auth)\s+(?P<alg>\S+)\s+0x\S+(?:\s+(?P<bits>\d+))?"
+    r"^\s+(?P<kind>aead|enc|auth-trunc|auth)\s+(?P<alg>\S+)\s+0x(?P<key>\S+)"
+    r"(?:\s+(?P<bits>\d+))?"
 )
+# RFC 4106 appends a four-byte salt to the GCM key, so the material on the wire is four
+# bytes longer than the key itself.
+GCM_SALT_BYTES: Final = 4
 
 NAT_T_PORT: Final = 4500
 
@@ -105,7 +112,12 @@ class NegotiatedChild(BaseModel):
 
 
 class KernelSA(BaseModel):
-    """One SA as the kernel sees it. Carries no key material by construction."""
+    """One SA as the kernel sees it. Carries no key material by construction.
+
+    Encryption and integrity are separate fields because a non-AEAD SA prints both an
+    ``enc`` and an ``auth`` line: holding one ``algorithm`` meant the second overwrote
+    the first, and for a 3DES-with-MD5 SA the 3DES was the half that disappeared.
+    """
 
     src: str | None = None
     dst: str | None = None
@@ -114,9 +126,23 @@ class KernelSA(BaseModel):
     reqid: int | None = None
     mode: str | None = None
     replay_window: int | None = None
-    algorithm: str | None = None
-    algorithm_kind: str | None = None
+
+    encryption: str | None = None
+    """The kernel's own name, e.g. ``cbc(aes)`` or ``rfc4106(gcm(aes))``."""
+
+    encryption_keylen: int | None = None
+    """Bits, measured from the key's length. The key itself is never stored."""
+
+    integrity: str | None = None
+    """``None`` for an AEAD cipher, which carries its own integrity."""
+
+    aead: bool = False
     icv_bits: int | None = None
+
+    algorithm: str | None = None
+    """Retained for compatibility: whichever algorithm line came last."""
+
+    algorithm_kind: str | None = None
 
 
 def _split_alg_keylen(token: str) -> tuple[str, int | None]:
@@ -145,12 +171,17 @@ def parse_list_sas(text: str) -> tuple[NegotiatedIKE, NegotiatedChild | None]:
             ike.responder_spi = m.group("rspi")
             continue
         if (m := _CHILD.match(line)) is not None:
-            esp, keylen = _split_alg_keylen(m.group("esp"))
+            # `AES_CBC-256/HMAC_SHA2_384_192` is a cipher, a key size and an integrity
+            # algorithm. Split the suite before the key size, or the trailing split runs
+            # on a string whose tail is not a number and silently yields none of them.
+            cipher_field, _, integrity_field = m.group("esp").partition("/")
+            esp, keylen = _split_alg_keylen(cipher_field)
             child = NegotiatedChild(
                 installed=m.group("state") == "INSTALLED",
                 mode=m.group("mode").lower(),
                 esp_encryption=esp,
                 esp_keylen=keylen,
+                esp_integrity=integrity_field or None,
                 reqid=int(m.group("reqid")),
             )
             continue
@@ -192,6 +223,18 @@ def parse_list_sas(text: str) -> tuple[NegotiatedIKE, NegotiatedChild | None]:
     return ike, child
 
 
+def _key_bits(key: str) -> int | None:
+    """The key's size in bits, or ``None`` when what was printed is not a key.
+
+    Only the length is taken; the characters are never stored. A sanitised file carrying
+    a placeholder rather than hex yields ``None``, because a guess here is worse than an
+    absence: it would put a key size in a report that no device ever used.
+    """
+    if len(key) % 2 or not all(c in "0123456789abcdefABCDEF" for c in key):
+        return None
+    return len(key) // 2 * 8
+
+
 def parse_xfrm_state(text: str) -> list[KernelSA]:
     """Parse ``ip xfrm state``, discarding every byte of key material."""
     sas: list[KernelSA] = []
@@ -215,11 +258,28 @@ def parse_xfrm_state(text: str) -> list[KernelSA]:
             current.replay_window = int(m.group("window"))
             continue
         if (m := _XFRM_ALG.match(line)) is not None:
-            # The key itself is matched but never captured or stored.
-            current.algorithm_kind = m.group("kind")
-            current.algorithm = m.group("alg")
+            kind, algorithm = m.group("kind"), m.group("alg")
+            # Measured, then dropped: `bits` is this value's whole life, and the key it
+            # was measured from is never assigned anywhere.
+            #
+            # A redacted key yields no length rather than a wrong one. Operators are
+            # told to sanitise these files before handing them over, and `0xREDACTED`
+            # is eight characters long, which would otherwise be reported as a 32-bit
+            # key and read as a catastrophic finding.
+            bits = _key_bits(m.group("key"))
+            current.algorithm_kind = kind
+            current.algorithm = algorithm
             if m.group("bits"):
                 current.icv_bits = int(m.group("bits"))
+            if kind == "aead":
+                current.aead = True
+                current.encryption = algorithm
+                current.encryption_keylen = bits - GCM_SALT_BYTES * 8 if bits is not None else None
+            elif kind == "enc":
+                current.encryption = algorithm
+                current.encryption_keylen = bits
+            else:
+                current.integrity = algorithm
     return sas
 
 
@@ -389,25 +449,207 @@ def read_state_directory(directory: Path) -> list[DeviceState]:
     return states
 
 
-def config_from_state(state: DeviceState) -> object | None:
-    """Turn a device's reported IKE SA into a comparable configuration.
+# The kernel prints Linux crypto API names. Mapped to the canonical names the rest of
+# this project uses, and *only* where the mapping is exact: an algorithm or key size with
+# no canonical equivalent returns None rather than the nearest thing, because the caller
+# would otherwise be told a gateway runs something it does not.
+_KERNEL_ENCR: Final[dict[tuple[str, int | None], str]] = {
+    ("cbc(aes)", 128): "aes128",
+    ("cbc(aes)", 256): "aes256",
+    ("rfc4106(gcm(aes))", 128): "aes128gcm16",
+    ("rfc4106(gcm(aes))", 256): "aes256gcm16",
+    ("cbc(des3_ede)", 192): "3des",
+    ("cbc(des)", 64): "des",
+}
+_KERNEL_ENCR_ANY_LENGTH: Final[dict[str, str]] = {
+    "ecb(cipher_null)": "null",
+    "cipher_null": "null",
+}
+_KERNEL_INTEG: Final[dict[str, str]] = {
+    "hmac(md5)": "md5",
+    "hmac(sha1)": "sha1",
+    "hmac(sha256)": "sha256",
+    "hmac(sha384)": "sha384",
+    "hmac(sha512)": "sha512",
+    "xcbc(aes)": "aesxcbc",
+    "digest_null": "none",
+}
 
-    Returns ``None`` when the state does not describe an established SA, or names an
-    algorithm with no configuration equivalent. Refused rather than approximated, for
-    the same reason the wire-side reconstruction refuses: a configuration built from a
-    half-understood report is one an operator would be asked to act on.
+# What an ESP SA cannot tell anyone, however it was collected. Named rather than
+# silently omitted: a reader has to be able to see which half of the picture is missing.
+IKE_FIELDS_NOT_IN_AN_ESP_SA: Final[frozenset[str]] = frozenset(
+    {"ike_version", "encryption", "integrity", "prf", "dh_group", "child_dh_group", "pfs"}
+)
+
+
+def kernel_encryption(name: str, keylen_bits: int | None) -> str | None:
+    """A kernel cipher name and key size as this project's canonical name, or ``None``."""
+    if name in _KERNEL_ENCR_ANY_LENGTH:
+        return _KERNEL_ENCR_ANY_LENGTH[name]
+    return _KERNEL_ENCR.get((name, keylen_bits))
+
+
+def kernel_integrity(name: str) -> str | None:
+    """A kernel integrity name as this project's canonical name, or ``None``."""
+    return _KERNEL_INTEG.get(name)
+
+
+@dataclass(frozen=True)
+class ESPParameters:
+    """What is protecting the traffic, as some source reports it.
+
+    This is the child SA, not the IKE SA. It is the half a kernel can answer for.
+    """
+
+    encryption: str
+    encryption_keylen: int | None = None
+    integrity: str | None = None
+    aead: bool = False
+    mode: str | None = None
+    replay_window: int | None = None
+    spi: str | None = None
+
+    def suite(self) -> str:
+        parts = [self.encryption]
+        if self.integrity:
+            parts.append(self.integrity)
+        return "/".join(parts)
+
+
+@dataclass(frozen=True)
+class ReportedConfig:
+    """What a device's own report supports concluding, and what it does not.
+
+    Two sources answer different questions and neither answers both. The daemon knows
+    what was *negotiated* — IKE version, PRF, Diffie-Hellman group — because it did the
+    negotiating. The kernel knows what is *installed* — the ESP cipher, its key size, the
+    mode and the replay window — because it is enforcing it.
+
+    So this carries both halves and names the fields no available source could supply,
+    rather than returning a ``TunnelConfig`` with three invented values. A kernel-only
+    read is a real and useful answer to "what is protecting this traffic right now"; it
+    is not an answer to "what did the peers agree", and the difference is the point.
+    """
+
+    config: object | None = None
+    """The comparable IKE-level configuration. Requires daemon output."""
+
+    esp: ESPParameters | None = None
+    """What is installed for ESP. Preferred from the kernel, else the daemon."""
+
+    esp_source: str | None = None
+    """``"kernel"`` or ``"daemon"``, so a reader knows which box said so."""
+
+    unknown: frozenset[str] = frozenset()
+    """Fields no source in this state could supply."""
+
+    @property
+    def is_empty(self) -> bool:
+        return self.config is None and self.esp is None
+
+    def describe(self) -> str:
+        if self.config is not None:
+            suite = str(self.config.proposal_string())  # type: ignore[attr-defined]
+            if self.esp is None:
+                return suite
+            return f"{suite} (ESP {self.esp.suite()}, from the {self.esp_source})"
+        if self.esp is None:
+            return "nothing comparable"
+        return (
+            f"ESP {self.esp.suite()} from the {self.esp_source}; "
+            f"IKE parameters unknown ({', '.join(sorted(self.unknown))})"
+        )
+
+
+def _esp_from_kernel(sas: Sequence[KernelSA]) -> ESPParameters | None:
+    """The ESP parameters the kernel installed, from the first SA that maps cleanly."""
+    for sa in sas:
+        if sa.proto not in (None, "esp") or sa.encryption is None:
+            continue
+        encryption = kernel_encryption(sa.encryption, sa.encryption_keylen)
+        if encryption is None:
+            continue
+        integrity = None
+        if sa.integrity is not None:
+            integrity = kernel_integrity(sa.integrity)
+            if integrity is None:
+                continue
+        return ESPParameters(
+            encryption=encryption,
+            encryption_keylen=sa.encryption_keylen,
+            integrity=integrity,
+            aead=sa.aead,
+            mode=sa.mode,
+            replay_window=sa.replay_window,
+            spi=sa.spi,
+        )
+    return None
+
+
+def _esp_from_daemon(child: NegotiatedChild | None) -> ESPParameters | None:
+    """The ESP parameters the daemon reports, when the kernel was not collected."""
+    if child is None or child.esp_encryption is None:
+        return None
+    encryption = _DAEMON_TO_CANONICAL_ESP.get(child.esp_encryption)
+    if encryption is None:
+        return None
+    if encryption in ("aes128", "aes256") and child.esp_keylen:
+        encryption = f"aes{child.esp_keylen}"
+    integrity = _DAEMON_TO_CANONICAL_INTEG.get(child.esp_integrity) if child.esp_integrity else None
+    return ESPParameters(
+        encryption=encryption,
+        encryption_keylen=child.esp_keylen,
+        integrity=integrity,
+        aead=encryption.endswith(("gcm8", "gcm12", "gcm16")),
+        mode=child.mode,
+        spi=child.spi_out or child.spi_in,
+    )
+
+
+def config_from_state(state: DeviceState) -> ReportedConfig | None:
+    """Turn a device's own report into what it supports concluding.
+
+    Both halves are used. The daemon's IKE SA becomes a comparable configuration exactly
+    as before; the kernel's ESP SA becomes the installed-cipher half, which until now was
+    parsed and then thrown away.
+
+    Returns ``None`` only when neither source yields anything. An algorithm with no
+    configuration equivalent is refused rather than approximated, for the same reason the
+    wire-side reconstruction refuses: a configuration built from a half-understood report
+    is one an operator would be asked to act on.
     """
     from ipsec_sentinel.models import Proposal, Transform, TransformType
     from ipsec_sentinel.remediate.observed import Reconstruction, config_from_proposal
 
+    esp = _esp_from_kernel(state.kernel_sas)
+    esp_source = "kernel" if esp is not None else None
+    if esp is None:
+        esp = _esp_from_daemon(state.child)
+        esp_source = "daemon" if esp is not None else None
+
     ike = state.ike
     if ike is None or not ike.established:
-        return None
+        if esp is None:
+            return None
+        return ReportedConfig(
+            config=None,
+            esp=esp,
+            esp_source=esp_source,
+            unknown=IKE_FIELDS_NOT_IN_AN_ESP_SA,
+        )
+
+    def refused() -> ReportedConfig | None:
+        """The daemon half could not be mapped; the ESP half may still stand."""
+        if esp is None:
+            return None
+        return ReportedConfig(
+            config=None, esp=esp, esp_source=esp_source, unknown=IKE_FIELDS_NOT_IN_AN_ESP_SA
+        )
 
     transforms: list[Transform] = []
     encryption = _DAEMON_TO_IKEV2_ENCR.get(ike.encryption or "")
     if encryption is None:
-        return None
+        return refused()
     transforms.append(
         Transform(
             type=TransformType.ENCR,
@@ -419,23 +661,30 @@ def config_from_state(state: DeviceState) -> object | None:
     if ike.integrity:
         integrity = _DAEMON_TO_IKEV2_INTEG.get(ike.integrity)
         if integrity is None:
-            return None
+            return refused()
         transforms.append(Transform(type=TransformType.INTEG, id=integrity, name=ike.integrity))
     if ike.prf:
         prf = _DAEMON_TO_IKEV2_PRF.get(ike.prf)
         if prf is None:
-            return None
+            return refused()
         transforms.append(Transform(type=TransformType.PRF, id=prf, name=ike.prf))
     group = _DAEMON_TO_DH_GROUP.get(ike.dh_group or "")
     if group is None:
-        return None
+        return refused()
     transforms.append(Transform(type=TransformType.DH, id=group, name=ike.dh_group or ""))
 
     recovered: Reconstruction = config_from_proposal(
         Proposal(number=1, protocol="IKE", transforms=transforms),
         ike_version=ike.ike_version or "IKEv2",
     )
-    return recovered.config if recovered.ok else None
+    if not recovered.ok or recovered.config is None:
+        return refused()
+    return ReportedConfig(
+        config=recovered.config,
+        esp=esp,
+        esp_source=esp_source,
+        unknown=frozenset() if esp is not None else frozenset({"esp"}),
+    )
 
 
 # The daemon prints its own names for the algorithms. Mapped to IANA IKEv2 transform IDs
@@ -472,4 +721,23 @@ _DAEMON_TO_DH_GROUP: Final[dict[str, int]] = {
     "ECP_384": 20,
     "ECP_521": 21,
     "CURVE_25519": 31,
+}
+
+
+# The daemon's own ESP names, used only when the kernel was not collected.
+_DAEMON_TO_CANONICAL_ESP: Final[dict[str, str]] = {
+    "AES_CBC": "aes128",
+    "AES_GCM_16": "aes128gcm16",
+    "AES_GCM_12": "aes128gcm12",
+    "AES_GCM_8": "aes128gcm8",
+    "3DES_CBC": "3des",
+    "DES_CBC": "des",
+    "NULL": "null",
+}
+_DAEMON_TO_CANONICAL_INTEG: Final[dict[str, str]] = {
+    "HMAC_MD5_96": "md5",
+    "HMAC_SHA1_96": "sha1",
+    "HMAC_SHA2_256_128": "sha256",
+    "HMAC_SHA2_384_192": "sha384",
+    "HMAC_SHA2_512_256": "sha512",
 }

@@ -202,7 +202,27 @@ def _report_state_agreement(pcap: Path, device_state: Path, *, quiet: bool) -> N
             click.echo("  nothing comparable — no established SA, or an unmapped algorithm")
         return
 
-    reported_suite = from_state.proposal_string()  # type: ignore[attr-defined]
+    if not quiet and from_state.esp is not None:
+        # The kernel's half: what is installed right now, whichever way it was collected.
+        click.echo(f"\ninstalled ESP ({from_state.esp_source}): {from_state.esp.suite()}")
+        details = [
+            f"mode {from_state.esp.mode}" if from_state.esp.mode else "",
+            f"replay window {from_state.esp.replay_window}"
+            if from_state.esp.replay_window is not None
+            else "",
+            f"spi {from_state.esp.spi}" if from_state.esp.spi else "",
+        ]
+        click.echo("  " + ", ".join(part for part in details if part))
+
+    if from_state.config is None:
+        if not quiet:
+            click.echo(
+                "  no IKE parameters in this state, so there is nothing to compare "
+                "against the capture: " + ", ".join(sorted(from_state.unknown))
+            )
+        return
+
+    reported_suite = from_state.config.proposal_string()  # type: ignore[attr-defined]
     if not quiet:
         click.echo(f"\ndevice state ({reported.source}): {reported_suite}")
 
