@@ -152,6 +152,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.2 — performance benchmarks — commit `f084504`
 - [x] 11.3 — security review of the tool itself — commit `183312b`
 - [x] 11.4 — offline and air-gapped operation — commit `45c6eea`
+- [x] 11.5 — packaging and offline bundle — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -587,6 +588,86 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.5 — packaging, and two claims that were only true by accident
+
+Four artefacts: a multi-stage `Dockerfile`, a `docker-compose.yml`, `scripts/install.sh`
+and `scripts/build_offline_bundle.sh`. The plan's three acceptance criteria are all
+measured rather than asserted.
+
+| Criterion | Result |
+|---|---|
+| Container runs as non-root | **uid 10001**, asked of the running container |
+| Image under 1 GB | **0.68 GB** (725,630,361 bytes) |
+| Clean-machine install with no network | **passes**, `--no-index` with an unreachable index URL |
+
+### The tests interrogate the container, not the Dockerfile
+
+`test_it_runs_as_a_non_root_user` runs `id -u` **inside the image**. Grepping the
+Dockerfile for a `USER` line would be satisfied by a `USER root` added underneath it. The
+static checks that remain are the ones a running container cannot answer — that the build
+is multi-stage, and that no base image floats on `:latest`.
+
+The image analyses a capture under `--network none` and writes a JSON report to a bind
+mount. That is the strongest available form of the air-gap claim: not a monkeypatched
+socket module, an absent network namespace.
+
+### The compose stack, and a volume that would have been a lie
+
+The first draft gave the engine a `reports:` volume and a `SENTINEL_REPORT_DIR`. Neither
+exists: `api/store.py` holds reports **in memory, on purpose** — persisting an estate's
+tunnel inventory and endpoint addresses on disk in a network-reachable service is a larger
+promise than this project makes. A volume implying otherwise is the wrong kind of
+convenience, so both are gone and the reason is a comment in the file.
+
+The sensor is the only service needing `NET_ADMIN` and host networking, and it sits behind
+a `sensor` profile so `docker compose up` cannot quietly acquire capture capabilities on a
+laptop. A test asserts no default service is privileged.
+
+The first draft also invoked `sentinel watch --interface X --state-dir Y`; the command
+takes a positional interface and `--state FILE`. `docker compose config` validates YAML,
+not argv — so that would have shipped as a service that crash-loops.
+
+### `SENTINEL_DASHBOARD_ROOT`
+
+`DASHBOARD_DIR` was `Path(__file__).parents[3] / "dashboard"`, which resolves correctly in
+a checkout and to `/opt/venv/lib/python3.11/dashboard` in a wheel install — a comment in
+the file claimed it worked "whether the service runs from a checkout or from a wheel",
+which was not true. The location is now overridable, read at app creation, and an absent
+directory leaves the API serving JSON rather than refusing to start.
+
+### The bundle was Python-version-specific and did not say so
+
+The first offline install failed with:
+
+```
+ERROR: Could not find a version that satisfies the requirement pyyaml>=6.0
+       (from versions: none)
+```
+
+The wheels were built for 3.11; the host's bare `python3` is 3.14. Nothing was corrupt —
+the message just reads as though something were, which on an air-gapped host is an
+expensive thing to debug.
+
+Wheels are compiled for one interpreter version **as well as** one architecture, and the
+bundle recorded only the architecture. It now carries `BUNDLE.json` with the Python
+version, platform, extras and wheel count; the tarball is named
+`ipsec-sentinel-offline-<version>-py3.11-<platform>.tar.gz`; and `install.sh --offline`
+refuses **before creating the virtualenv**, naming both versions:
+
+> this bundle was built for Python 3.11; '/usr/bin/python3' is 3.14. Pass
+> `--python /path/to/python3.11`, or rebuild the bundle with `--python-version 3.14`
+
+A test corrupts a bundle's declared version to 3.99 and asserts the refusal mentions it
+and that no virtualenv was left behind.
+
+`MANIFEST.txt` carries sha256 sums for every file, and a test recomputes all of them —
+a manifest nothing checks is decoration.
+
+**34 packaging tests, 33 passing and 1 skipped** (the skip is `DEPLOYMENT.md`, which
+arrives with Step 11.6 and whose test says so). Suite: **2329 passed, 2 skipped**.
 
 ---
 

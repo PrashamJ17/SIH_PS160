@@ -23,6 +23,7 @@ from ipsec_sentinel.api.app import (
     API_PREFIX,
     MAX_UPLOAD_BYTES,
     create_app,
+    dashboard_root,
     get_store,
     looks_like_a_capture,
     safe_label,
@@ -472,3 +473,37 @@ def test_an_upload_stream_is_read_in_bounded_chunks() -> None:
     from ipsec_sentinel.api.app import CHUNK_BYTES
 
     assert 0 < CHUNK_BYTES <= MAX_UPLOAD_BYTES
+
+
+class TestTheDashboardRootCanBeRelocated:
+    """A wheel install puts the dashboard nowhere near the package, so the container
+    says where it is."""
+
+    def test_the_default_is_the_checkout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("SENTINEL_DASHBOARD_ROOT", raising=False)
+        assert dashboard_root().name == "dashboard"
+
+    def test_the_environment_wins(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SENTINEL_DASHBOARD_ROOT", str(tmp_path))
+        assert dashboard_root() == tmp_path
+
+    def test_a_relocated_dashboard_is_served(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "index.html").write_text("<!DOCTYPE html><title>relocated</title>")
+        monkeypatch.setenv("SENTINEL_DASHBOARD_ROOT", str(tmp_path))
+
+        with TestClient(create_app()) as client:
+            response = client.get("/")
+
+        assert response.status_code == 200
+        assert "relocated" in response.text
+
+    def test_an_absent_dashboard_does_not_break_the_api(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("SENTINEL_DASHBOARD_ROOT", str(tmp_path / "nowhere"))
+
+        with TestClient(create_app()) as client:
+            assert client.get("/health").status_code == 200
+            assert client.get("/").status_code == 404

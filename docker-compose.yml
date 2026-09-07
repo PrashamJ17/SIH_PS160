@@ -1,0 +1,91 @@
+# The deployable stack: an analysis engine, the dashboard that talks to it, and a
+# capture sensor that is deliberately not started by default.
+#
+# The sensor is the only service that needs NET_ADMIN and host networking, because
+# capturing from a mirror port requires both. Everything else runs unprivileged on a
+# bridge, so `docker compose up` on a laptop cannot quietly acquire the capabilities a
+# packet capture needs. Starting it is an explicit act:
+#
+#     docker compose --profile sensor up -d
+#
+# The engine holds analysed reports in memory by design — see api/store.py — so there
+# is no reports volume here. Persisting an estate's tunnel inventory and endpoint
+# addresses on disk in a network-reachable service is a larger promise than this project
+# makes, and a volume implying otherwise would be the wrong kind of convenience.
+
+services:
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ipsec-sentinel:latest
+    # The API is the long-running face of the engine; `sentinel analyse` is the
+    # one-shot face, run with `docker compose run --rm engine analyse ...`.
+    entrypoint: ["uvicorn"]
+    command:
+      - ipsec_sentinel.api.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    environment:
+      SENTINEL_DASHBOARD_ROOT: /opt/sentinel/dashboard
+      SENTINEL_LOG_FORMAT: json
+    volumes:
+      # Drop captures here; the engine reads them and never writes back.
+      - ./captures:/data:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      # Uploads are streamed to a temporary file before parsing, so /tmp must be
+      # writable even though the rest of the filesystem is not.
+      - /tmp:size=1g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # The dashboard is static files served by the engine itself. This service exists so a
+  # deployment can put them behind its own web server without rebuilding the image.
+  dashboard:
+    image: ipsec-sentinel:latest
+    depends_on:
+      engine:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "http.server", "8080", "--directory", "/opt/sentinel/dashboard"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  # Not started unless you ask for it. Reads a mirror port and writes rotating captures
+  # for the engine to pick up; it needs NET_ADMIN and the host's network namespace, and
+  # a stack that grants those by default is a stack nobody should run.
+  sensor:
+    profiles: ["sensor"]
+    image: ipsec-sentinel:latest
+    entrypoint: ["sentinel"]
+    command: ["watch", "${SENTINEL_SENSOR_INTERFACE:-eth0}", "--state", "/var/lib/sentinel/state/drift.json"]
+    network_mode: host
+    user: root
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - state:/var/lib/sentinel/state
+    restart: unless-stopped
+
+volumes:
+  state:

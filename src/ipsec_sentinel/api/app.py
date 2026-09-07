@@ -24,6 +24,7 @@ connection, and a test asserts it.
 
 from __future__ import annotations
 
+import os
 import re
 import tempfile
 from collections.abc import Awaitable, Callable
@@ -45,9 +46,11 @@ from ipsec_sentinel.report.render_html import render_html
 from ipsec_sentinel.version import describe, git_sha, tool_version
 
 API_PREFIX: Final = "/api/v1"
-# Served from the installed tree, so `uvicorn ipsec_sentinel.api.app:app` finds the
-# dashboard whether the service runs from a checkout or from a wheel.
+# The checkout layout. A wheel install puts site-packages nowhere near this directory,
+# and the container image copies the dashboard to a path of its own, so the location is
+# overridable rather than derived.
 DASHBOARD_DIR: Final = Path(__file__).resolve().parents[3] / "dashboard"
+DASHBOARD_ROOT_ENV: Final = "SENTINEL_DASHBOARD_ROOT"
 MAX_UPLOAD_BYTES: Final = 512 * 1024 * 1024
 CHUNK_BYTES: Final = 1024 * 1024
 PCAP_MAGIC: Final[tuple[bytes, ...]] = (
@@ -85,6 +88,18 @@ def safe_label(filename: str | None) -> str:
 
 def looks_like_a_capture(head: bytes) -> bool:
     return any(head.startswith(magic) for magic in PCAP_MAGIC)
+
+
+def dashboard_root() -> Path:
+    """Where the dashboard's static files live.
+
+    Read at app creation rather than at import, so a deployment can point at it without
+    the import order mattering. An absent directory is not an error: the API is useful
+    without the dashboard, and a service that refuses to start because a static file is
+    missing is worse than one that serves JSON.
+    """
+    override = os.environ.get(DASHBOARD_ROOT_ENV)
+    return Path(override) if override else DASHBOARD_DIR
 
 
 def get_store() -> ReportStore:
@@ -384,14 +399,15 @@ def create_app() -> FastAPI:
             "assumptions": list(recovered.assumptions),
         }
 
-    if DASHBOARD_DIR.is_dir():
+    static = dashboard_root()
+    if static.is_dir():
 
         @app.get("/", include_in_schema=False)
         def dashboard() -> FileResponse:
-            return FileResponse(DASHBOARD_DIR / "index.html")
+            return FileResponse(static / "index.html")
 
         # Mounted last so it cannot shadow an API route added above it.
-        app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+        app.mount("/dashboard", StaticFiles(directory=static, html=True), name="dashboard")
 
     @app.exception_handler(UnknownBaselineError)
     async def unknown_baseline(_request: Request, exc: UnknownBaselineError) -> JSONResponse:

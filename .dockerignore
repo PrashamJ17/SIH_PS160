@@ -1,0 +1,19 @@
+# The build context is the repo; these are large, irrelevant, or actively harmful to
+# copy into an image (the sweep corpus alone is gigabytes of captures).
+.git
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.hypothesis
+**/__pycache__
+*.egg-info
+data/
+dataset/
+reports/
+testbed/
+tests/
+dist/
+captures/
+models/*.joblib
+demo/*.mp4
