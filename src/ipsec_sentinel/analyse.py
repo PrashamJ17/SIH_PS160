@@ -26,19 +26,22 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 from ipsec_sentinel.assess.framework import DEFAULT_BASELINE, RuleRegistry
 from ipsec_sentinel.assess.inventory import KnownTunnel, build_inventory
 from ipsec_sentinel.assess.rules import default_registry
 from ipsec_sentinel.assess.rules.pqc import grade_pqc
 from ipsec_sentinel.assess.scoring import score_tunnel
-from ipsec_sentinel.models import Confidence, ObservedConfig, TunnelAssessment
+from ipsec_sentinel.models import Confidence, Finding, ObservedConfig, TunnelAssessment
 from ipsec_sentinel.parser.correlate import Tunnel, correlate
 from ipsec_sentinel.parser.esp import assemble_esp_flows, extract_esp_packets
 from ipsec_sentinel.parser.pcap import extract_ike_exchanges
 from ipsec_sentinel.report.build import build_report
 from ipsec_sentinel.report.models import PQCEntry, PQCSummary, Report
+
+if TYPE_CHECKING:
+    from ipsec_sentinel.collect import DeviceState
 
 MAX_INFERENCE_CONFIDENCE: Final = 1.0
 
@@ -177,6 +180,7 @@ def analyse_capture(
     generated_at: datetime | None = None,
     registry: RuleRegistry | None = None,
     model_path: Path | None = None,
+    device_states: Sequence[DeviceState] = (),
 ) -> Report:
     """Analyse one capture end to end and return the report.
 
@@ -189,6 +193,11 @@ def analyse_capture(
     settings, PFS where the exchange was encrypted. Supplied by the operator, applied to
     every tunnel in the capture, and absent by default, so the rules that depend on it
     stay silent rather than assuming.
+
+    ``device_states`` are what gateways report about themselves. Where one describes a
+    tunnel this capture also saw, its findings attach to that tunnel and change its score;
+    where it describes a tunnel the capture missed, the findings are still reported and
+    the device-state section says the estate score could not reflect them.
     """
     if not pcap.is_file():
         raise FileNotFoundError(f"no such capture: {pcap}")
@@ -239,6 +248,15 @@ def analyse_capture(
         # build_exposure, which produces the same entries without any inference.
         exposure = MetadataExposure(entries=entries)
 
+    device_summary = None
+    unattached: list[Finding] = []
+    if device_states:
+        from ipsec_sentinel.report.device_state import summarise_device_states
+
+        device_summary, assessments, unattached = summarise_device_states(
+            assessments, device_states, baseline=baseline, registry=rules
+        )
+
     return build_report(
         assessments,
         build_inventory(tunnels, known),
@@ -247,4 +265,6 @@ def analyse_capture(
         generated_at=generated_at or datetime.now(UTC),
         metadata_exposure=exposure,
         pqc=pqc_summary(tunnels),
+        device_state=device_summary,
+        extra_findings=unattached,
     )

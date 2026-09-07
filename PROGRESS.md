@@ -160,6 +160,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
 - [x] 11.8 — **kernel SA state made load-bearing** — commit `3500741`
 - [x] 11.9 — installed ESP SAs are graded — commit `b9ef952`
+- [x] 11.10 — device-state findings in the report — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -595,6 +596,79 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.10 — the device's own account, in the document
+
+Step 11.9 graded an installed SA and printed it to a terminal. Nothing reached the HTML,
+the JSON, or the score. This closes that, and the design question it turns on is how a
+device's self-report relates to a captured tunnel. There are two cases and they behave
+differently on purpose.
+
+### Matched
+
+The device describes a tunnel the capture also saw. Its findings attach to that tunnel's
+assessment, flow into Section A stamped with the tunnel id, **and the tunnel is rescored**.
+Appending findings while leaving the score alone would report a tunnel as clean while
+listing what is wrong with it directly beneath.
+
+Matching is on the *canonicalised* endpoint pair. A kernel prints one SA per direction, so
+its `src`/`dst` are one direction of a pair the tunnel holds sorted; comparing them raw
+would match about half the time and look like a parser bug.
+
+The effect, on the estate capture with a state file for the site that negotiated
+AES-256/ECP-384 on the wire but has 3DES/MD5 installed:
+
+```
+without device state:  estate 33/100 (F), 17 verified findings
+                       "2 are protected by cryptography that is no longer considered safe"
+
+with it:               estate 11/100 (F), 20 verified findings
+                       "3 are protected by cryptography that is no longer considered safe"
+```
+
+The wire said the tunnel was fine. The kernel said otherwise, and the report now says what
+the kernel said.
+
+### Unmatched
+
+The device describes a tunnel the capture never saw. The findings are real and
+deterministic, so they belong in Section A — but there is no tunnel to attribute them to,
+and the estate score is a mean over assessed tunnels, so **they cannot move it**.
+
+Inventing a tunnel id to hang them on would be worse than the gap, so `tunnel_id` stays
+`None` and the section's note says so in as many words:
+
+> Where it describes a tunnel the capture never saw, the findings are real and are listed,
+> but the estate score is a mean over assessed tunnels and cannot reflect them.
+
+### Shape
+
+`summarise_device_states` returns three things — the section, the rescored assessments, and
+the findings that matched nothing. The third is separate rather than carried on the section
+because it belongs in Section A, and holding the same findings in two places in one
+document is how two places come to disagree.
+
+`build_report` gained `device_state` and `extra_findings`; `analyse_capture` gained
+`device_states`; the CLI's `--device-state` now accepts a **directory** as well as a file,
+which is the shape a real deployment takes — a collector drops `<host>.swanctl.txt` and
+`<host>.xfrm.txt` per gateway and the estate is read in one pass.
+
+A device that reported nothing usable still gets a row. Silence from a gateway is a fact
+about the estate; omitting it would make "no SA installed" indistinguishable from "never
+asked".
+
+Schema **1.2 → 1.3**, `schemas/report-1.3.schema.json` published, 1.0–1.2 retained.
+
+### Checked
+
+**34 unit tests** and **2 new live tests** reading a real kernel through to a built report.
+The separation is asserted from both directions: nothing device-derived carries a
+confidence, nothing device-derived reaches Section B, and the validator still refuses a
+mixed report.
+
+Suite: **2611 passed, 2 skipped.** 17 live tests in `test_collect_live.py`.
 
 ---
 

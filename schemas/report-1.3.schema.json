@@ -1,0 +1,1331 @@
+{
+  "$defs": {
+    "BlastRadius": {
+      "description": "What else this change can disturb.\n\nReported so an operator can decide *when* to act, which is usually the question\nthey actually have. A change that is safe in isolation and unsafe at 09:00 is still\nunsafe at 09:00.",
+      "properties": {
+        "risk": {
+          "$ref": "#/$defs/ChangeRisk"
+        },
+        "tunnels_affected": {
+          "minimum": 0,
+          "title": "Tunnels Affected",
+          "type": "integer"
+        },
+        "peers_requiring_coordination": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Peers Requiring Coordination",
+          "type": "array"
+        },
+        "estimated_disruption_s": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Estimated Disruption S",
+          "type": "integer"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "risk",
+        "tunnels_affected"
+      ],
+      "title": "BlastRadius",
+      "type": "object"
+    },
+    "CVEReference": {
+      "additionalProperties": false,
+      "description": "A published vulnerability, with the score and the place it came from.\n\nThe identifier, the score and the source are one object rather than three optional\nfields on a row, so a score can never appear without the CVE it belongs to or the\nreference a reader can check it against. The invariant is unrepresentable rather\nthan validated.",
+      "properties": {
+        "cve_id": {
+          "pattern": "^CVE-\\d{4}-\\d{4,}$",
+          "title": "Cve Id",
+          "type": "string"
+        },
+        "cvss_score": {
+          "maximum": 10.0,
+          "minimum": 0.0,
+          "title": "Cvss Score",
+          "type": "number"
+        },
+        "cvss_vector": {
+          "minLength": 1,
+          "title": "Cvss Vector",
+          "type": "string"
+        },
+        "summary": {
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "scope_note": {
+          "minLength": 1,
+          "title": "Scope Note",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cve_id",
+        "cvss_score",
+        "cvss_vector",
+        "summary",
+        "scope_note",
+        "source"
+      ],
+      "title": "CVEReference",
+      "type": "object"
+    },
+    "ChangePackage": {
+      "description": "Everything needed to make one tunnel's remediation safe to carry out.",
+      "properties": {
+        "tunnel_id": {
+          "minLength": 1,
+          "title": "Tunnel Id",
+          "type": "string"
+        },
+        "findings_addressed": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Findings Addressed",
+          "type": "array"
+        },
+        "local_config": {
+          "$ref": "#/$defs/DeviceConfig"
+        },
+        "peer_config": {
+          "$ref": "#/$defs/DeviceConfig"
+        },
+        "sequence": {
+          "items": {
+            "$ref": "#/$defs/ChangeStep"
+          },
+          "minItems": 1,
+          "title": "Sequence",
+          "type": "array"
+        },
+        "verification": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Verification",
+          "type": "array"
+        },
+        "rollback": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Rollback",
+          "type": "array"
+        },
+        "blast_radius": {
+          "$ref": "#/$defs/BlastRadius"
+        },
+        "requires_maintenance_window": {
+          "default": false,
+          "title": "Requires Maintenance Window",
+          "type": "boolean"
+        },
+        "generated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generated At"
+        }
+      },
+      "required": [
+        "tunnel_id",
+        "findings_addressed",
+        "local_config",
+        "peer_config",
+        "sequence",
+        "verification",
+        "rollback",
+        "blast_radius"
+      ],
+      "title": "ChangePackage",
+      "type": "object"
+    },
+    "ChangeRisk": {
+      "description": "How much of the estate a change can disturb if it goes wrong.",
+      "enum": [
+        "none",
+        "single_tunnel",
+        "multiple_tunnels",
+        "gateway_wide"
+      ],
+      "title": "ChangeRisk",
+      "type": "string"
+    },
+    "ChangeStep": {
+      "description": "One ordered action in a zero-downtime sequence.",
+      "properties": {
+        "order": {
+          "minimum": 1,
+          "title": "Order",
+          "type": "integer"
+        },
+        "role": {
+          "$ref": "#/$defs/ConfigRole"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "action": {
+          "minLength": 1,
+          "title": "Action",
+          "type": "string"
+        },
+        "reversible": {
+          "default": true,
+          "title": "Reversible",
+          "type": "boolean"
+        },
+        "expected_disruption_s": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Expected Disruption S",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "order",
+        "role",
+        "description",
+        "action"
+      ],
+      "title": "ChangeStep",
+      "type": "object"
+    },
+    "Confidence": {
+      "description": "A calibrated confidence in an inference.\n\nOnly ever attached to **inferred** facts, never to parsed ones. ``method`` is\nmandatory because an estimate whose provenance is unstated is not auditable.",
+      "properties": {
+        "value": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "abstained": {
+          "default": false,
+          "title": "Abstained",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value",
+        "method"
+      ],
+      "title": "Confidence",
+      "type": "object"
+    },
+    "ConfigRole": {
+      "enum": [
+        "local",
+        "peer",
+        "both"
+      ],
+      "title": "ConfigRole",
+      "type": "string"
+    },
+    "DeviceConfig": {
+      "description": "A configuration document for one end of one tunnel.\n\n``content`` is text an operator reads and applies themselves. It is never executed,\nnever uploaded, and never sent anywhere by this system.",
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/ConfigRole"
+        },
+        "vendor": {
+          "minLength": 1,
+          "title": "Vendor",
+          "type": "string"
+        },
+        "device_hint": {
+          "minLength": 1,
+          "title": "Device Hint",
+          "type": "string"
+        },
+        "filename": {
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "vendor",
+        "device_hint",
+        "filename",
+        "content"
+      ],
+      "title": "DeviceConfig",
+      "type": "object"
+    },
+    "DeviceStateEntry": {
+      "additionalProperties": false,
+      "description": "What one device reported about itself, and what that was worth.\n\nA device's self-report is a parsed fact, like a capture, and it is not the *same*\nfact: a capture can be re-read by anyone, while a gateway's account of itself is only\nas good as the gateway. ``source`` and ``origin`` are here so a reader never has to\nguess which they are looking at.",
+      "properties": {
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Origin"
+        },
+        "endpoints": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoints"
+        },
+        "installed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Installed"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "replay_window": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replay Window"
+        },
+        "spi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Spi"
+        },
+        "matched_tunnel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matched Tunnel"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "pattern": "^[A-F]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grade"
+        },
+        "finding_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Finding Count",
+          "type": "integer"
+        },
+        "unknown": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unknown",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "DeviceStateEntry",
+      "type": "object"
+    },
+    "DeviceStateSummary": {
+      "additionalProperties": false,
+      "description": "What the estate's own devices report, alongside what the wire showed.",
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/DeviceStateEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "note": {
+          "default": "These are facts a device reported about itself, not observations of the wire, and the evidence on each finding says so. Where a device describes a tunnel the capture also saw, its findings are attributed to that tunnel and counted in its score. Where it describes a tunnel the capture never saw, the findings are real and are listed, but the estate score is a mean over assessed tunnels and cannot reflect them.",
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "title": "DeviceStateSummary",
+      "type": "object"
+    },
+    "EnrichmentStatus": {
+      "additionalProperties": false,
+      "description": "Which reference corpora enrichment had available when this report was built.\n\nA report with no ATT&CK technique names and no vendor CVEs looks identical whether\nthe corpora were missing or the findings genuinely mapped to nothing. On an\nair-gapped host — the deployment this tool is most often used in — the first is the\nnormal case, so recording it is what stops a degraded run from reading as a clean\none.",
+      "properties": {
+        "attack_techniques": {
+          "minimum": 0,
+          "title": "Attack Techniques",
+          "type": "integer"
+        },
+        "cve_cache_entries": {
+          "minimum": 0,
+          "title": "Cve Cache Entries",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attack_techniques",
+        "cve_cache_entries"
+      ],
+      "title": "EnrichmentStatus",
+      "type": "object"
+    },
+    "ExecutiveSummary": {
+      "additionalProperties": false,
+      "description": "The first page, written for someone who will read only the first page.",
+      "properties": {
+        "estate_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Estate Score",
+          "type": "integer"
+        },
+        "estate_grade": {
+          "pattern": "^[A-F]$",
+          "title": "Estate Grade",
+          "type": "string"
+        },
+        "tunnels_assessed": {
+          "minimum": 0,
+          "title": "Tunnels Assessed",
+          "type": "integer"
+        },
+        "tunnels_undocumented": {
+          "minimum": 0,
+          "title": "Tunnels Undocumented",
+          "type": "integer"
+        },
+        "verified_findings": {
+          "minimum": 0,
+          "title": "Verified Findings",
+          "type": "integer"
+        },
+        "inferred_findings": {
+          "minimum": 0,
+          "title": "Inferred Findings",
+          "type": "integer"
+        },
+        "findings_by_severity": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/Severity"
+          },
+          "title": "Findings By Severity",
+          "type": "object"
+        },
+        "headline": {
+          "minLength": 1,
+          "title": "Headline",
+          "type": "string"
+        },
+        "key_points": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "estate_score",
+        "estate_grade",
+        "tunnels_assessed",
+        "tunnels_undocumented",
+        "verified_findings",
+        "inferred_findings",
+        "headline"
+      ],
+      "title": "ExecutiveSummary",
+      "type": "object"
+    },
+    "ExposureEntry": {
+      "additionalProperties": false,
+      "description": "What an observer learns about one tunnel without breaking any encryption.\n\nProduced for **every** tunnel, including perfectly configured ones. That is the\npoint: strong cryptography protects the contents and not the fact of the\nconversation, and a report that only lists problems never says so.",
+      "properties": {
+        "tunnel_id": {
+          "minLength": 1,
+          "title": "Tunnel Id",
+          "type": "string"
+        },
+        "endpoints": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "total_bytes": {
+          "minimum": 0,
+          "title": "Total Bytes",
+          "type": "integer"
+        },
+        "total_packets": {
+          "minimum": 0,
+          "title": "Total Packets",
+          "type": "integer"
+        },
+        "session_count": {
+          "minimum": 0,
+          "title": "Session Count",
+          "type": "integer"
+        },
+        "active_hours": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Active Hours",
+          "type": "array"
+        },
+        "first_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Seen"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "inferred_traffic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Inferred Traffic"
+        },
+        "inferred_traffic_confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InferenceExplanation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "tunnel_id",
+        "endpoints",
+        "total_bytes",
+        "total_packets",
+        "session_count"
+      ],
+      "title": "ExposureEntry",
+      "type": "object"
+    },
+    "Finding": {
+      "description": "A single assessment result.\n\n``confidence is None`` means the finding was **parsed** and is deterministic;\na non-None confidence means it was **inferred**. See :attr:`is_deterministic`.",
+      "properties": {
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "evidence": {
+          "title": "Evidence",
+          "type": "string"
+        },
+        "standard_ref": {
+          "title": "Standard Ref",
+          "type": "string"
+        },
+        "attack_technique": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attack Technique"
+        },
+        "remediation_hint": {
+          "title": "Remediation Hint",
+          "type": "string"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tunnel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Id"
+        }
+      },
+      "required": [
+        "rule_id",
+        "title",
+        "severity",
+        "evidence",
+        "standard_ref",
+        "remediation_hint"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "InferenceExplanation": {
+      "additionalProperties": false,
+      "description": "Why the model said what it said, in a sentence and in numbers.\n\nCarried beside the inference rather than in a separate section, because an estimate\na reader cannot interrogate is one they must either take on trust or ignore, and\nboth are worse than a short explanation.",
+      "properties": {
+        "sentence": {
+          "minLength": 1,
+          "title": "Sentence",
+          "type": "string"
+        },
+        "contributions": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Contributions",
+          "type": "array"
+        },
+        "windows": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Windows",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sentence"
+      ],
+      "title": "InferenceExplanation",
+      "type": "object"
+    },
+    "Inventory": {
+      "description": "Every observed tunnel, plus the documented ones that were not seen.",
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/InventoryEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "unobserved": {
+          "items": {
+            "$ref": "#/$defs/KnownTunnel"
+          },
+          "title": "Unobserved",
+          "type": "array"
+        },
+        "documented_list_supplied": {
+          "default": false,
+          "title": "Documented List Supplied",
+          "type": "boolean"
+        }
+      },
+      "title": "Inventory",
+      "type": "object"
+    },
+    "InventoryEntry": {
+      "description": "One observed tunnel, as an operator needs to see it.",
+      "properties": {
+        "tunnel_id": {
+          "title": "Tunnel Id",
+          "type": "string"
+        },
+        "endpoints": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/InventoryStatus"
+        },
+        "first_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Seen"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "packet_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Packet Count",
+          "type": "integer"
+        },
+        "byte_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Byte Count",
+          "type": "integer"
+        },
+        "ike_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ike Version"
+        },
+        "exchange_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exchange Type"
+        },
+        "negotiated_suite": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Negotiated Suite"
+        },
+        "is_aggressive": {
+          "default": false,
+          "title": "Is Aggressive",
+          "type": "boolean"
+        },
+        "orphan": {
+          "default": false,
+          "title": "Orphan",
+          "type": "boolean"
+        },
+        "negotiation_only": {
+          "default": false,
+          "title": "Negotiation Only",
+          "type": "boolean"
+        },
+        "documented_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Documented Name"
+        },
+        "documented_owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Documented Owner"
+        }
+      },
+      "required": [
+        "tunnel_id",
+        "endpoints",
+        "status"
+      ],
+      "title": "InventoryEntry",
+      "type": "object"
+    },
+    "InventoryStatus": {
+      "description": "How an observed tunnel relates to the operator's documented list.",
+      "enum": [
+        "documented",
+        "undocumented",
+        "unknown"
+      ],
+      "title": "InventoryStatus",
+      "type": "string"
+    },
+    "KnownTunnel": {
+      "description": "A tunnel the operator says should exist.\n\nSupplied by the operator, so the endpoints arrive in whatever form a human typed\nthem. They are canonicalised on the way in, because a documented list that fails\nto match observed traffic over a spelling of an IPv6 address would flag every\ntunnel as undocumented and destroy trust in the whole report.",
+      "properties": {
+        "endpoints": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner"
+        }
+      },
+      "required": [
+        "endpoints"
+      ],
+      "title": "KnownTunnel",
+      "type": "object"
+    },
+    "MetadataExposure": {
+      "additionalProperties": false,
+      "description": "The exposure section: what encryption does not hide.",
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/ExposureEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "note": {
+          "default": "Every tunnel below is listed regardless of how well it is configured. Encryption protects the contents of a conversation, not the fact that it happened, who took part, when, or how much was said.",
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "title": "MetadataExposure",
+      "type": "object"
+    },
+    "PQCEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "tunnel_id": {
+          "minLength": 1,
+          "title": "Tunnel Id",
+          "type": "string"
+        },
+        "grade": {
+          "$ref": "#/$defs/PQCGrade"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "post_quantum_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Post Quantum Groups",
+          "type": "array"
+        },
+        "classical_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Classical Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tunnel_id",
+        "grade",
+        "rationale"
+      ],
+      "title": "PQCEntry",
+      "type": "object"
+    },
+    "PQCGrade": {
+      "description": "Post-quantum readiness, worst first.\n\nOrdered by :attr:`rank` rather than by declaration, so a caller can compare grades\nwithout depending on enum ordering, and so the ordering is a tested property\nrather than an accident of how the class happens to be written.",
+      "enum": [
+        "exposed",
+        "at_risk",
+        "transitional",
+        "ready"
+      ],
+      "title": "PQCGrade",
+      "type": "string"
+    },
+    "PQCSummary": {
+      "additionalProperties": false,
+      "description": "Post-quantum readiness across the estate.",
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/PQCEntry"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "note": {
+          "default": "Traffic captured today can be stored and decrypted later by an adversary with a cryptographically relevant quantum computer. Readiness is about traffic already on the wire, not only about future sessions.",
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        }
+      },
+      "title": "PQCSummary",
+      "type": "object"
+    },
+    "ReportMetadata": {
+      "additionalProperties": false,
+      "description": "Where this report came from, so a later reader can reproduce it.",
+      "properties": {
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "baseline": {
+          "minLength": 1,
+          "title": "Baseline",
+          "type": "string"
+        },
+        "tool_version": {
+          "minLength": 1,
+          "title": "Tool Version",
+          "type": "string"
+        },
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Sha"
+        },
+        "working_tree_dirty": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Working Tree Dirty"
+        },
+        "schema_version": {
+          "default": "1.3",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "enrichment": {
+          "$ref": "#/$defs/EnrichmentStatus",
+          "default": {
+            "attack_techniques": 0,
+            "cve_cache_entries": 0
+          }
+        }
+      },
+      "required": [
+        "source",
+        "generated_at",
+        "baseline",
+        "tool_version"
+      ],
+      "title": "ReportMetadata",
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Finding severity, ordered most urgent first by :attr:`rank`.",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "informational"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "ThreatMatrix": {
+      "additionalProperties": false,
+      "description": "Findings crossed with the techniques they enable.",
+      "properties": {
+        "rows": {
+          "items": {
+            "$ref": "#/$defs/ThreatMatrixRow"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "uncategorised_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uncategorised Rules",
+          "type": "array"
+        }
+      },
+      "title": "ThreatMatrix",
+      "type": "object"
+    },
+    "ThreatMatrixRow": {
+      "additionalProperties": false,
+      "description": "One adversary technique and the tunnels it applies to.",
+      "properties": {
+        "technique": {
+          "minLength": 1,
+          "title": "Technique",
+          "type": "string"
+        },
+        "technique_name": {
+          "minLength": 1,
+          "title": "Technique Name",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "tunnel_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Tunnel Ids",
+          "type": "array"
+        },
+        "rule_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Rule Ids",
+          "type": "array"
+        },
+        "cves": {
+          "items": {
+            "$ref": "#/$defs/CVEReference"
+          },
+          "title": "Cves",
+          "type": "array"
+        },
+        "includes_inferred": {
+          "default": false,
+          "title": "Includes Inferred",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "technique",
+        "technique_name",
+        "severity",
+        "tunnel_ids",
+        "rule_ids"
+      ],
+      "title": "ThreatMatrixRow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A complete assessment, in the shape a reader consumes it.",
+  "properties": {
+    "metadata": {
+      "$ref": "#/$defs/ReportMetadata"
+    },
+    "executive": {
+      "$ref": "#/$defs/ExecutiveSummary"
+    },
+    "inventory": {
+      "$ref": "#/$defs/Inventory"
+    },
+    "section_a_verified": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Section A Verified",
+      "type": "array"
+    },
+    "section_b_inferred": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Section B Inferred",
+      "type": "array"
+    },
+    "metadata_exposure": {
+      "$ref": "#/$defs/MetadataExposure"
+    },
+    "threat_matrix": {
+      "$ref": "#/$defs/ThreatMatrix"
+    },
+    "remediation": {
+      "items": {
+        "$ref": "#/$defs/ChangePackage"
+      },
+      "title": "Remediation",
+      "type": "array"
+    },
+    "pqc": {
+      "$ref": "#/$defs/PQCSummary"
+    },
+    "device_state": {
+      "$ref": "#/$defs/DeviceStateSummary"
+    }
+  },
+  "required": [
+    "metadata",
+    "executive",
+    "inventory"
+  ],
+  "title": "IPsec Sentinel report 1.3",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ipsec-sentinel.invalid/schemas/report-1.3.schema.json"
+}

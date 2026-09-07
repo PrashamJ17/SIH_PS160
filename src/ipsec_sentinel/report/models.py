@@ -33,12 +33,14 @@ from ipsec_sentinel.models import Confidence, Finding, Grade, Severity
 from ipsec_sentinel.remediate.models import ChangePackage
 
 # 1.1 adds InferenceExplanation and ExposureEntry.explanation. 1.2 adds
-# ReportMetadata.enrichment, so an air-gapped run is legible as one. Bumped rather than
+# ReportMetadata.enrichment, so an air-gapped run is legible as one. 1.3 adds
+# DeviceStateSummary, so what a gateway reports about itself is in the report rather
+# than only on a terminal. Bumped rather than
 # regenerated in place because these models forbid unknown fields, so the published
 # schema carries `additionalProperties: false` — a consumer validating new output
 # against 1.0 would reject it. The version travels in every report, so a consumer
 # validates against the one the payload declares.
-SCHEMA_VERSION: Final = "1.2"
+SCHEMA_VERSION: Final = "1.3"
 
 
 class ReportModel(BaseModel):
@@ -311,6 +313,65 @@ class PQCSummary(ReportModel):
         return sum(1 for entry in self.entries if entry.grade is grade)
 
 
+class DeviceStateEntry(ReportModel):
+    """What one device reported about itself, and what that was worth.
+
+    A device's self-report is a parsed fact, like a capture, and it is not the *same*
+    fact: a capture can be re-read by anyone, while a gateway's account of itself is only
+    as good as the gateway. ``source`` and ``origin`` are here so a reader never has to
+    guess which they are looking at.
+    """
+
+    source: str = Field(min_length=1)
+    """Which device said so — a hostname, a filename, "local"."""
+
+    origin: str | None = None
+    """``"kernel"`` or ``"daemon"``. The kernel says what is installed; the daemon says
+    what it negotiated, and they can disagree."""
+
+    endpoints: tuple[str, str] | None = None
+    installed: str | None = None
+    """The ESP suite, or ``None`` when the device reported nothing usable."""
+
+    mode: str | None = None
+    replay_window: int | None = None
+    spi: str | None = None
+
+    matched_tunnel: str | None = None
+    """The captured tunnel this describes, or ``None`` when the capture never saw it."""
+
+    score: int | None = Field(default=None, ge=0, le=100)
+    grade: Grade | None = None
+    finding_count: int = Field(default=0, ge=0)
+    unknown: list[str] = Field(default_factory=list)
+    """Fields no source in this state could supply, named rather than left blank."""
+
+
+class DeviceStateSummary(ReportModel):
+    """What the estate's own devices report, alongside what the wire showed."""
+
+    entries: list[DeviceStateEntry] = Field(default_factory=list)
+    note: str = Field(
+        default=(
+            "These are facts a device reported about itself, not observations of the "
+            "wire, and the evidence on each finding says so. Where a device describes a "
+            "tunnel the capture also saw, its findings are attributed to that tunnel and "
+            "counted in its score. Where it describes a tunnel the capture never saw, the "
+            "findings are real and are listed, but the estate score is a mean over "
+            "assessed tunnels and cannot reflect them."
+        ),
+        min_length=1,
+    )
+
+    @property
+    def matched(self) -> int:
+        return sum(1 for entry in self.entries if entry.matched_tunnel is not None)
+
+    @property
+    def unmatched(self) -> list[DeviceStateEntry]:
+        return [entry for entry in self.entries if entry.matched_tunnel is None]
+
+
 class Report(ReportModel):
     """A complete assessment, in the shape a reader consumes it."""
 
@@ -323,6 +384,7 @@ class Report(ReportModel):
     threat_matrix: ThreatMatrix = Field(default_factory=ThreatMatrix)
     remediation: list[ChangePackage] = Field(default_factory=list)
     pqc: PQCSummary = Field(default_factory=PQCSummary)
+    device_state: DeviceStateSummary = Field(default_factory=DeviceStateSummary)
 
     @model_validator(mode="after")
     def enforce_separation(self) -> Report:

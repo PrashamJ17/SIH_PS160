@@ -26,6 +26,7 @@ from ipsec_sentinel.models import Finding, Severity, TunnelAssessment
 from ipsec_sentinel.remediate.models import ChangePackage
 from ipsec_sentinel.report.exposure import build_exposure
 from ipsec_sentinel.report.models import (
+    DeviceStateSummary,
     EnrichmentStatus,
     ExecutiveSummary,
     MetadataExposure,
@@ -208,6 +209,8 @@ def build_report(
     pqc: PQCSummary | None = None,
     criticality: dict[str, float] | None = None,
     enrichment: EnrichmentStatus | None = None,
+    device_state: DeviceStateSummary | None = None,
+    extra_findings: Sequence[Finding] = (),
 ) -> Report:
     """Route each finding to Section A or B and assemble the report around them.
 
@@ -221,7 +224,12 @@ def build_report(
     Omitting it yields the empty summary — a report missing a section rather than one
     making something up.
     """
-    findings = _attributed(assessments)
+    # `extra_findings` are deterministic findings belonging to no captured tunnel — a
+    # device reporting on one this capture never saw. Routed like any other finding,
+    # counted in the severity totals, and keeping `tunnel_id = None` because there is
+    # nothing to name. They cannot move the estate score, which is a mean over
+    # assessed tunnels; the device-state section says so.
+    findings = [*_attributed(assessments), *extra_findings]
     verified, inferred = route(findings)
     severities: Counter[Severity] = Counter(finding.severity for finding in findings)
 
@@ -266,4 +274,5 @@ def build_report(
         # falsy — and ``or`` would silently replace it with a blank one, dropping
         # the very tunnels the operator most wants to hear about.
         pqc=pqc if pqc is not None else PQCSummary(),
+        device_state=device_state if device_state is not None else DeviceStateSummary(),
     )

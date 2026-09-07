@@ -270,6 +270,32 @@ li { margin: .25rem 0; }
 <p class="empty">No post-quantum assessment was included in this report.</p>
 {% endif %}
 
+{% if report.device_state.entries %}
+<h2>Device state</h2>
+<div class="note">{{ report.device_state.note }}</div>
+<table>
+  <tr><th>Device</th><th>Source</th><th>Installed ESP</th><th>Mode</th>
+      <th>Replay window</th><th>Grade</th><th>Findings</th><th>Tunnel</th></tr>
+{% for entry in report.device_state.entries %}
+  <tr>
+    <td class="mono">{{ entry.source }}</td>
+    <td>{{ entry.origin or '&mdash;' }}</td>
+    <td class="mono">{{ entry.installed or 'nothing comparable' }}</td>
+    <td>{{ entry.mode or '&mdash;' }}</td>
+    <td>{{ entry.replay_window if entry.replay_window is not none else '&mdash;' }}</td>
+    <td class="grade-{{ entry.grade or '' }}">{{ entry.grade or '&mdash;' }}</td>
+    <td>{{ entry.finding_count }}</td>
+    <td class="mono">{{ entry.matched_tunnel or 'not in this capture' }}</td>
+  </tr>
+{% endfor %}
+</table>
+{% for entry in report.device_state.entries %}
+{% if entry.unknown %}
+<p class="empty">{{ entry.source }} could not report: {{ entry.unknown | join(', ') }}.</p>
+{% endif %}
+{% endfor %}
+{% endif %}
+
 <h2>Remediation</h2>
 {% if report.remediation %}
 {% for package in report.remediation %}

@@ -33,6 +33,26 @@ def fail(message: str, code: int = 1) -> NoReturn:
     raise SystemExit(code)
 
 
+def _load_device_states(path: Path) -> list:  # type: ignore[type-arg]
+    """Read one state file or a directory of them.
+
+    A directory is the shape a real deployment takes: something the operator already runs
+    drops `<host>.swanctl.txt` and `<host>.xfrm.txt` per gateway, and the whole estate is
+    read in one pass.
+    """
+    from ipsec_sentinel.collect import StateError, read_state, read_state_directory
+
+    try:
+        if path.is_dir():
+            return read_state_directory(path)
+        if path.name.endswith(".xfrm.txt"):
+            return [read_state(xfrm=path)]
+        return [read_state(swanctl=path)]
+    except StateError as exc:
+        # `fail` does not return, so there is no fall-through path to write here.
+        fail(str(exc), EXIT_USAGE)
+
+
 def _load_known(path: Path | None) -> list:  # type: ignore[type-arg]
     """Read an operator's documented tunnel list."""
     if path is None:
@@ -122,9 +142,15 @@ def analyse(
 
     from ipsec_sentinel.ml.classify import ClassifierUnavailableError
 
+    states = _load_device_states(device_state) if device_state is not None else []
+
     try:
         report = analyse_capture(
-            pcap, baseline=baseline, known=_load_known(known), model_path=model_path
+            pcap,
+            baseline=baseline,
+            known=_load_known(known),
+            model_path=model_path,
+            device_states=states,
         )
     except ClassifierUnavailableError as exc:
         fail(str(exc), EXIT_USAGE)

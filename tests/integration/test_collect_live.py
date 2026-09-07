@@ -300,3 +300,51 @@ class TestGradingARealKernelsSA:
         assert config is not None, "the kernel reported no replay window"
         assert config.replay_window is not None
         assert config.anti_replay_enabled is not None
+
+
+class TestARealKernelsStateReachesTheReport:
+    """End to end: a live gateway's own state, graded, in the document."""
+
+    def test_the_section_carries_what_the_kernel_installed(self) -> None:
+        from ipsec_sentinel.report.device_state import summarise_device_states
+
+        configured = anchor("worst")
+        with live_pair(configured) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair, source="gw-live")
+
+        summary, _, _ = summarise_device_states([], [state], baseline="default")
+
+        assert len(summary.entries) == 1
+        entry = summary.entries[0]
+        assert entry.source == "gw-live"
+        assert entry.origin == "kernel"
+        assert entry.installed is not None
+        assert entry.grade is not None
+        assert entry.finding_count > 0, "3DES with MD5 produced no findings"
+
+    def test_an_uncaptured_gateway_is_reported_but_does_not_move_the_estate(self) -> None:
+        """The honest half: real findings, and a score that cannot reflect them."""
+        from ipsec_sentinel.assess.inventory import Inventory
+        from ipsec_sentinel.report.build import build_report
+        from ipsec_sentinel.report.device_state import summarise_device_states
+
+        with live_pair(anchor("worst")) as pair:
+            time.sleep(2)
+            state, _ = device_state(pair, source="gw-live")
+
+        summary, assessments, unattached = summarise_device_states([], [state], baseline="default")
+        report = build_report(
+            assessments,
+            Inventory(),
+            "default",
+            source="none.pcap",
+            device_state=summary,
+            extra_findings=unattached,
+        )
+
+        assert report.device_state.entries[0].matched_tunnel is None
+        installed = [f for f in report.section_a_verified if "read from the kernel" in f.evidence]
+        assert installed, "the findings did not reach Section A"
+        assert all(finding.tunnel_id is None for finding in installed)
+        assert all(finding.confidence is None for finding in installed)

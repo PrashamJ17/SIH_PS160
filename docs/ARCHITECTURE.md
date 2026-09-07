@@ -78,6 +78,14 @@ most likely to run optimised. A test runs the validator under `-O` and pins the 
 The lanes meet in exactly one place — `analyse.py`, the pipeline seam — and they meet as
 two lists of findings that are immediately routed apart again.
 
+A third, optional input joins the deterministic lane at the same seam: **device state**.
+`ip xfrm state` and `swanctl --list-sas` say what a gateway has *installed*, which the wire
+cannot show once a rekey is encrypted, and the replay window never appears on the wire in
+any form. Those findings are deterministic and land in Section A, with evidence naming the
+device rather than the capture. Where the device describes a tunnel the capture also saw,
+its findings attach to that tunnel and change its score; where it does not, the report says
+the estate score could not reflect them. The tool parses this state — it never fetches it.
+
 An analysis run with **no model** produces a complete Section A and an empty Section B.
 That is a supported mode, not a degraded one: the deterministic findings are the
 compliance product, and they do not depend on the classifier existing.
@@ -140,7 +148,7 @@ The separation validator is the largest piece, but not the only one:
   working tree was dirty. `None` for the dirty flag means the question could not be
   answered, which is different from "clean".
 - **A published JSON schema**, versioned, generated from the model, with a test that
-  regenerates and compares. Schema `1.2`; `1.0` and `1.1` are retained because the models
+  regenerates and compares. Schema `1.3`; `1.0` to `1.2` are retained because the models
   forbid unknown fields.
 
 ---
