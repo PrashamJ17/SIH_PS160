@@ -1,0 +1,74 @@
+{
+ "tshark": {
+  "command": "tshark -r demo/pcaps/01-worst-ikev1-aggressive-3des-voip.pcap -Y isakmp -T fields -e frame.number -e ip.src -e ip.dst -e isakmp.exchangetype",
+  "stdout": "1\t10.100.0.2\t10.100.0.3\t4\n2\t10.100.0.3\t10.100.0.2\t4\n3\t10.100.0.2\t10.100.0.3\t4\n4\t10.100.0.2\t10.100.0.3\t32\n5\t10.100.0.2\t10.100.0.3\t32\n6\t10.100.0.3\t10.100.0.2\t32\n7\t10.100.0.2\t10.100.0.3\t32",
+  "stderr": "",
+  "exit": 0
+ },
+ "analyse_worst": {
+  "command": ".venv/bin/sentinel analyse demo/pcaps/01-worst-ikev1-aggressive-3des-voip.pcap --baseline nist_800_77r1 --model models/traffic.joblib --out worst.html",
+  "stdout": "0.1.0 (d433717-dirty)\n\nThe tunnel examined is protected by cryptography that is no longer considered safe, and should be changed. The estate scores 0 out of 100 (grade F).\n\n  tunnels assessed     1\n  estate score         0/100 (grade F)\n  verified (section A) 8\n  inferred (section B) 0\n  critical             2\n  high                 3\n  medium               2\n  informational        1\n\nHTML written to worst.html\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "inventory": {
+  "command": ".venv/bin/sentinel inventory demo/pcaps/04-estate.pcap --known demo/tunnels.yaml",
+  "stdout": "  828e1abb53c8  198.51.100.10 <-> 203.0.113.11  documented  3DES_CBC / MD5 / 1024-bit MODP\n! 766f2e38dc23  198.51.100.10 <-> 203.0.113.10  undocumented  3DES_CBC / MD5 / 1024-bit MODP\n  da10571d54a2  198.51.100.10 <-> 203.0.113.12  documented  ENCR_AES_CBC-256 / AUTH_HMAC_SHA2_384_192 / PRF_HMAC_SHA2_384 / 384-bit ECP\n\n1 tunnel(s) marked ! are not on the documented list.\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "analyse_estate": {
+  "command": ".venv/bin/sentinel analyse demo/pcaps/04-estate.pcap --baseline nist_800_77r1 --known demo/tunnels.yaml --model models/traffic.joblib --out estate.html --json estate.json --pdf estate.pdf",
+  "stdout": "0.1.0 (d433717-dirty)\n\nOf the 3 tunnels examined, 2 are protected by cryptography that is no longer considered safe, and should be changed. The estate scores 33 out of 100 (grade F).\n\n  tunnels assessed     3\n  estate score         33/100 (grade F)\n  verified (section A) 17\n  inferred (section B) 0\n  critical             4\n  high                 6\n  medium               4\n  informational        3\n\nHTML written to estate.html\n\nJSON written to estate.json\n\nPDF written to estate.pdf\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "wrong_format": {
+  "command": ".venv/bin/sentinel analyse capture.pcapng",
+  "stdout": "",
+  "stderr": "error: capture.pcapng could not be analysed: capture.pcapng: pcapng is not walked by this scanner\n",
+  "exit": 1
+ },
+ "corrupt": {
+  "command": ".venv/bin/sentinel analyse truncated.pcap",
+  "stdout": "0.1.0 (d433717-dirty)\n\nNo IPsec tunnels were found in this capture, so there is nothing to report on yet. Check that the capture was taken where the tunnels actually run.\n\n  tunnels assessed     0\n  estate score         100/100 (grade A)\n  verified (section A) 0\n  inferred (section B) 0\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "device_state": {
+  "command": ".venv/bin/sentinel analyse demo/pcaps/04-estate.pcap --baseline nist_800_77r1 --known demo/tunnels.yaml --device-state gw-chennai.xfrm.txt",
+  "stdout": "\ninstalled ESP (kernel): 3des/md5\n  mode tunnel, replay window 0, spi 0xaaaa0001\n  installed SA scores 32/100 (grade F)\n    [CRITICAL] CRY-05  3DES encryption installed\n               NIST SP 800-131A Rev. 2 (disallowed after 2023)\n    [HIGH    ] CRY-06  MD5 integrity installed\n               NIST SP 800-131A Rev. 2\n    [MEDIUM  ] SA-03  Anti-replay protection disabled or not enforced\n               RFC 4303 section 3.4.3\n  no IKE parameters in this state, so there is nothing to compare against the capture: child_dh_group, dh_group, encryption, ike_version, integrity, pfs, prf\n0.1.0 (d433717-dirty)\n\nOf the 3 tunnels examined, 3 are protected by cryptography that is no longer considered safe, and should be changed. The estate scores 11 out of 100 (grade F).\n\n  tunnels assessed     3\n  estate score         11/100 (grade F)\n  verified (section A) 20\n  inferred (section B) 0\n  critical             5\n  high                 7\n  medium               5\n  informational        3\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "remediate": {
+  "command": ".venv/bin/sentinel remediate demo/pcaps/04-estate.pcap --vendor strongswan --out change-package",
+  "stdout": "\n=== 828e1abb53c8 ===\n828e1abb53c8: 8 finding(s), 5 step(s), ~0s disruption, risk single_tunnel (maintenance window required)\n  assumption: SA lifetimes are local policy and IKEv2 does not carry them on the wire; the testbed defaults are used and the lifetime rules should be read from the operator's configuration instead\n  assumption: perfect forward secrecy and the child key exchange group are negotiated inside an encrypted exchange and were not observed; PFS is assumed enabled and the child group assumed to match the IKE group\n  1. [both] Rotate the pre-shared key before anything else. Aggressive Mode has already exposed a crackable hash of the current key, so reusing it carries the compromise forward into the corrected tunnel.\n  2. [both] Add aes256gcm16-prfsha256-curve25519 alongside the existing 3des-md5-prfmd5-modp1024 on both ends. Both proposals are offered, so the tunnel keeps negotiating 3des-md5-prfmd5-modp1024 until it is told otherwise.\n  3. [both] Establish a second SA under the reloaded configuration, confirm it negotiated aes256gcm16-prfsha256-curve25519, then retire the SA still running 3des-md5-prfmd5-modp1024. Do not rekey the existing SA: a running SA keeps the configuration it was established with, so a rekey renegotiates 3des-md5-prfmd5-modp1024 and the change silently does nothing. This is the point of no return \u2014 if the new SA does not report aes256gcm16-prfsha256-curve25519, stop here and investigate rather than continuing to step 3.\n  4. [both] Remove 3des-md5-prfmd5-modp1024 from both ends, leaving aes256gcm16-prfsha256-curve25519 alone. Safe only because step 2 proved the tunnel is already running on aes256gcm16-prfsha256-curve25519.\n  5. [both] Confirm the tunnel is still established on aes256gcm16-prfsha256-curve25519 with the weak proposal gone, and that traffic is still passing.\n  written: change-package/828e1abb53c8.local.swanctl.conf\n  written: change-package/828e1abb53c8.peer.swanctl.conf\n\n=== 766f2e38dc23 ===\n766f2e38dc23: 8 finding(s), 5 step(s), ~0s disruption, risk single_tunnel (maintenance window required)\n  assumption: SA lifetimes are local policy and IKEv2 does not carry them on the wire; the testbed defaults are used and the lifetime rules should be read from the operator's configuration instead\n  assumption: perfect forward secrecy and the child key exchange group are negotiated inside an encrypted exchange and were not observed; PFS is assumed enabled and the child group assumed to match the IKE group\n  1. [both] Rotate the pre-shared key before anything else. Aggressive Mode has already exposed a crackable hash of the current key, so reusing it carries the compromise forward into the corrected tunnel.\n  2. [both] Add aes256gcm16-prfsha256-curve25519 alongside the existing 3des-md5-prfmd5-modp1024 on both ends. Both proposals are offered, so the tunnel keeps negotiating 3des-md5-prfmd5-modp1024 until it is told otherwise.\n  3. [both] Establish a second SA under the reloaded configuration, confirm it negotiated aes256gcm16-prfsha256-curve25519, then retire the SA still running 3des-md5-prfmd5-modp1024. Do not rekey the existing SA: a running SA keeps the configuration it was established with, so a rekey renegotiates 3des-md5-prfmd5-modp1024 and the change silently does nothing. This is the point of no return \u2014 if the new SA does not report aes256gcm16-prfsha256-curve25519, stop here and investigate rather than continuing to step 3.\n  4. [both] Remove 3des-md5-prfmd5-modp1024 from both ends, leaving aes256gcm16-prfsha256-curve25519 alone. Safe only because step 2 proved the tunnel is already running on aes256gcm16-prfsha256-curve25519.\n  5. [both] Confirm the tunnel is still established on aes256gcm16-prfsha256-curve25519 with the weak proposal gone, and that traffic is still passing.\n  written: change-package/766f2e38dc23.local.swanctl.conf\n  written: change-package/766f2e38dc23.peer.swanctl.conf\nda10571d54a2: da10571d54a2: nothing to correct in this configuration. Generating an empty change package would ask an operator to take a risk for no benefit.\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "config": {
+  "command": "cat change-package/766f2e38dc23.local.swanctl.conf",
+  "stdout": "# Generated by IPsec Sentinel for strongswan.\n# Status: live-tested.\n#\n# This configuration form was loaded onto a live strongswan instance\n# in the project's testbed and established a tunnel carrying ESP.\n#\n# Apply this yourself. This tool never writes to a device.\n\n# Generated by config_gen for config_id=5a917fedb86f\n# No secret appears here: the PSK is written to conf.d/psk.conf at run time.\n\nconnections {\n    net-net {\n        local_addrs  = 10.100.0.2\n        remote_addrs = 10.100.0.3\n        version = 2\n        proposals = aes256gcm16-prfsha256-curve25519\n        rekey_time = 14400s\n\n        local {\n            auth = psk\n            id = left\n        }\n        remote {\n            auth = psk\n            id = right\n        }\n\n        children {\n            net-net {\n                local_ts  = 10.1.0.0/24\n                remote_ts = 10.2.0.0/24\n                esp_proposals = aes256gcm16-curve25519\n                mode = tunnel\n                rekey_time = 3600s\n                start_action = none\n            }\n        }\n    }\n}\n\ninclude conf.d/*.conf\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "analyse_after": {
+  "command": ".venv/bin/sentinel analyse demo/pcaps/03-strong-ikev2-aes256-ecp384-voip.pcap --baseline nist_800_77r1",
+  "stdout": "0.1.0 (d433717-dirty)\n\nThe tunnel examined is soundly configured. 1 minor improvement is suggested. The estate scores 100 out of 100 (grade A).\n\n  tunnels assessed     1\n  estate score         100/100 (grade A)\n  verified (section A) 1\n  inferred (section B) 0\n  informational        1\n",
+  "stderr": "",
+  "exit": 0
+ },
+ "scan_refusal": {
+  "command": ".venv/bin/sentinel scan 192.0.2.1",
+  "stdout": "",
+  "stderr": "refusing to probe without authorisation.\nActive probing transmits to the target and must not be run without permission from whoever operates it. Pass authorised=True (or --i-have-authorisation on the command line) to confirm you have it. On production and OT networks, probing can disturb a fragile IKE daemon and will appear in the far end's logs as a failed negotiation, which is indistinguishable from an attack.\n",
+  "exit": 3
+ },
+ "pdf_bytes": {
+  "command": "",
+  "stdout": "76386",
+  "stderr": "",
+  "exit": 0
+ }
+}

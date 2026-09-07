@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IPsec Sentinel report &mdash; 01-worst-ikev1-aggressive-3des-voip.pcap</title>
+<style>
+/* Everything is inline. The report is opened on networks with no route out, and a
+   layout that depends on a stylesheet loading is a layout that fails when it matters. */
+:root {
+  --ink: #17202a;
+  --muted: #5b6a7a;
+  --rule: #d6dde5;
+  --verified: #1c4f82;
+  --inferred: #7a4a12;
+  --critical: #8c1c13;
+  --high: #b8500f;
+  --medium: #8a6d1a;
+  --low: #4a5a68;
+}
+* { box-sizing: border-box; }
+body {
+  font: 15px/1.55 "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  max-width: 60rem;
+  background: #fff;
+}
+h1 { font-size: 1.9rem; margin: 0 0 .3rem; }
+h2 { font-size: 1.3rem; margin: 2.6rem 0 .4rem; border-bottom: 2px solid var(--rule); padding-bottom: .3rem; }
+h3 { font-size: 1.05rem; margin: 1.6rem 0 .4rem; }
+p { margin: .5rem 0; }
+.sub { color: var(--muted); margin: 0 0 1.5rem; font-size: .9rem; }
+.headline { font-size: 1.15rem; line-height: 1.5; margin: 1rem 0 1.2rem; }
+.note {
+  background: #f4f7fa; border-left: 4px solid var(--rule);
+  padding: .8rem 1rem; margin: 1rem 0; font-size: .92rem;
+}
+table { border-collapse: collapse; width: 100%; margin: .8rem 0 1.4rem; font-size: .9rem; }
+th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; background: #f4f7fa; }
+.finding { border: 1px solid var(--rule); border-left-width: 5px; padding: .8rem 1rem; margin: .8rem 0; }
+.finding.verified { border-left-color: var(--verified); }
+.finding.inferred { border-left-color: var(--inferred); }
+.finding h4 { margin: 0 0 .35rem; font-size: 1rem; }
+.finding dl { margin: .4rem 0 0; }
+.finding dt { font-weight: 600; font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+.finding dd { margin: .1rem 0 0; }
+.tag {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; padding: .12rem .45rem; border: 1px solid currentColor;
+  border-radius: 2px; margin-right: .4rem; white-space: nowrap;
+}
+.tag.verified { color: var(--verified); }
+.tag.inferred { color: var(--inferred); }
+.sev-critical { color: var(--critical); font-weight: 700; }
+.sev-high { color: var(--high); font-weight: 700; }
+.sev-medium { color: var(--medium); }
+.sev-low, .sev-informational { color: var(--low); }
+.empty { color: var(--muted); font-style: italic; }
+.mono { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: .85em; word-break: break-all; }
+footer { margin-top: 3rem; padding-top: .8rem; border-top: 1px solid var(--rule); color: var(--muted); font-size: .82rem; }
+ul { margin: .4rem 0 .4rem 1.1rem; padding: 0; }
+li { margin: .25rem 0; }
+@media print {
+  body { padding: 0; max-width: none; font-size: 11pt; }
+  h2 { page-break-after: avoid; }
+  .finding, tr { page-break-inside: avoid; }
+  .note { background: none; }
+}
+</style>
+</head>
+<body>
+
+<h1>IPsec Sentinel assessment</h1>
+<p class="sub">
+  01-worst-ikev1-aggressive-3des-voip.pcap &middot; baseline nist_800_77r1 &middot;
+  generated 2026-09-07 09:50 UTC &middot;
+  0.1.0 (d433717-dirty)
+</p>
+
+<h2>Summary</h2>
+<p class="headline">The tunnel examined is protected by cryptography that is no longer considered safe, and should be changed. The estate scores 0 out of 100 (grade F).</p>
+<table>
+  <tr><th>Estate score</th><td>0 / 100 (grade F)</td></tr>
+  <tr><th>Tunnels assessed</th><td>1</td></tr>
+  <tr><th>Undocumented tunnels</th><td>1</td></tr>
+  <tr><th>Verified findings (Section A)</th><td>8</td></tr>
+  <tr><th>Inferred findings (Section B)</th><td>0</td></tr>
+  <tr><th>Critical</th><td>2</td></tr>
+  <tr><th>High</th><td>3</td></tr>
+  <tr><th>Medium</th><td>2</td></tr>
+  <tr><th>Informational</th><td>1</td></tr>
+</table>
+<ul>
+  <li>1 tunnel carrying traffic is not on the documented list. An undocumented tunnel is one nobody is maintaining.</li>
+  <li>8 findings in Section A are read directly from the negotiation and can be relied on as evidence. 0 findings in Section B are estimated from traffic patterns and carry a stated confidence.</li>
+</ul>
+
+<div class="note">
+  <strong>How to read this report.</strong>
+  <strong>Section A</strong> contains findings read directly from the negotiation as it
+  happened on the wire. They are facts and carry no confidence value, because none is
+  needed. <strong>Section B</strong> contains findings estimated from traffic patterns by
+  a statistical model. Every one states a confidence, and none of them is evidence in the
+  sense Section A is. The two are never mixed.
+</div>
+
+<h2>Section A &mdash; verified findings</h2>
+<p class="sub">Read from the negotiation. Deterministic; no confidence value applies.</p>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-critical">Critical</span>
+    &middot; CRY-02 &mdash; Diffie-Hellman group 2 (1024-bit MODP) offered
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>1024-bit MODP offered in proposal 1 of 1, selected in this session</dd>
+    <dt>Standard</dt><dd>NIST SP 800-57 Part 1 Rev. 5, Table 2</dd>
+<dt>ATT&amp;CK</dt><dd>T1600.001</dd>    <dt>Remediation</dt><dd>Remove group 2 (modp1024) from the IKE proposal. 1024-bit MODP is within reach of a precomputation attack against a reused prime; use group 19 (ecp256) or group 14 (modp2048) at minimum.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-critical">Critical</span>
+    &middot; IKE-03 &mdash; IKEv1 Aggressive Mode with pre-shared key authentication
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>IKEv1 Aggressive Mode with pre-shared key authentication between 10.100.0.2 and 10.100.0.3. The pre-shared key hash is exposed to any passive observer and can be cracked offline. Treat this PSK as compromised.</dd>
+    <dt>Standard</dt><dd>RFC 2409 section 5.4; NIST SP 800-77 Rev. 1 section 5.1</dd>
+<dt>ATT&amp;CK</dt><dd>T1110.002</dd>    <dt>Remediation</dt><dd>Rotate the pre-shared key immediately and disable Aggressive Mode. Rotating without disabling the mode only restarts the clock, since the next handshake exposes the new key the same way. Prefer certificate authentication, or IKEv2 where the authentication payload is encrypted.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-high">High</span>
+    &middot; CRY-05 &mdash; 3DES encryption offered
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>3DES_CBC offered in proposal 1 of 1, selected in this session</dd>
+    <dt>Standard</dt><dd>NIST SP 800-131A Rev. 2 (disallowed after 2023)</dd>
+<dt>ATT&amp;CK</dt><dd>T1600.001</dd>    <dt>Remediation</dt><dd>Remove 3DES from the proposals. Its 64-bit block size makes it vulnerable to birthday-bound collision attacks (Sweet32) on long-lived connections, and NIST disallowed it for new use after 2023. Use AES-GCM-256.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-high">High</span>
+    &middot; CRY-06 &mdash; MD5 integrity offered
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>MD5 offered in proposal 1 of 1, selected in this session</dd>
+    <dt>Standard</dt><dd>NIST SP 800-131A Rev. 2</dd>
+<dt>ATT&amp;CK</dt><dd>T1600.001</dd>    <dt>Remediation</dt><dd>Remove AUTH_HMAC_MD5_96 from the proposals. Use AUTH_HMAC_SHA2_256_128 or stronger.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-high">High</span>
+    &middot; CRY-11 &mdash; Diffie-Hellman group weaker than the baseline requires
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>1024-bit MODP (80-bit security strength) offered in proposal 1 of 1, selected in this session</dd>
+    <dt>Standard</dt><dd>NIST SP 800-57 Part 1 Rev. 5, Table 2</dd>
+<dt>ATT&amp;CK</dt><dd>T1600.001</dd>    <dt>Remediation</dt><dd>Raise the Diffie-Hellman group to meet the baseline&#39;s required strength. Unlike the fixed-group rules, this threshold comes from the selected compliance baseline, so the acceptable group depends on the policy in force.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-medium">Medium</span>
+    &middot; IKE-01 &mdash; IKEv1 in use
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>the negotiation used IKEv1 (Aggressive Mode) between 10.100.0.2 and 10.100.0.3</dd>
+    <dt>Standard</dt><dd>RFC 8247 section 2.4; RFC 9395 deprecates IKEv1</dd>
+    <dt>Remediation</dt><dd>Migrate this tunnel to IKEv2. IKEv1 was deprecated by RFC 9395 and lacks IKEv2&#39;s built-in DoS protection, MOBIKE and cleaner rekeying.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-medium">Medium</span>
+    &middot; SA-01 &mdash; IKE SA lifetime longer than 24 hours
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>the IKE SA lifetime is 95040 s (26.4 h), over the 86400 s (24.0 h) limit (read from the IKE handshake as an IKEv1 phase 1 SA attribute)</dd>
+    <dt>Standard</dt><dd>NIST SP 800-77 Rev. 1 section 5.1</dd>
+    <dt>Remediation</dt><dd>Reduce the IKE SA lifetime to 24 hours or less. A long-lived SA widens the window in which a compromised key remains useful.</dd>
+  </dl>
+</div>
+<div class="finding verified">
+  <h4>
+    <span class="tag verified">Section A &mdash; verified</span>
+    <span class="sev-informational">Informational</span>
+    &middot; PQC-01 &mdash; Not resistant to harvest-now-decrypt-later (at_risk)
+  </h4>
+  <dl>
+<dt>Tunnel</dt><dd class="mono">a3157cbb2a42</dd>    <dt>Evidence</dt><dd>classical key exchange only (1024-bit MODP), so traffic recorded today is decryptable in retrospect once the hardware exists. The forward secrecy setting was not supplied and is not visible to a passive observer, so EXPOSED cannot be excluded — supply it to resolve this</dd>
+    <dt>Standard</dt><dd>RFC 9370; RFC 8784; NIST FIPS 203</dd>
+<dt>ATT&amp;CK</dt><dd>T1040</dd>    <dt>Remediation</dt><dd>Enable a hybrid post-quantum key exchange (RFC 9370 additional key exchange with ML-KEM), or an RFC 8784 post-quantum pre-shared key where the peers already share a secret. Prioritise tunnels carrying data whose confidentiality must outlast the arrival of quantum hardware — remediation later does not protect traffic recorded today.</dd>
+  </dl>
+</div>
+
+<h2>Section B &mdash; inferred findings</h2>
+<p class="sub">Estimated from traffic patterns. Every entry states its confidence and is not compliance evidence.</p>
+<p class="empty">No inferred findings.</p>
+
+<h2>Inventory</h2>
+<table>
+  <tr><th>Tunnel</th><th>Endpoints</th><th>Status</th><th>Suite</th><th>Packets</th></tr>
+  <tr>
+    <td class="mono">a3157cbb2a42</td>
+    <td class="mono">10.100.0.2 &harr; 10.100.0.3</td>
+    <td>undocumented</td>
+    <td>3DES_CBC / MD5 / 1024-bit MODP</td>
+    <td>2998</td>
+  </tr>
+</table>
+
+<h2>What encryption does not hide</h2>
+<div class="note">Every tunnel below is listed regardless of how well it is configured. Encryption protects the contents of a conversation, not the fact that it happened, who took part, when, or how much was said.</div>
+<table>
+  <tr><th>Tunnel</th><th>Endpoints</th><th>Volume</th><th>Sessions</th><th>Active hours</th><th>Inferred application</th></tr>
+  <tr>
+    <td class="mono">a3157cbb2a42</td>
+    <td class="mono">10.100.0.2 &harr; 10.100.0.3</td>
+    <td>695.6 kB in 2998 packets</td>
+    <td>2</td>
+    <td>09:00</td>
+    <td>
+        voip
+        <span class="tag inferred">inferred 1.00</span>
+    </td>
+  </tr>
+</table>
+
+<h2>Threat matrix</h2>
+<table>
+  <tr><th>Technique</th><th>Severity</th><th>Tunnels</th><th>Findings</th><th>Published vulnerabilities</th></tr>
+  <tr>
+    <td>T1110.002 &mdash; Brute Force: Password Cracking
+    </td>
+    <td class="sev-critical">Critical</td>
+    <td class="mono">a3157cbb2a42</td>
+    <td>IKE-03</td>
+    <td>
+          <div>
+            <strong>CVE-2018-5389</strong> (CVSS 5.9)<br>
+            IKEv1 pre-shared key authentication is open to an offline dictionary attack, recovering a weak key or allowing host impersonation.<br>
+            <em>Scope:</em> The published record describes IKEv1 main mode. Aggressive mode is the same attack under worse conditions — the authentication hash is sent before encryption begins, so an observer needs only one captured handshake rather than an active position.<br>
+            <span class="mono">https://nvd.nist.gov/vuln/detail/CVE-2018-5389</span>
+          </div>
+    </td>
+  </tr>
+  <tr>
+    <td>T1600.001 &mdash; Weaken Encryption: Reduce Key Space
+    </td>
+    <td class="sev-critical">Critical</td>
+    <td class="mono">a3157cbb2a42</td>
+    <td>CRY-02, CRY-05, CRY-06, CRY-11</td>
+    <td>
+          <div>
+            <strong>CVE-2016-2183</strong> (CVSS 7.5)<br>
+            Birthday attacks against 64-bit block ciphers recover plaintext from long-lived encrypted sessions.<br>
+            <em>Scope:</em> The published record names IPsec explicitly alongside TLS and SSH, so it applies directly to a 3DES ESP or IKE proposal.<br>
+            <span class="mono">https://nvd.nist.gov/vuln/detail/CVE-2016-2183</span>
+          </div>
+    </td>
+  </tr>
+  <tr>
+    <td>T1040 &mdash; Network Sniffing
+    </td>
+    <td class="sev-informational">Informational</td>
+    <td class="mono">a3157cbb2a42</td>
+    <td>PQC-01</td>
+    <td>
+        <span class="empty">none catalogued</span>
+    </td>
+  </tr>
+</table>
+<p class="sub">
+  Findings with no ATT&amp;CK technique mapped, listed so the matrix is not read as
+  complete: IKE-01, SA-01.
+</p>
+
+<h2>Post-quantum readiness</h2>
+<div class="note">Traffic captured today can be stored and decrypted later by an adversary with a cryptographically relevant quantum computer. Readiness is about traffic already on the wire, not only about future sessions.</div>
+<table>
+  <tr><th>Tunnel</th><th>Grade</th><th>Reasoning</th></tr>
+  <tr>
+    <td class="mono">a3157cbb2a42</td>
+    <td>at_risk</td>
+    <td>classical key exchange only (1024-bit MODP), so traffic recorded today is decryptable in retrospect once the hardware exists. The forward secrecy setting was not supplied and is not visible to a passive observer, so EXPOSED cannot be excluded — supply it to resolve this</td>
+  </tr>
+</table>
+
+
+<h2>Remediation</h2>
+<p class="empty">No change packages were included in this report.</p>
+
+<footer>
+  <p class="note">Enrichment ran with reduced reference data: vendor CVE enrichment is unavailable — no local CVE cache was found, so this report lists no product-specific advisories. The protocol CVEs in the threat matrix are built in and unaffected, and every finding in this report was produced without them.</p>
+  <p>
+    Generated by 0.1.0 (d433717-dirty) against baseline
+    nist_800_77r1. Report schema 1.3.
+  </p>
+  <p>
+    This tool reads captured traffic and produces documents. It never writes to a network
+    device and stores no credential. Every configuration it generates is applied by a
+    person who has reviewed it.
+  </p>
+</footer>
+
+</body>
+</html>
