@@ -160,7 +160,7 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
 - [x] 11.8 — **kernel SA state made load-bearing** — commit `3500741`
 - [x] 11.9 — installed ESP SAs are graded — commit `b9ef952`
-- [x] 11.10 — device-state findings in the report — commit `PENDING`
+- [x] 11.10 — device-state findings in the report — commit `fcbbc1a`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
