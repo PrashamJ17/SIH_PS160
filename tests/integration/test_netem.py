@@ -106,6 +106,13 @@ def test_satellite_profile_produces_the_highest_latency(pair_endpoints) -> None:
     assert rtt > 500.0, f"satellite produced only {rtt:.1f} ms RTT"
 
 
+# The heaviest profile loses 2% of packets, so a sample has to be large enough that
+# seeing none of them is not simply bad luck. At 60 packets P(zero losses) = 0.98^60,
+# about **30%** — the test failed one run in three and had been passing on luck. At 400
+# it is 0.98^400, about 0.03%.
+LOSS_SAMPLE_PACKETS = 400
+
+
 def test_loss_is_actually_applied(pair_endpoints) -> None:  # type: ignore[no-untyped-def]
     """The impairment must reach the wire, not just the qdisc listing."""
     ctx, endpoints = pair_endpoints
@@ -115,14 +122,24 @@ def test_loss_is_actually_applied(pair_endpoints) -> None:  # type: ignore[no-un
             ctx.left_gateway,
             "ping",
             "-c",
-            "60",
+            str(LOSS_SAMPLE_PACKETS),
             "-i",
             "0.05",
             "-W",
             "2",
             RIGHT_TRANSIT,
-            timeout=120,
+            timeout=180,
         )
-    match = re.search(r"(\d+)% packet loss", result.stdout)
+
+    # Counted, not read off the percentage: ping truncates, so one loss in 400 prints as
+    # "0% packet loss" and a percentage test would call that no loss at all.
+    match = re.search(
+        r"(\d+) packets transmitted,\s+(\d+)(?:\s+packets)?\s+received", result.stdout
+    )
     assert match, result.stdout
-    assert int(match.group(1)) > 0, "no loss observed under a 2% loss profile"
+    transmitted, received = int(match.group(1)), int(match.group(2))
+    lost = transmitted - received
+
+    assert transmitted == LOSS_SAMPLE_PACKETS, result.stdout
+    assert lost > 0, f"no loss observed under a {heavy.loss_pct}% profile: {result.stdout}"
+    assert received > 0, f"every packet was dropped, which is not shaping: {result.stdout}"
