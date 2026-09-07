@@ -69,9 +69,9 @@ from ipsec_sentinel.models import IKEExchange, Severity
 from ipsec_sentinel.parser.constants import dh_security_bits
 from ipsec_sentinel.parser.correlate import Tunnel, endpoint_pair, group_negotiations
 from ipsec_sentinel.parser.pcap import extract_ike_exchanges
+from ipsec_sentinel.remediate.config import TunnelConfig
 from ipsec_sentinel.remediate.generators.strongswan import DH_GROUP_NUMBERS
 from ipsec_sentinel.remediate.observed import config_from_exchange
-from testbed.orchestrate.config_gen import TunnelConfig
 
 # IKE only. The outer capture is mostly ESP, and a watcher that re-reads a growing file
 # would spend all its time skipping payloads it cannot read anyway.

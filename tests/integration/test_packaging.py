@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -167,6 +168,65 @@ class TestTheImageBehaves:
 
         payload = json.loads((outputs / "report.json").read_text())
         assert payload["metadata"]["source"]
+
+    def test_every_subcommand_runs_in_the_image(self, image: str) -> None:
+        """`sentinel remediate` was broken in every installed copy and nothing noticed.
+
+        It imported TunnelConfig from `testbed`, which is excluded from the image, so it
+        raised ModuleNotFoundError in the container while the whole unit suite passed
+        from a checkout. Click resolves subcommands lazily, so `--help` did not touch the
+        broken import either. Running each one is the check that catches this.
+        """
+        for command in ("analyse", "inventory", "remediate", "scan", "watch", "dataset", "model"):
+            result = docker("run", "--rm", image, command, "--help", check=False, timeout=120)
+            assert result.returncode == 0, (
+                f"`sentinel {command} --help` exited {result.returncode} in the image:\n"
+                f"{result.stdout[-800:]}{result.stderr[-800:]}"
+            )
+
+    def test_it_generates_a_change_package_with_no_network(
+        self, image: str, tmp_path: Path
+    ) -> None:
+        """The behavioural half: --help imports the module, this one runs it."""
+        captures = sorted(DEMO.glob("*.pcap"))
+        if not captures:
+            pytest.skip("no demo capture is present")
+        estate = DEMO / "04-estate.pcap"
+        source = estate if estate.is_file() else captures[0]
+
+        outputs = tmp_path / "package"
+        outputs.mkdir()
+        outputs.chmod(0o777)
+
+        docker(
+            "run",
+            "--rm",
+            "--network",
+            "none",
+            "-v",
+            f"{source}:/data/capture.pcap:ro",
+            "-v",
+            f"{outputs}:/out",
+            image,
+            "remediate",
+            "/data/capture.pcap",
+            "--vendor",
+            "strongswan",
+            "--out",
+            "/out",
+            timeout=600,
+        )
+
+        generated = sorted(outputs.iterdir())
+        assert generated, "the container produced no configuration"
+
+        # A substring check for "secret" matches the comment saying there is none, so
+        # look for an assignment carrying a value.
+        assignment = re.compile(r"^\s*(secret|psk|pre-?shared[_ ]?key)\s*[=:]\s*\S", re.I | re.M)
+        for configuration in generated:
+            text = configuration.read_text()
+            assert not assignment.search(text), f"{configuration.name} carries a secret"
+            assert "swanctl" in configuration.name or text.strip()
 
     def test_the_container_cannot_write_to_its_own_filesystem_root(self, image: str) -> None:
         result = docker(

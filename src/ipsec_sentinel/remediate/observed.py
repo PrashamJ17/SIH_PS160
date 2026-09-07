@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from ipsec_sentinel.models import IKEExchange, Proposal, TransformType
-from testbed.orchestrate.config_gen import TunnelConfig, is_aead
+from ipsec_sentinel.remediate.config import TunnelConfig, is_aead
 
 # IKEv1 and IKEv2 number their algorithms in **separate registries**, and the overlap is
 # actively misleading: value 7 is CAST in IKEv2 and AES in IKEv1, value 5 is 3DES in

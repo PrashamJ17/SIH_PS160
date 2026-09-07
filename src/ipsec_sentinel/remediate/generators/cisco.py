@@ -14,12 +14,12 @@ from __future__ import annotations
 
 from typing import Final
 
+from ipsec_sentinel.remediate.config import TunnelConfig, is_aead
 from ipsec_sentinel.remediate.generators.base import (
     DeploymentStatus,
     status_banner,
     translate,
 )
-from testbed.orchestrate.config_gen import TunnelConfig, is_aead
 
 VENDOR: Final = "Cisco IOS-XE"
 FILENAME: Final = "cisco-ikev2.cfg"

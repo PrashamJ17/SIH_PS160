@@ -21,8 +21,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Final, Protocol, runtime_checkable
 
+from ipsec_sentinel.remediate.config import TunnelConfig
 from ipsec_sentinel.remediate.models import ChangePackage
-from testbed.orchestrate.config_gen import TunnelConfig
 
 
 class DeploymentStatus(StrEnum):

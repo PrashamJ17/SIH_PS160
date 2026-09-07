@@ -31,6 +31,7 @@ from typing import Final
 from ipsec_sentinel.models import TunnelAssessment
 from ipsec_sentinel.parser.constants import dh_security_bits
 from ipsec_sentinel.remediate.blast import assess_blast_radius
+from ipsec_sentinel.remediate.config import Role, TunnelConfig, render_swanctl_conf
 from ipsec_sentinel.remediate.generators.base import DeploymentStatus, status_banner
 from ipsec_sentinel.remediate.models import (
     ChangePackage,
@@ -39,7 +40,6 @@ from ipsec_sentinel.remediate.models import (
     DeviceConfig,
 )
 from ipsec_sentinel.remediate.sequence import build_sequence
-from testbed.orchestrate.config_gen import Role, TunnelConfig, render_swanctl_conf
 
 VENDOR: Final = "strongswan"
 COMMENT: Final = "#"
