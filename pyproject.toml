@@ -70,6 +70,14 @@ markers = [
 addopts = "-q --strict-markers"
 
 [[tool.mypy.overrides]]
+# python-pptx ships only partial type information: RGBColor, add_paragraph and several
+# shape constructors carry no annotations, so every call into them reads as untyped.
+# Narrowed to the deck and video builders — the product itself stays fully strict, and
+# these modules keep their own annotations and return types.
+module = ["scripts.deck.*", "scripts.video.*", "demo.*"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
 # These scientific packages ship no type information. Ignoring them here is narrower
 # than a global relaxation: everything this project writes stays strictly typed.
 module = ["sklearn.*", "joblib.*", "xgboost.*", "scipy.*", "shap.*", "weasyprint.*"]

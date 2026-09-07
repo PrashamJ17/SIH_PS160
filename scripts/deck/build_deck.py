@@ -27,19 +27,20 @@ of a committed document, so the deck cannot claim something the repository canno
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.presentation import Presentation as Deck
+from pptx.shapes.autoshape import Shape
+from pptx.slide import Slide
+from pptx.text.text import TextFrame, _Paragraph
 from pptx.util import Emu, Pt
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from deck import facts
+from scripts.deck import facts
 
 REPO: Final = facts.REPO_ROOT
 FIGURES: Final = REPO / "docs" / "images" / "deck"
@@ -81,30 +82,39 @@ def pt(value: float) -> Emu:
     return Emu(int(value * PT))
 
 
-def textbox(slide, x, y, w, h, *, anchor=MSO_ANCHOR.TOP, wrap=True):
+def textbox(
+    slide: Slide,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    *,
+    anchor: MSO_ANCHOR = MSO_ANCHOR.TOP,
+    wrap: bool = True,
+) -> TextFrame:
     box = slide.shapes.add_textbox(pt(x), pt(y), pt(w), pt(h))
     frame = box.text_frame
     frame.word_wrap = wrap
     frame.vertical_anchor = anchor
     frame.margin_left = frame.margin_right = 0
     frame.margin_top = frame.margin_bottom = 0
-    return frame
+    return cast(TextFrame, frame)
 
 
 def write(
-    frame,
-    text,
+    frame: TextFrame,
+    text: str,
     *,
-    size,
-    bold=False,
-    colour=BLACK,
-    font="Arial",
-    align=PP_ALIGN.LEFT,
-    italic=False,
-    space_after=0,
-    first=False,
-    underline=False,
-):
+    size: float,
+    bold: bool = False,
+    colour: RGBColor = BLACK,
+    font: str = "Arial",
+    align: PP_ALIGN = PP_ALIGN.LEFT,
+    italic: bool = False,
+    space_after: float = 0,
+    first: bool = False,
+    underline: bool = False,
+) -> _Paragraph:
     paragraph = frame.paragraphs[0] if first else frame.add_paragraph()
     paragraph.alignment = align
     paragraph.space_after = Pt(space_after)
@@ -119,7 +129,7 @@ def write(
     return paragraph
 
 
-def chrome(slide, number: int) -> None:
+def chrome(slide: Slide, number: int) -> None:
     """The template's own furniture: ellipse, logo, footer band."""
     # Team ellipse, at the template's measured position.
     ellipse = slide.shapes.add_shape(MSO_SHAPE.OVAL, pt(26), pt(21), pt(99), pt(63))
@@ -173,7 +183,7 @@ def chrome(slide, number: int) -> None:
     )
 
 
-def heading(slide, title: str) -> None:
+def heading(slide: Slide, title: str) -> None:
     frame = textbox(slide, 130, 34, 700, 60)
     write(
         frame,
@@ -187,9 +197,11 @@ def heading(slide, title: str) -> None:
     )
 
 
-def section(slide, text: str, y: float = 100) -> None:
+def section(slide: Slide, text: str, y: float = 100) -> None:
     """The ❖ heading and the rule beneath it, as the template draws them."""
-    frame = textbox(slide, 8, y, 944, 40)
+    # Indented from 8: the diamond is drawn to the left of the text and was clipped by
+    # the page edge at the original x.
+    frame = textbox(slide, 22, y, 930, 40)
     paragraph = frame.paragraphs[0]
     diamond = paragraph.add_run()
     diamond.text = "❖ "
@@ -211,7 +223,17 @@ def section(slide, text: str, y: float = 100) -> None:
     rule.shadow.inherit = False
 
 
-def callout(slide, x, y, w, h, label, body, *, accent=NAVY):
+def callout(
+    slide: Slide,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    label: str,
+    body: str,
+    *,
+    accent: RGBColor = NAVY,
+) -> Shape:
     """Lanezy's panel: a coloured underlined label, then the sentence."""
     panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pt(x), pt(y), pt(w), pt(h))
     panel.fill.solid()
@@ -230,6 +252,9 @@ def callout(slide, x, y, w, h, label, body, *, accent=NAVY):
     frame.vertical_anchor = MSO_ANCHOR.TOP
 
     paragraph = frame.paragraphs[0]
+    # An autoshape's paragraphs default to centred, so the label sat centred above
+    # left-aligned body text. Both are set explicitly.
+    paragraph.alignment = PP_ALIGN.LEFT
     run = paragraph.add_run()
     run.text = label
     run.font.size = Pt(12.5)
@@ -239,6 +264,7 @@ def callout(slide, x, y, w, h, label, body, *, accent=NAVY):
     run.font.name = "Arial"
 
     body_paragraph = frame.add_paragraph()
+    body_paragraph.alignment = PP_ALIGN.LEFT
     body_paragraph.space_before = Pt(3)
     body_run = body_paragraph.add_run()
     body_run.text = body
@@ -248,7 +274,17 @@ def callout(slide, x, y, w, h, label, body, *, accent=NAVY):
     return panel
 
 
-def chip(slide, x, y, w, h, text, colour, *, size=10.5):
+def chip(
+    slide: Slide,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
+    text: str,
+    colour: RGBColor,
+    *,
+    size: float = 10.5,
+) -> Shape:
     shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pt(x), pt(y), pt(w), pt(h))
     shape.fill.solid()
     shape.fill.fore_color.rgb = colour
@@ -262,7 +298,15 @@ def chip(slide, x, y, w, h, text, colour, *, size=10.5):
     return shape
 
 
-def picture(slide, name, x, y, *, width=None, height=None):
+def picture(
+    slide: Slide,
+    name: str,
+    x: float,
+    y: float,
+    *,
+    width: float | None = None,
+    height: float | None = None,
+) -> object:
     path = FIGURES / name
     if not path.is_file():
         raise FileNotFoundError(f"missing figure: {path}")
@@ -275,14 +319,14 @@ def picture(slide, name, x, y, *, width=None, height=None):
     )
 
 
-def blank(presentation):
-    return presentation.slides.add_slide(presentation.slide_layouts[6])
+def blank(presentation: Deck) -> Slide:
+    return cast(Slide, presentation.slides.add_slide(presentation.slide_layouts[6]))
 
 
 # ------------------------------------------------------------------------ the slides
 
 
-def slide_title(presentation) -> None:
+def slide_title(presentation: Deck) -> None:
     slide = blank(presentation)
     if LOGO.is_file():
         slide.shapes.add_picture(str(LOGO), pt(770), pt(2), pt(177), pt(82))
@@ -358,7 +402,7 @@ def slide_title(presentation) -> None:
     )
 
 
-def slide_idea(presentation) -> None:
+def slide_idea(presentation: Deck) -> None:
     slide = blank(presentation)
     chrome(slide, 2)
     # Both reference decks keep the template's own slide-2 heading and put the project
@@ -423,18 +467,20 @@ def slide_idea(presentation) -> None:
     )
 
 
-def slide_technical(presentation) -> None:
+def slide_technical(presentation: Deck) -> None:
     slide = blank(presentation)
     chrome(slide, 3)
     heading(slide, "TECHNICAL APPROACH")
     section(slide, "Technologies and methodology", y=92)
 
-    picture(slide, "pipeline.png", 8, 142, width=560)
+    # Everything is stacked, not layered. The first cut put the caption and all four
+    # chips *underneath* the dashboard screenshot, where the image simply covered them.
+    picture(slide, "pipeline.png", 8, 142, width=572)
+
     dashboard = REPO / "docs" / "images" / "dashboard.png"
     if dashboard.is_file():
-        slide.shapes.add_picture(str(dashboard), pt(580), pt(142), width=pt(372))
-
-    frame = textbox(slide, 580, 316, 372, 40)
+        slide.shapes.add_picture(str(dashboard), pt(596), pt(142), width=pt(356))
+    frame = textbox(slide, 596, 424, 356, 26)
     write(
         frame,
         "Working prototype — the dashboard on a real capture",
@@ -446,30 +492,28 @@ def slide_technical(presentation) -> None:
     )
 
     published, tags = facts.baseline_counts()
-    chips = [
-        (f"{facts.rule_count()} rules", NAVY),
-        (f"{published} baselines + {tags} tags", NAVY),
-        (f"{facts.vendor_generator_count()} vendor generators", NAVY),
-        ("IKEv1 · IKEv2 · ESP", NAVY),
-    ]
-    for index, (text, colour) in enumerate(chips):
-        chip(
-            slide, 580 + (index % 2) * 190, 348 + (index // 2) * 40, 178, 32, text, colour, size=10
-        )
+    chips = (
+        f"{facts.rule_count()} rules",
+        f"{published} baselines + {tags} tags",
+        f"{facts.vendor_generator_count()} vendor generators",
+        "IKEv1 · IKEv2 · ESP",
+    )
+    for index, text in enumerate(chips):
+        chip(slide, 8 + index * 144, 402, 138, 30, text, NAVY, size=9.5)
 
     callout(
         slide,
         8,
-        366,
-        560,
-        74,
+        442,
+        572,
+        54,
         "Two boundaries the design will not cross:",
         "It never writes to a network device and stores no credential — an AST sweep "
         "over every module enforces both. Configuration is generated; a person applies it.",
         accent=CRITICAL,
     )
 
-    frame = textbox(slide, 580, 434, 372, 40)
+    frame = textbox(slide, 596, 456, 356, 24)
     write(
         frame,
         f"Reproducible build — git {facts.git_sha()}",
@@ -480,7 +524,7 @@ def slide_technical(presentation) -> None:
     )
 
 
-def slide_feasibility(presentation) -> None:
+def slide_feasibility(presentation: Deck) -> None:
     slide = blank(presentation)
     chrome(slide, 4)
     heading(slide, "FEASIBILITY AND VIABILITY")
@@ -517,7 +561,7 @@ def slide_feasibility(presentation) -> None:
     )
 
 
-def slide_impact(presentation) -> None:
+def slide_impact(presentation: Deck) -> None:
     slide = blank(presentation)
     chrome(slide, 5)
     heading(slide, "IMPACT AND BENEFITS")
@@ -528,7 +572,9 @@ def slide_impact(presentation) -> None:
     picture(slide, "endpoint_visibility.png", 664, 142, width=288)
 
     rows_, classes = facts.dataset_shape()
-    frame = textbox(slide, 320, 344, 330, 60)
+    # 362, not 344: the chart image includes its axis labels, and the caption was
+    # overlapping them by 10pt — which the preview only caught for picture-vs-picture.
+    frame = textbox(slide, 320, 362, 330, 62)
     write(frame, "Honest about its own limits", size=11, bold=True, colour=NAVY, first=True)
     write(
         frame,
@@ -538,7 +584,7 @@ def slide_impact(presentation) -> None:
         colour=INK,
     )
 
-    frame = textbox(slide, 664, 344, 288, 60)
+    frame = textbox(slide, 664, 362, 288, 62)
     write(frame, "Endpoint visibility", size=11, bold=True, colour=NAVY, first=True)
     write(
         frame,
@@ -562,7 +608,7 @@ def slide_impact(presentation) -> None:
     )
 
 
-def slide_research(presentation) -> None:
+def slide_research(presentation: Deck) -> None:
     slide = blank(presentation)
     chrome(slide, 6)
     heading(slide, "RESEARCH AND REFERENCES")
@@ -630,7 +676,7 @@ def main() -> int:
     slide_research(presentation)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    presentation.save(OUTPUT)
+    presentation.save(str(OUTPUT))
     slides = len(presentation.slides._sldIdLst)
     print(f"wrote {OUTPUT.relative_to(REPO)} ({OUTPUT.stat().st_size // 1024} KB, {slides} slides)")
     return 0

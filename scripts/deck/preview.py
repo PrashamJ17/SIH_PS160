@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 import matplotlib
 
@@ -26,9 +26,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from PIL import Image
 from pptx import Presentation
+from pptx.enum.text import PP_ALIGN
+from pptx.slide import Slide
 from pptx.util import Emu
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 REPO: Final = Path(__file__).resolve().parents[2]
 DECK: Final = REPO / "docs" / "SIH2026-Highlanders-IPsec-Sentinel.pptx"
@@ -44,13 +44,13 @@ def emu_to_pt(value: Emu | int | None) -> float:
     return (value or 0) / PT
 
 
-def shape_text(shape) -> str:
+def shape_text(shape: Any) -> str:
     if not shape.has_text_frame:
         return ""
     return " ".join(run.text for para in shape.text_frame.paragraphs for run in para.runs).strip()
 
 
-def largest_size(shape) -> float:
+def largest_size(shape: Any) -> float:
     sizes = [
         run.font.size.pt
         for para in shape.text_frame.paragraphs
@@ -60,7 +60,7 @@ def largest_size(shape) -> float:
     return max(sizes) if sizes else 12.0
 
 
-def render(index: int, slide, width: float, height: float) -> tuple[Path, list[str]]:
+def render(index: int, slide: Slide, width: float, height: float) -> tuple[Path, list[str]]:
     fig, ax = plt.subplots(figsize=(width / 72, height / 72), dpi=110)
     ax.set_xlim(0, width)
     ax.set_ylim(height, 0)
@@ -70,7 +70,10 @@ def render(index: int, slide, width: float, height: float) -> tuple[Path, list[s
     warnings: list[str] = []
     boxes: list[tuple[float, float, float, float, str]] = []
 
-    for shape in slide.shapes:
+    for raw in slide.shapes:
+        # python-pptx resolves `.fill`, `.text_frame` and `.image` on subclasses
+        # at runtime; BaseShape declares none, and the body guards before use.
+        shape: Any = raw
         x, y = emu_to_pt(shape.left), emu_to_pt(shape.top)
         w, h = emu_to_pt(shape.width), emu_to_pt(shape.height)
         label = shape_text(shape)
@@ -121,18 +124,36 @@ def render(index: int, slide, width: float, height: float) -> tuple[Path, list[s
                 f"    off-slide: '{label[:40] or shape.shape_type}' "
                 f"at ({x:.0f},{y:.0f}) {w:.0f}x{h:.0f}"
             )
+        # A text box is as wide as its *text*, not as wide as its frame. The page-centred
+        # slide title has a 700pt frame that formally reaches under the logo while the
+        # words stop 100pt short of it — five identical false positives, one per slide.
+        if label:
+            size = largest_size(shape)
+            frame: Any = shape.text_frame
+            span = min(w, len(label) * size * CHAR_WIDTH)
+            align = next(
+                (para.alignment for para in frame.paragraphs if para.alignment),
+                None,
+            )
+            if align == PP_ALIGN.CENTER:
+                x, w = x + (w - span) / 2, span
+            elif align == PP_ALIGN.RIGHT:
+                x, w = x + w - span, span
+            else:
+                w = span
         boxes.append((x, y, w, h, label[:40]))
 
-    # Pictures must not overlap each other: a figure sized by height rather than width
-    # silently slid 11pt under its neighbour on slide 5, which no other check saw.
+    # Nothing may overlap a picture — not another picture, and not a text box. The first
+    # version checked only picture-against-picture, and a caption then sat 10pt inside a
+    # chart's own axis labels on slide 5 without a warning.
     pictures = [b for b in boxes if b[4] == ""]
     for i, (ax0, ay0, aw, ah, _) in enumerate(pictures):
-        for bx0, by0, bw, bh, _ in pictures[i + 1 :]:
+        for bx0, by0, bw, bh, _ in [*pictures[i + 1 :], *[b for b in boxes if b[4]]]:
             overlap_x = min(ax0 + aw, bx0 + bw) - max(ax0, bx0)
             overlap_y = min(ay0 + ah, by0 + bh) - max(ay0, by0)
             if overlap_x > 2 and overlap_y > 2:
                 warnings.append(
-                    f"    pictures overlap by {overlap_x:.0f}x{overlap_y:.0f}pt: "
+                    f"    overlap of {overlap_x:.0f}x{overlap_y:.0f}pt: "
                     f"({ax0:.0f},{ay0:.0f}) and ({bx0:.0f},{by0:.0f})"
                 )
 

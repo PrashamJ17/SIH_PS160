@@ -13,7 +13,6 @@ document, so a figure cannot drift from what the repository can prove.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Final
 
@@ -22,11 +21,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from deck import facts
-from deck.palette import (
+from scripts.deck import facts
+from scripts.deck.palette import (
     CRITICAL,
     HIGH,
     INFERRED,
@@ -56,7 +56,7 @@ plt.rcParams.update(
 )
 
 
-def _save(fig: plt.Figure, name: str) -> Path:
+def _save(fig: Figure, name: str) -> Path:
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / name
     fig.savefig(path, dpi=200, bbox_inches="tight", pad_inches=0.06)
@@ -66,22 +66,22 @@ def _save(fig: plt.Figure, name: str) -> Path:
 
 
 def _box(
-    ax,
-    x,
-    y,
-    w,
-    h,
+    ax: Axes,
+    x: float,
+    y: float,
+    w: float,
+    h: float,
     *,
-    face,
-    edge=None,
-    text="",
-    size=9,
-    weight="bold",
-    colour="white",
-    radius=0.02,
-    align="center",
-    pad=0.0,
-):
+    face: str,
+    edge: str | None = None,
+    text: str = "",
+    size: float = 9,
+    weight: str = "bold",
+    colour: str = "white",
+    radius: float = 0.02,
+    align: str = "center",
+    pad: float = 0.0,
+) -> None:
     ax.add_patch(
         FancyBboxPatch(
             (x, y),
@@ -282,7 +282,9 @@ def risk_vs_solution() -> Path:
 
 def pipeline() -> Path:
     """Capture in, cited document out — with the third input the wire cannot give."""
-    fig, ax = plt.subplots(figsize=(7.6, 4.5))
+    # 8.8x3.4 rather than 7.6x4.5: at the old aspect the stage boxes were narrower than
+    # their labels and clipped them mid-word.
+    fig, ax = plt.subplots(figsize=(8.8, 3.4))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
@@ -297,7 +299,7 @@ def pipeline() -> Path:
     w = 0.176
     for i, (title, sub) in enumerate(stages):
         x = 0.006 + i * 0.199
-        _box(ax, x, 0.53, w, 0.20, face=SIH_NAVY, text=title, size=9.0)
+        _box(ax, x, 0.53, w, 0.20, face=SIH_NAVY, text=title, size=8.4)
         ax.text(
             x + w / 2,
             0.465,
@@ -324,12 +326,12 @@ def pipeline() -> Path:
         ax,
         0.006,
         0.855,
-        0.40,
+        0.455,
         0.115,
         face="white",
         edge=VERIFIED,
-        text="PASSIVE — never transmits, never writes to a device",
-        size=8.8,
+        text="PASSIVE — never transmits,\nnever writes to a device",
+        size=8.6,
         colour=VERIFIED,
     )
 

@@ -20,7 +20,7 @@ from typing import Final
 REPO: Final = Path(__file__).resolve().parents[2]
 OUT: Final = REPO / "demo" / "video" / "shots"
 CAPTURE: Final = REPO / "demo" / "pcaps" / "04-estate.pcap"
-VIEWPORT: Final = {"width": 1680, "height": 1050}
+VIEWPORT: Final[dict[str, int]] = {"width": 1680, "height": 1050}
 
 
 def free_port() -> int:
@@ -72,7 +72,10 @@ def main() -> int:
 
     with running_api(port) as base, sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        page = browser.new_page(viewport=VIEWPORT, device_scale_factor=2)
+        page = browser.new_page(
+            viewport={"width": VIEWPORT["width"], "height": VIEWPORT["height"]},
+            device_scale_factor=2,
+        )
         try:
             page.goto(base, wait_until="networkidle")
             page.screenshot(path=str(OUT / "01_empty.png"))

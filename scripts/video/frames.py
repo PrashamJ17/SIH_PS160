@@ -224,7 +224,7 @@ def shot(
     available_w = WIDTH - 144
     scale = min(available_w / picture.width, available_h / picture.height)
     picture = picture.resize(
-        (int(picture.width * scale), int(picture.height * scale)), Image.LANCZOS
+        (int(picture.width * scale), int(picture.height * scale)), Image.Resampling.LANCZOS
     )
     x = (WIDTH - picture.width) // 2
     # Centred in the space available, so a wide, short crop does not sit under a slab of

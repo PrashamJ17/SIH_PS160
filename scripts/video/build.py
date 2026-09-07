@@ -21,9 +21,8 @@ import tempfile
 from pathlib import Path
 from typing import Final
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from video import frames
-from video.storyboard import BEATS, Beat
+from scripts.video import frames
+from scripts.video.storyboard import BEATS, Beat
 
 REPO: Final = Path(__file__).resolve().parents[2]
 TRANSCRIPT: Final = REPO / "demo" / "video-transcript.json"
@@ -75,7 +74,11 @@ def narrate(text: str, out: Path) -> float:
 
 
 def beat_frames(
-    beat: Beat, transcript: dict, work: Path, duration: float, progress: float
+    beat: Beat,
+    transcript: dict[str, dict[str, str]],
+    work: Path,
+    duration: float,
+    progress: float,
 ) -> list[tuple[Path, float]]:
     """The images this beat shows, each with how long to hold it."""
     chrome = frames.Chrome(beat.chapter, progress) if beat.chapter else None
