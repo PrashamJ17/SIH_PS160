@@ -67,7 +67,8 @@ def run_demo(output: Path) -> str:
     )
     if result.returncode != 0:
         raise RuntimeError(
-            f"run_demo.sh exited {result.returncode}\n{result.stdout[-2000:]}{result.stderr[-2000:]}"
+            f"run_demo.sh exited {result.returncode}\n"
+            f"{result.stdout[-2000:]}{result.stderr[-2000:]}"
         )
     return result.stdout
 
@@ -126,10 +127,22 @@ def encode(frames: Path, destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
-            "ffmpeg", "-y", "-loglevel", "error",
-            "-framerate", f"1/{SECONDS_PER_BEAT}",
-            "-pattern_type", "glob", "-i", str(frames / "*.png"),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-framerate",
+            f"1/{SECONDS_PER_BEAT}",
+            "-pattern_type",
+            "glob",
+            "-i",
+            str(frames / "*.png"),
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-r",
+            "24",
             str(destination),
         ],
         check=True,

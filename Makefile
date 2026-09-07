@@ -12,12 +12,12 @@ PYTEST := $(shell [ -x $(VENV)/pytest ] && echo $(VENV)/pytest || echo pytest)
 # scripts is included because mypy already checks it. Linting three of the four trees
 # meant the milestone check scripts accumulated lint that `make verify` never saw.
 lint:
-	$(RUFF) check src tests testbed scripts
-	$(RUFF) format --check src tests testbed scripts
+	$(RUFF) check src tests testbed scripts demo
+	$(RUFF) format --check src tests testbed scripts demo
 
 fmt:
-	$(RUFF) format src tests testbed scripts
-	$(RUFF) check --fix src tests testbed scripts
+	$(RUFF) format src tests testbed scripts demo
+	$(RUFF) check --fix src tests testbed scripts demo
 
 type:
 	$(MYPY)

@@ -133,8 +133,10 @@ def render_rules_document() -> str:
         lines.append(f"| `{name}` | {escape(baseline.authority)} | {len(published[name])} |")
     lines += [
         "",
-        "See [BASELINES.md](BASELINES.md) for what each authority requires and where the",
-        "text of each requirement comes from.",
+        "See [COMPLIANCE_BASELINES.md](COMPLIANCE_BASELINES.md) for what each authority",
+        "requires, which of them were verified against a controlling document, and which",
+        "were encoded from a public description. (`BASELINES.md` is a different sense of",
+        "the word: the baselines the ML models have to beat.)",
         "",
     ]
 

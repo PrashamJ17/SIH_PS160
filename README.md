@@ -32,8 +32,8 @@ them. An auditor reads Section A; an engineer prioritising forty tunnels reads S
   negotiations with the ESP flows they protect.
 - **Assesses** every tunnel against [26 deterministic rules](docs/RULES.md), each citing
   the standard it applies, under any of six published
-  [baselines](docs/BASELINES.md) — NIST SP 800-77 Rev. 1, CNSA 1.0, BSI TR-02102-3, RFC
-  8221/8247, ITSAR and CERT-In.
+  [baselines](docs/COMPLIANCE_BASELINES.md) — NIST SP 800-77 Rev. 1, CNSA 1.0,
+  BSI TR-02102-3, RFC 8221/8247, ITSAR and CERT-In.
 - **Grades** the estate and each tunnel, with the weighting reasoning written down in
   [SCORING.md](docs/SCORING.md).
 - **Inventories** tunnels against a documented list and reports the ones nobody
@@ -174,7 +174,8 @@ with four caveats rather than a summary.
 |---|---|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The two-lane design and why it exists |
 | [RULES.md](docs/RULES.md) | All 26 rules with standard references — generated from the registry |
-| [BASELINES.md](docs/BASELINES.md) | What each authority requires and where the text came from |
+| [COMPLIANCE_BASELINES.md](docs/COMPLIANCE_BASELINES.md) | What each authority requires, and which baselines were verified against a source |
+| [BASELINES.md](docs/BASELINES.md) | The baselines the ML models have to beat |
 | [SCORING.md](docs/SCORING.md) | The weighting, and the reasoning behind it |
 | [DATASET.md](docs/DATASET.md) | Methodology, composition and limitations |
 | [GENERALISATION.md](docs/GENERALISATION.md) | Held-out results, including the unflattering ones |

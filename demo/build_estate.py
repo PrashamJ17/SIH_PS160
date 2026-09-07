@@ -33,7 +33,10 @@ import argparse
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from scapy.packet import Packet
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
 PCAPS: Final = REPO_ROOT / "demo" / "pcaps"
@@ -58,17 +61,17 @@ SITES: Final = (
 )
 
 
-def rewrite(source: Path, initiator: str, responder: str) -> list[object]:
+def rewrite(source: Path, initiator: str, responder: str) -> list[Packet]:
     """Read a capture and return its packets with the two endpoints renumbered.
 
     Deleting the checksums makes scapy recompute them on write; leaving the originals
     would produce a capture every tool flags as corrupt.
     """
-    from scapy.all import IP, UDP, rdpcap
-    from scapy.layers.inet import TCP
+    from scapy.layers.inet import IP, TCP, UDP
+    from scapy.utils import rdpcap
 
     mapping = {LAB_INITIATOR: initiator, LAB_RESPONDER: responder}
-    packets = []
+    packets: list[Packet] = []
     for packet in rdpcap(str(source)):
         if IP in packet:
             packet[IP].src = mapping.get(packet[IP].src, packet[IP].src)
@@ -83,9 +86,9 @@ def rewrite(source: Path, initiator: str, responder: str) -> list[object]:
 
 
 def build(destination: Path = DESTINATION) -> Path:
-    from scapy.all import wrpcap
+    from scapy.utils import wrpcap
 
-    packets: list[object] = []
+    packets: list[Packet] = []
     for site in SITES:
         source = PCAPS / site.source
         if not source.is_file():
@@ -96,7 +99,7 @@ def build(destination: Path = DESTINATION) -> Path:
 
     # Chronological, because a merged capture whose timestamps go backwards makes the
     # traffic profile meaningless.
-    packets.sort(key=lambda packet: float(packet.time))  # type: ignore[attr-defined]
+    packets.sort(key=lambda packet: float(packet.time))
     destination.parent.mkdir(parents=True, exist_ok=True)
     wrpcap(str(destination), packets)
     return destination

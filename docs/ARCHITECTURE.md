@@ -167,7 +167,7 @@ these that required design rather than care.
 | Question | Document |
 |---|---|
 | What does each rule check? | [RULES.md](RULES.md) |
-| What does each baseline require? | [BASELINES.md](BASELINES.md) |
+| What does each baseline require? | [COMPLIANCE_BASELINES.md](COMPLIANCE_BASELINES.md) |
 | How is the score computed? | [SCORING.md](SCORING.md) |
 | How well does the model generalise? | [GENERALISATION.md](GENERALISATION.md) |
 | Did the model learn the cipher instead of the traffic? | [CONFOUND_AUDIT.md](CONFOUND_AUDIT.md) |

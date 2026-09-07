@@ -25,6 +25,7 @@ import pytest
 
 from ipsec_sentinel.assess.baselines.schema import load_baselines
 from ipsec_sentinel.assess.rules import default_registry
+from scripts.generate_baselines_doc import render_baselines_document
 from scripts.generate_rules_doc import render_rules_document
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,8 @@ REQUIRED = {
     "CONFOUND_AUDIT.md": DOCS / "CONFOUND_AUDIT.md",
     "SCORING.md": DOCS / "SCORING.md",
     "RULES.md": DOCS / "RULES.md",
+    "COMPLIANCE_BASELINES.md": DOCS / "COMPLIANCE_BASELINES.md",
+    "BASELINES.md": DOCS / "BASELINES.md",
     "SECURITY.md": DOCS / "SECURITY.md",
     "DEPLOYMENT.md": DOCS / "DEPLOYMENT.md",
     "LIMITATIONS.md": DOCS / "LIMITATIONS.md",
@@ -187,3 +190,63 @@ class TestArchitectureExplainsTheTwoLanes:
 
     def test_it_says_why_the_validator_is_not_an_assert(self, text: str) -> None:
         assert "-O" in text or "python -O" in text
+
+
+class TestTheBaselineDocumentIsGenerated:
+    """Two senses of "baseline" live in this repository and used to be conflated.
+
+    `docs/BASELINES.md` is about the baselines the ML models must beat. `RULES.md`,
+    `ARCHITECTURE.md` and the README all linked to it for "what each authority requires",
+    which it has never said a word about. The link resolved, so the link checker passed.
+    """
+
+    def test_it_matches_the_definitions(self) -> None:
+        published = REQUIRED["COMPLIANCE_BASELINES.md"].read_text()
+        assert published == render_baselines_document(), (
+            "docs/COMPLIANCE_BASELINES.md is stale; run scripts/generate_baselines_doc.py"
+        )
+
+    def test_every_published_baseline_has_a_section(self) -> None:
+        published = REQUIRED["COMPLIANCE_BASELINES.md"].read_text()
+        for name in load_baselines():
+            assert f"`{name}`" in published, f"{name} is undocumented"
+
+    def test_the_unverified_baselines_are_marked_as_such(self) -> None:
+        """certin and itsar were encoded from public description, not from a source copy."""
+        from ipsec_sentinel.assess.baselines.schema import get_baseline
+
+        published = REQUIRED["COMPLIANCE_BASELINES.md"].read_text()
+        unverified = [name for name in load_baselines() if not get_baseline(name).verified]
+        assert unverified, "this test assumes at least one baseline is unverified"
+        assert "Not verified against a controlling document" in published
+        for name in unverified:
+            assert name in published
+
+    def test_it_reproduces_the_provenance_rather_than_summarising_it(self) -> None:
+        from ipsec_sentinel.assess.baselines.schema import get_baseline
+
+        published = REQUIRED["COMPLIANCE_BASELINES.md"].read_text()
+        for name in load_baselines():
+            baseline = get_baseline(name)
+            if baseline.verified:
+                continue
+            opening = " ".join(baseline.provenance.split())[:60]
+            assert opening in published, f"{name}'s provenance was not carried over"
+
+    def test_the_two_senses_of_baseline_are_distinguished(self) -> None:
+        compliance = REQUIRED["COMPLIANCE_BASELINES.md"].read_text()
+        assert "BASELINES.md" in compliance, (
+            "the compliance document must disambiguate itself from the ML one"
+        )
+
+    def test_nothing_points_at_the_ml_document_for_compliance(self) -> None:
+        """The defect this class exists for: three documents linked to the wrong file."""
+        for name in ("RULES.md", "ARCHITECTURE.md", "README.md"):
+            text = REQUIRED[name].read_text()
+            for line in text.splitlines():
+                if "BASELINES.md" not in line or "COMPLIANCE_BASELINES.md" in line:
+                    continue
+                lowered = line.lower()
+                assert not any(
+                    word in lowered for word in ("authority", "authorities", "requires")
+                ), f"{name} points at the ML baselines document for compliance: {line.strip()}"

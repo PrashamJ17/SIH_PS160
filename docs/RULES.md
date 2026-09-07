@@ -40,8 +40,10 @@ it whether or not the rule expected to belong to that policy.
 | `nist_800_77r1` | National Institute of Standards and Technology (United States) | 25 |
 | `rfc_8221_8247` | Internet Engineering Task Force | 16 |
 
-See [BASELINES.md](BASELINES.md) for what each authority requires and where the
-text of each requirement comes from.
+See [COMPLIANCE_BASELINES.md](COMPLIANCE_BASELINES.md) for what each authority
+requires, which of them were verified against a controlling document, and which
+were encoded from a public description. (`BASELINES.md` is a different sense of
+the word: the baselines the ML models have to beat.)
 
 ## Cryptographic strength
 
