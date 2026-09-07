@@ -157,10 +157,12 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.7a — **fix: `remediate` and `watch` were broken in every installed copy** — commit `f03ee5e`
 - [x] 11.7 — demo assets and script — commit `b846189`
 - [x] 11.7b — **fix: nothing documented the compliance baselines** — commit `9f5e509`
-- [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — tag `v1.0.0`
+- [x] **M11 gate — 20/20 passed, 0 failed, 0 skipped** — first run, tagged at `348dd1d`
 - [x] 11.8 — **kernel SA state made load-bearing** — commit `3500741`
 - [x] 11.9 — installed ESP SAs are graded — commit `b9ef952`
 - [x] 11.10 — device-state findings in the report — commit `fcbbc1a`
+- [x] 11.11 — two flaky-gate fixes — commits `8896b7a`, `c48c847`
+- [x] **M11 re-gate after 11.8–11.11 — 20/20 passed** — tag `v1.0.0` moved to `c48c847`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -596,6 +598,61 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## M11, re-gated after the kernel work — 20/20 again
+
+Six commits of endpoint visibility landed after the tag, so the gate was re-run rather
+than assumed. It took **four attempts**, and only the first found a defect worth having.
+
+| Attempt | Result | Cause |
+|---|---|---|
+| 1 | 1 failed | **Real:** a one-in-three flake in the netem loss check |
+| 2 | 8 errors | Docker Hub DNS: `lookup registry-1.docker.io: no such host` |
+| 3 | 1 failed | The advisory service was unreachable, so `pip-audit` produced no JSON |
+| 4 | **clean** | 2611 unit + 306 integration, 93.79% coverage |
+
+### The one real defect
+
+`test_loss_is_actually_applied` sent **60** pings through the heaviest netem profile,
+which loses 2%, and asserted some were lost. P(zero losses) = 0.98⁶⁰ ≈ **30%**. The test
+failed roughly one run in three and had been passing on luck for eleven phases.
+
+Not a product defect — the impairment was applied correctly and the sample was too small
+to see it. Now 400 packets, P ≈ 0.03%, and the assertion counts transmitted minus received
+rather than reading ping's percentage: ping truncates, so one loss in 400 prints as
+`0% packet loss`, which a percentage test would read as no loss at all.
+
+### The one worth changing anyway
+
+Two of the three failures were the network, in a repository whose whole argument is that
+it works without one. The `pip-audit` test was the honest casualty: on a network failure
+it produced no JSON and the test failed *parsing* it.
+
+An audit that could not run is not an audit that found nothing, and it is not one that
+found something either. It now skips with the reason, and still fails when the audit ran
+and reported an advisory — the same absence-is-not-a-negative distinction the rules make
+everywhere else. Checked directly: **107 packages, 0 advisories.**
+
+### One self-inflicted false alarm
+
+`check_m11.py` reported E2E failing in 1.47 s against its usual 3:41. Two invocations were
+running concurrently and colliding over Docker networks. Run alone it passes in 3:41. Worth
+recording because the symptom — a suite failing implausibly fast — reads exactly like a
+product break.
+
+### The final run
+
+```
+make verify-all      2611 unit passed, 2 skipped, 93.79% coverage
+                     306 integration passed in 27:32          exit 0
+check_m11.py         20/20 passed, 0 failed, 0 skipped
+```
+
+Coverage overall **93.8%**, parser **98.0%**, assess **98.0%**. The tag moved from
+`348dd1d` to `c48c847`; the earlier object is orphaned, and anyone who fetched `v1.0.0`
+before now has a different commit under that name.
 
 ---
 
