@@ -154,6 +154,8 @@ Authoritative execution document: `IPsec_Sentinel_BUILD_PLAN.md` (98 steps, 13 p
 - [x] 11.4 — offline and air-gapped operation — commit `45c6eea`
 - [x] 11.5 — packaging and offline bundle — commit `d55437a`
 - [x] 11.6 — documentation set — commit `cccee96`
+- [x] 11.7a — **fix: `remediate` and `watch` were broken in every installed copy** — commit `PENDING_FIX`
+- [x] 11.7 — demo assets and script — commit `PENDING`
 - [ ] Phase 9 — Reporting (7 steps → `v0.10.0-reporting`)
 - [ ] Phase 10 — CLI, API and dashboard (4 steps → `v0.11.0-interfaces`)
 - [ ] Phase 11 — Hardening, packaging, demo (7 steps → `v1.0.0`)
@@ -589,6 +591,106 @@ Fixed at the parser with RFC 4303 §3.3.3: a sender's counter starts at 1 for a 
 so a capture of tens of seconds cannot observe a *single* packet bearing a sequence
 number in the millions. Every capture in the corpus now yields **exactly 2 flows, or 0
 for the cells the ESP guard rejected**.
+
+---
+
+## Step 11.7 — the demo, and the defect that only running it could find
+
+Seven beats, a narration, a fallback recording, and **27 tests** that run the script and
+check what it claims.
+
+### The defect
+
+Beat 5 runs `sentinel remediate`. It crashed:
+
+```
+File ".../ipsec_sentinel/remediate/generators/base.py", line 25
+    from testbed.orchestrate.config_gen import TunnelConfig
+ModuleNotFoundError: No module named 'testbed'
+```
+
+**Ten product modules imported `TunnelConfig` from `testbed`.** The testbed is the Docker
+environment that builds the dataset; it is excluded from the wheel, the container image and
+the offline bundle. So `sentinel remediate` and `sentinel watch` — two of the eight
+commands — raised `ModuleNotFoundError` in **every installed copy**, and had done since
+Phase 8.
+
+Nothing caught it, for three compounding reasons:
+
+1. The unit suite runs from a checkout, where `testbed/` is on `sys.path`.
+2. Click resolves subcommands lazily, so `sentinel --help` and even
+   `sentinel remediate --help` never touched the broken import.
+3. Step 11.5's container tests ran `analyse` and `version`. Both worked.
+
+The dependency pointed from the product to the test harness, which is backwards: a tunnel
+configuration is a product concept the testbed happens to also consume. `config_gen.py`
+moved to `src/ipsec_sentinel/remediate/config.py`, and
+`testbed/orchestrate/config_gen.py` is now a re-export shim so the harness is unchanged.
+
+Three tests now make this class of defect impossible to reintroduce:
+
+- `tests/unit/test_installable.py` walks the AST of every product module and fails on any
+  import of `testbed`, `tests`, `scripts`, `demo` or `dataset`.
+- The same file imports every command's module tree in a subprocess **run from outside the
+  checkout with an empty `PYTHONPATH`**, which is the condition an installed copy is in.
+- `test_every_subcommand_runs_in_the_image` runs all seven subcommands inside the
+  container, and `test_it_generates_a_change_package_with_no_network` actually generates
+  one under `--network none`.
+
+### The estate capture
+
+The three demo captures each hold one tunnel, and all three ran between the same two lab
+addresses — so an inventory demo built from them would show three tunnels that are
+indistinguishable by endpoint, and the "more tunnels than documented" beat could not work.
+
+`demo/build_estate.py` rewrites the addresses to RFC 5737 documentation ranges so each
+capture represents a site, and merges them. **Nothing else changes** — not a payload, not a
+timestamp, not a proposal — and `SCRIPT.md` tells the presenter to say so if asked. The
+resulting `04-estate.pcap`:
+
+| | |
+|---|---|
+| Tunnels | **3** |
+| Estate grade | **F** (33/100) |
+| Undocumented | **1** — `203.0.113.10`, the worst tunnel |
+| That tunnel carries | **voip**, confidence **1.00** |
+| Under ITSAR instead of NIST | 17 findings instead of 8 |
+
+The story writes itself: a shadow VPN nobody documented, carrying voice, over IKEv1
+aggressive mode with 3DES.
+
+### The tests check the narration, not just the exit code
+
+A demo script can exit zero while producing an empty report. So
+`TestTheNarrationsClaimsAreTrue` asserts against the JSON the script wrote: grade F, three
+tunnels, exactly one undocumented, all eight promised rule IDs present, every finding
+citing a standard, nothing in Section A carrying a confidence, and — the sentence a
+presenter will say out loud — that the undocumented tunnel is the one inferred as VoIP at
+≥ 0.9.
+
+If a capture is ever regenerated and the story changes, the test says so before the stage
+does.
+
+### Two smaller corrections
+
+Beat 4 printed nothing where the SHAP explanation should be: the script read
+`explanation["top_features"]`, and the field is `contributions` with a `sentence` beside it.
+The sentence turns out to be the better artefact — *"Classified as voip because packet size
+entropy was 0 (contribution +0.11)…"* — so the beat now shows it with a bar chart under it.
+
+`sentinel remediate` has no `--quiet`, which the script assumed.
+
+### The fallback
+
+`demo/record_fallback.py` runs the real script, renders each beat through Chromium and
+encodes with ffmpeg: **42 seconds, 656 KB, seven frames at six seconds each** — long
+enough for a presenter to narrate over. Nothing is re-enacted; re-run it and the video
+follows the demo.
+
+**Demo runtime: under 5 seconds** against the plan's 10-minute budget. The ten minutes are
+the talking.
+
+Suite: **2482 passed, 2 skipped.**
 
 ---
 
