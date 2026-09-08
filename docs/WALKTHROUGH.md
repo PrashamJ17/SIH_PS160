@@ -306,8 +306,10 @@ Four things in there are worth naming:
   tool says which, and says what it assumed instead of quietly assuming it.
 
 Six platforms are supported: `strongswan`, `libreswan`, `cisco`, `fortigate`, `juniper`,
-`paloalto`. Only strongSwan and Libreswan are verified against a running daemon; the other
-four are syntax-validated only, which [LIMITATIONS.md](LIMITATIONS.md) states plainly.
+`paloalto`. **Only strongSwan** is verified against a running daemon; the other five are
+syntax-validated only, which [LIMITATIONS.md](LIMITATIONS.md) states plainly. The build
+plan anticipated Libreswan being live-testable too — it is not, because the testbed runs
+strongSwan only.
 
 **Nothing is applied.** The files are for a human to review and push.
 
