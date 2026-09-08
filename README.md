@@ -152,6 +152,85 @@ captures into `./captures`.
 
 ---
 
+## Evaluating this in five minutes
+
+If you are assessing this project rather than deploying it, **use Docker** — no Python
+version to match, no dependencies to install, identical on Windows, macOS and Linux.
+
+```bash
+git clone https://github.com/PrashamJ17/SIH_PS160.git && cd SIH_PS160
+```
+
+```bash
+docker compose up -d
+```
+
+Open <http://127.0.0.1:8080> and drag any file from `demo/pcaps/` onto the page. The
+image is **0.68 GB** and runs as **uid 10001**, not root.
+
+### The three commands that make the argument
+
+**One tunnel, graded and cited:**
+
+```bash
+sentinel analyse demo/pcaps/01-worst-ikev1-aggressive-3des-voip.pcap
+```
+
+**A tunnel nobody documented** — marked `!`, found without a credential or a scan:
+
+```bash
+sentinel inventory demo/pcaps/04-estate.pcap --known demo/tunnels.yaml
+```
+
+**The one that matters.** Assess the estate from the capture alone, then again with what
+the gateway actually has installed:
+
+```bash
+sentinel analyse demo/pcaps/04-estate.pcap --known demo/tunnels.yaml
+```
+
+```bash
+sentinel analyse demo/pcaps/04-estate.pcap --known demo/tunnels.yaml --device-state demo/state/gw-chennai.xfrm.txt
+```
+
+The estate drops from **33/100 to 12/100**. The tunnel that *negotiated* AES-256 has 3DES
+and MD5 installed right now — and a capture-only assessment signs it off as the healthy
+one. That gap is the reason this project reads more than packets.
+
+### Checking the claims rather than believing them
+
+**"Air-gapped" — with networking switched off entirely:**
+
+```bash
+docker run --rm --network none -v "$PWD/demo:/data:ro" ipsec-sentinel:latest analyse /data/pcaps/04-estate.pcap --known /data/tunnels.yaml
+```
+
+**"It never writes to a device, and stores no credential"** — an AST sweep over every
+module, run as a test rather than asserted in a README. The test class names are the
+claims:
+
+```bash
+pytest tests/unit/test_security.py -vv
+```
+
+**The full suite** — 2,618 tests, lint and `mypy --strict`, in about 40 seconds:
+
+```bash
+make verify
+```
+
+### Two honest notes
+
+The bundled captures are **real** — strongSwan pairs negotiating in the project's Docker
+testbed, carrying generated traffic. `demo/build_estate.py` states exactly what was
+rewritten to turn three single-tunnel captures into one estate, and what was not.
+
+`demo/state/gw-chennai.xfrm.txt` is sample `ip xfrm state` output, standing in for what a
+gateway operator would send you. It is a text file, so it works on any host — but the
+command that produces it is Linux-only.
+
+---
+
 ## Commands
 
 | Command | What it does | Transmits? |
